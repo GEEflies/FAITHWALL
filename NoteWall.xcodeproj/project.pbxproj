@@ -16,9 +16,12 @@
 		A1000007000000000000001 /* WallpaperRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000007000000000000001 /* WallpaperRenderer.swift */; };
 		A1000008000000000000001 /* PhotoSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000008000000000000001 /* PhotoSaver.swift */; };
 		A1000009000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000009000000000000001 /* Assets.xcassets */; };
+		B1000001000000000000001 /* HomeScreenImageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000001000000000000001 /* HomeScreenImageManager.swift */; };
+		B1000002000000000000001 /* HomeScreenPhotoPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000002000000000000001 /* HomeScreenPhotoPickerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		424B745B2EBF88C1009F134B /* NoteWall.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NoteWall.entitlements; sourceTree = "<group>"; };
 		A2000001000000000000001 /* NoteWallApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteWallApp.swift; sourceTree = "<group>"; };
 		A2000002000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A2000003000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -29,6 +32,8 @@
 		A2000008000000000000001 /* PhotoSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSaver.swift; sourceTree = "<group>"; };
 		A2000009000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000010000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B2000001000000000000001 /* HomeScreenImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenImageManager.swift; sourceTree = "<group>"; };
+		B2000002000000000000001 /* HomeScreenPhotoPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenPhotoPickerView.swift; sourceTree = "<group>"; };
 		A3000001000000000000001 /* NoteWall.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteWall.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -54,6 +59,7 @@
 		A5000002000000000000001 /* NoteWall */ = {
 			isa = PBXGroup;
 			children = (
+				424B745B2EBF88C1009F134B /* NoteWall.entitlements */,
 				A2000001000000000000001 /* NoteWallApp.swift */,
 				A2000002000000000000001 /* ContentView.swift */,
 				A2000003000000000000001 /* Models.swift */,
@@ -62,6 +68,8 @@
 				A2000006000000000000001 /* MainTabView.swift */,
 				A2000007000000000000001 /* WallpaperRenderer.swift */,
 				A2000008000000000000001 /* PhotoSaver.swift */,
+				B2000001000000000000001 /* HomeScreenImageManager.swift */,
+				B2000002000000000000001 /* HomeScreenPhotoPickerView.swift */,
 				A2000009000000000000001 /* Assets.xcassets */,
 				A2000010000000000000001 /* Info.plist */,
 			);
@@ -153,6 +161,8 @@
 				A1000006000000000000001 /* MainTabView.swift in Sources */,
 				A1000007000000000000001 /* WallpaperRenderer.swift in Sources */,
 				A1000008000000000000001 /* PhotoSaver.swift in Sources */,
+				B1000001000000000000001 /* HomeScreenImageManager.swift in Sources */,
+				B1000002000000000000001 /* HomeScreenPhotoPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -283,6 +293,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = NoteWall/NoteWall.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V8A3CVA3PT;
@@ -315,6 +326,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = NoteWall/NoteWall.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V8A3CVA3PT;

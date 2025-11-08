@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 struct SettingsView: View {
     @AppStorage("savedNotes") private var savedNotesData: Data = Data()
@@ -6,12 +8,17 @@ struct SettingsView: View {
     @State private var showDeleteAlert = false
     var selectedTab: Binding<Int>?
 
-    private let shortcutURL = "https://www.icloud.com/shortcuts/9ad9e11424104d2eb14e922abd3b9620"
+    private let shortcutURL = "https://www.icloud.com/shortcuts/62d89adfc4074e22acb0b58b11850ea4"
     private let appVersion = "1.0"
     
     init(selectedTab: Binding<Int>? = nil) {
         self.selectedTab = selectedTab
     }
+
+    @State private var isSavingHomeScreenPhoto = false
+    @State private var homeScreenStatusMessage: String?
+    @State private var homeScreenStatusColor: Color = .gray
+    @State private var homeScreenImageAvailable = HomeScreenImageManager.homeScreenImageExists()
 
     var body: some View {
         NavigationView {
@@ -47,6 +54,38 @@ struct SettingsView: View {
                     }
                 }
                 
+                if #available(iOS 16.0, *) {
+                    Section(header: Text("Home Screen Photo")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Choose Home Screen Image")
+                                .fontWeight(.medium)
+                            Text("Select any photo to reuse as your home screen background. The Shortcuts automation will load this saved photo each time you update the lock screen.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding(.vertical, 4)
+
+                        HomeScreenPhotoPickerView(
+                            isSavingHomeScreenPhoto: $isSavingHomeScreenPhoto,
+                            homeScreenStatusMessage: $homeScreenStatusMessage,
+                            homeScreenStatusColor: $homeScreenStatusColor,
+                            homeScreenImageAvailable: $homeScreenImageAvailable,
+                            handlePickedHomeScreenPhoto: handlePickedHomeScreenPhoto
+                        )
+
+                        Text("Picking a new photo automatically replaces the previous one.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Section(header: Text("Home Screen Photo")) {
+                        Text("Save a home screen image requires iOS 16 or newer.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .padding(.vertical, 4)
+                    }
+                }
+
                 // Actions Section
                 Section(header: Text("Actions")) {
                     Button(action: {
@@ -107,6 +146,41 @@ struct SettingsView: View {
     private func reinstallShortcut() {
         guard let url = URL(string: shortcutURL) else { return }
         UIApplication.shared.open(url)
+    }
+
+    @available(iOS 16.0, *)
+    fileprivate func handlePickedHomeScreenPhoto(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+
+        isSavingHomeScreenPhoto = true
+        homeScreenStatusMessage = "Saving photo…"
+        homeScreenStatusColor = .gray
+
+        Task {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self),
+                      let image = UIImage(data: data) else {
+                    throw HomeScreenImageManagerError.unableToEncodeImage
+                }
+
+                try HomeScreenImageManager.saveHomeScreenImage(image)
+
+                await MainActor.run {
+                    homeScreenImageAvailable = true
+                    homeScreenStatusMessage = "Saved to \(HomeScreenImageManager.displayFolderPath)."
+                    homeScreenStatusColor = .green
+                }
+            } catch {
+                await MainActor.run {
+                    homeScreenStatusMessage = error.localizedDescription
+                    homeScreenStatusColor = .red
+                }
+            }
+
+            await MainActor.run {
+                isSavingHomeScreenPhoto = false
+            }
+        }
     }
 }
 

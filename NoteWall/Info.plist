@@ -41,6 +41,10 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>NoteWall needs access to your Photo Library to save the generated wallpaper images.</string>
     <key>NSPhotoLibraryUsageDescription</key>
