@@ -10,7 +10,8 @@ struct ContentView: View {
     @State private var showDeletePermissionAlert = false
     @State private var pendingLockScreenImage: UIImage?
     @State private var showDeleteNoteAlert = false
-    @State private var noteToDelete: IndexSet?
+    @State private var notePendingDeletion: Note?
+    @State private var pendingDeletionIndex: Int?
     @State private var showMaxNotesAlert = false
     @State private var isEditMode = false
     @State private var selectedNotes: Set<UUID> = []
@@ -79,8 +80,7 @@ struct ContentView: View {
                                         },
                                         onDelete: {
                                             if let actualIndex = notes.firstIndex(where: { $0.id == note.id }) {
-                                                noteToDelete = IndexSet(integer: actualIndex)
-                                                showDeleteNoteAlert = true
+                                                prepareNoteForDeletion(at: actualIndex)
                                             }
                                         },
                                         onCommit: {
@@ -94,8 +94,7 @@ struct ContentView: View {
                                         if !isEditMode {
                                             Button(role: .destructive) {
                                                 if let actualIndex = notes.firstIndex(where: { $0.id == note.id }) {
-                                                    noteToDelete = IndexSet(integer: actualIndex)
-                                                    showDeleteNoteAlert = true
+                                                    prepareNoteForDeletion(at: actualIndex)
                                                 }
                                             } label: {
                                                 Label("Delete", systemImage: "trash")
@@ -259,13 +258,10 @@ struct ContentView: View {
             }
             .alert("Delete Note?", isPresented: $showDeleteNoteAlert) {
                 Button("Cancel", role: .cancel) {
-                    noteToDelete = nil
+                    restorePendingDeletionIfNeeded()
                 }
                 Button("Delete", role: .destructive) {
-                    if let offsets = noteToDelete {
-                        deleteNotes(at: offsets)
-                    }
-                    noteToDelete = nil
+                    finalizePendingDeletion()
                 }
             } message: {
                 Text("Are you sure you want to delete this note? This action cannot be undone.")
@@ -348,12 +344,6 @@ struct ContentView: View {
         hideKeyboard()
     }
 
-    private func deleteNotes(at offsets: IndexSet) {
-        notes.remove(atOffsets: offsets)
-        saveNotes()
-        handleNotesChangedAfterDeletion()
-    }
-
     private func moveNotes(from source: IndexSet, to destination: Int) {
         // Create a mapping from sorted notes to actual notes array
         var mutableSortedNotes = sortedNotes
@@ -364,10 +354,44 @@ struct ContentView: View {
         saveNotes()
     }
 
-    private func deleteNotesFromList(at indexSet: IndexSet) {
-        // Map sorted indices back to actual notes array
-        let notesToDelete = indexSet.compactMap { sortedNotes[$0] }
-        notes.removeAll { note in notesToDelete.contains(where: { $0.id == note.id }) }
+    private func prepareNoteForDeletion(at index: Int) {
+        restorePendingDeletionIfNeeded()
+
+        guard notes.indices.contains(index) else { return }
+        let note = notes[index]
+
+        withAnimation {
+            notes.remove(at: index)
+        }
+
+        notePendingDeletion = note
+        pendingDeletionIndex = index
+        showDeleteNoteAlert = true
+    }
+
+    private func restorePendingDeletionIfNeeded() {
+        guard let note = notePendingDeletion,
+              let index = pendingDeletionIndex else {
+            notePendingDeletion = nil
+            pendingDeletionIndex = nil
+            return
+        }
+
+        let insertionIndex = min(index, notes.count)
+        withAnimation {
+            notes.insert(note, at: insertionIndex)
+        }
+
+        notePendingDeletion = nil
+        pendingDeletionIndex = nil
+    }
+
+    private func finalizePendingDeletion() {
+        guard notePendingDeletion != nil else { return }
+
+        notePendingDeletion = nil
+        pendingDeletionIndex = nil
+
         saveNotes()
         handleNotesChangedAfterDeletion()
     }

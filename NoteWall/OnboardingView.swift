@@ -121,10 +121,14 @@ struct OnboardingView: View {
                                 homeScreenStatusMessage: $homeScreenStatusMessage,
                                 homeScreenStatusColor: $homeScreenStatusColor,
                                 homeScreenImageAvailable: $homeScreenImageAvailable,
-                                handlePickedHomeScreenPhoto: handlePickedHomeScreenPhoto
+                                handlePickedHomeScreenData: handlePickedHomeScreenData
                             )
 
                             Text("You can change this photo anytime from Settings → Home Screen Photo.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Text("Tap “Add Home Screen Photo” to take a picture, choose from Photos, or browse Files.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
@@ -200,20 +204,16 @@ struct OnboardingView: View {
     }
 
     @available(iOS 16.0, *)
-    private func handlePickedHomeScreenPhoto(_ item: PhotosPickerItem?) {
-        guard let item else { return }
-
+    private func handlePickedHomeScreenData(_ data: Data) {
         isSavingHomeScreenPhoto = true
         homeScreenStatusMessage = "Saving photo…"
         homeScreenStatusColor = .gray
 
         Task {
             do {
-                guard let data = try await item.loadTransferable(type: Data.self),
-                      let image = UIImage(data: data) else {
+                guard let image = UIImage(data: data) else {
                     throw HomeScreenImageManagerError.unableToEncodeImage
                 }
-
                 try HomeScreenImageManager.saveHomeScreenImage(image)
 
                 await MainActor.run {

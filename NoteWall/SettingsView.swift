@@ -62,6 +62,9 @@ struct SettingsView: View {
                             Text("Select any photo to reuse as your home screen background. The Shortcuts automation will load this saved photo each time you update the lock screen.")
                                 .font(.caption)
                                 .foregroundColor(.gray)
+                            Text("Tap “Add Home Screen Photo” to capture a picture, choose from Photos, or browse Files.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
                         }
                         .padding(.vertical, 4)
 
@@ -70,7 +73,7 @@ struct SettingsView: View {
                             homeScreenStatusMessage: $homeScreenStatusMessage,
                             homeScreenStatusColor: $homeScreenStatusColor,
                             homeScreenImageAvailable: $homeScreenImageAvailable,
-                            handlePickedHomeScreenPhoto: handlePickedHomeScreenPhoto
+                            handlePickedHomeScreenData: handlePickedHomeScreenData
                         )
 
                         Text("Picking a new photo automatically replaces the previous one.")
@@ -149,20 +152,16 @@ struct SettingsView: View {
     }
 
     @available(iOS 16.0, *)
-    fileprivate func handlePickedHomeScreenPhoto(_ item: PhotosPickerItem?) {
-        guard let item else { return }
-
+    fileprivate func handlePickedHomeScreenData(_ data: Data) {
         isSavingHomeScreenPhoto = true
         homeScreenStatusMessage = "Saving photo…"
         homeScreenStatusColor = .gray
 
         Task {
             do {
-                guard let data = try await item.loadTransferable(type: Data.self),
-                      let image = UIImage(data: data) else {
+                guard let image = UIImage(data: data) else {
                     throw HomeScreenImageManagerError.unableToEncodeImage
                 }
-
                 try HomeScreenImageManager.saveHomeScreenImage(image)
 
                 await MainActor.run {
