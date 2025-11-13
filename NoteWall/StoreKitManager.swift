@@ -8,10 +8,10 @@ class StoreKitManager: ObservableObject {
     static let shared = StoreKitManager()
     
     // MARK: - Product IDs
-    // TODO: Replace these with your actual App Store Connect product IDs
+    // Product IDs from App Store Connect
     enum ProductID: String, CaseIterable {
-        case monthlySubscription = "com.notewall.monthly.subscription"
-        case lifetimePurchase = "com.notewall.lifetime.purchase"
+        case monthlySubscription = "com.iosnotewall.notewall.monthly"
+        case lifetimePurchase = "com.iosnotewall.notewall.lifetime"
         
         var displayName: String {
             switch self {

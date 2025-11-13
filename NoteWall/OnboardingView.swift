@@ -169,20 +169,37 @@ struct OnboardingView: View {
     }
 
     private func installShortcutStep() -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("Install the NoteWall Shortcut")
-                    .font(.system(.largeTitle, design: .rounded))
-                    .fontWeight(.bold)
+        ZStack(alignment: .topTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Install the NoteWall Shortcut")
+                        .font(.system(.largeTitle, design: .rounded))
+                        .fontWeight(.bold)
 
-                demoVideoPlaceholder
+                    demoVideoPlaceholder
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.top, 32)
+                .padding(.bottom, 32)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 24)
-            .padding(.top, 32)
-            .padding(.bottom, 32)
+            .scrollAlwaysBounceIfAvailable()
+            
+            // Skip button for testing
+            Button(action: {
+                completeOnboarding()
+            }) {
+                Text("Skip (Testing)")
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.red)
+                    .cornerRadius(8)
+            }
+            .padding(.top, 16)
+            .padding(.trailing, 24)
         }
-        .scrollAlwaysBounceIfAvailable()
     }
     
     private func addNotesStep() -> some View {

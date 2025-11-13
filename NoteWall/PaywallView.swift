@@ -16,6 +16,8 @@ struct PaywallView: View {
     @State private var errorMessage = ""
     @State private var animateIn = false
     @State private var currentStep = 1  // 1 = plan selection, 2 = trial explanation
+    @State private var showTermsAndPrivacy = false
+    @State private var selectedLegalDocument: LegalDocumentType = .termsAndPrivacy
     
     init(triggerReason: PaywallTriggerReason = .manual, allowDismiss: Bool = true) {
         self.triggerReason = triggerReason
@@ -48,6 +50,29 @@ struct PaywallView: View {
         } message: {
             Text(errorMessage)
         }
+        .sheet(isPresented: $showTermsAndPrivacy) {
+            NavigationView {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(getLegalDocumentContent())
+                            .font(.system(.body, design: .default))
+                            .foregroundColor(.primary)
+                            .multilineTextAlignment(.leading)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                    }
+                }
+                .navigationTitle(selectedLegalDocument.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showTermsAndPrivacy = false
+                        }
+                    }
+                }
+            }
+        }
         .onAppear {
             paywallManager.trackPaywallView()
             Task {
@@ -77,7 +102,7 @@ struct PaywallView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, 8)
                 // Header
                 VStack(spacing: 8) {
                     Text(triggerReason.title)
@@ -97,7 +122,7 @@ struct PaywallView: View {
                 
                 // Features list
                 VStack(alignment: .leading, spacing: 12) {
-                    featureRow(icon: "brain.head.profile", title: "Never Forget Again", subtitle: "Keep your key goals, notes, and ideas always visible - every time you unlock your phone.", delay: 0.1)
+                    featureRow(icon: "brain", title: "Never Forget Again", subtitle: "Keep your key goals, notes, and ideas always visible - every time you look at your phone.", delay: 0.1)
                     featureRow(icon: "target", title: "Stay Focused, Not Busy", subtitle: "See your priorities 50× a day and act on what really matters.", delay: 0.2)
                 }
                 .padding(.horizontal, 4)
@@ -143,7 +168,8 @@ struct PaywallView: View {
                 // Terms & Privacy and Restore Purchases
                 HStack(spacing: 24) {
                     Button("Terms & Privacy") {
-                        // TODO: Open terms and privacy URL
+                        selectedLegalDocument = .termsAndPrivacy
+                        showTermsAndPrivacy = true
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -180,18 +206,15 @@ struct PaywallView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .padding(.top, 26
-                )
-                // Header (matching step 1 structure)
+                .padding(.top, -6)
+                // Header
                 VStack(spacing: 8) {
                     Text("How your free trial works")
                         .font(.system(.largeTitle, design: .rounded))
                         .fontWeight(.bold)
                         .multilineTextAlignment(.center)
-                    
-                    // Add spacing to match step 1's subtitle height
-                    Spacer()
-                        .frame(height: 20)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(nil)
                 }
                 .opacity(animateIn ? 1 : 0)
                 .offset(y: animateIn ? 0 : 20)
@@ -215,7 +238,7 @@ struct PaywallView: View {
                             Text("100% Risk-Free")
                                 .font(.headline)
                                 .fontWeight(.bold)
-                            Text("Cancel anytime during trial. No questions asked.")
+                            Text("Cancel anytime during trial.")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -555,101 +578,119 @@ struct PaywallView: View {
     
     // MARK: - Trial Timeline
     
+    private struct TimelineEvent: Identifiable {
+        let id = UUID()
+        let iconName: String
+        let iconColor: Color
+        let title: String
+        let subtitle: String
+    }
+
     private var trialTimeline: some View {
         let isLifetime = selectedProductIndex == 0  // Index 0 is now Lifetime
         let trialDays = isLifetime ? 7 : 5
         let reminderDay = isLifetime ? 5 : 3
-        
-        return VStack(alignment: .leading, spacing: 0) {  // No spacing for continuous line
-            // Today
-            timelineItem(
-                icon: "crown.fill",
+        let iconSize: CGFloat = 44
+        let itemSpacing: CGFloat = 18
+
+        // Get price information
+        let priceText: String
+        if !storeManager.products.isEmpty && selectedProductIndex < storeManager.products.count {
+            let product = storeManager.products[selectedProductIndex]
+            priceText = product.displayPrice
+        } else {
+            // Fallback prices
+            priceText = isLifetime ? "€9.99" : "€5.99/month"
+        }
+
+        let events: [TimelineEvent] = [
+            TimelineEvent(
+                iconName: "crown.fill",
                 iconColor: .appAccent,
                 title: "Today",
-                subtitle: "Start enjoying full access to unlimited wallpapers.",
-                isFirst: true
-            )
-            
-            // Reminder
-            timelineItem(
-                icon: "bell.fill",
-                iconColor: .orange,
+                subtitle: "Start enjoying full access to unlimited wallpapers."
+            ),
+            TimelineEvent(
+                iconName: "bell.fill",
+                iconColor: .appAccent,
                 title: "In \(reminderDay) days",
-                subtitle: "You'll get a reminder that your trial is about to end.",
-                isFirst: false
-            )
-            
-            // Charge
-            timelineItem(
-                icon: "checkmark.circle.fill",
-                iconColor: .green,
+                subtitle: "You'll get a reminder that your trial is about to end."
+            ),
+            TimelineEvent(
+                iconName: "checkmark.circle.fill",
+                iconColor: .appAccent,
                 title: "In \(trialDays) days",
-                subtitle: isLifetime ? "Your lifetime access will begin and you'll be charged." : "Your subscription will begin and you'll be charged.",
-                isFirst: false,
-                isLast: true
+                subtitle: isLifetime ? "Your lifetime access will begin and you'll be charged \(priceText)." : "Your subscription will begin and you'll be charged \(priceText)."
             )
+        ]
+
+        return VStack(alignment: .leading, spacing: itemSpacing) {
+            ForEach(events) { event in
+                HStack(alignment: .top, spacing: 12) {
+                    timelineIcon(for: event, size: iconSize)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(event.title)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+
+                        Text(event.subtitle)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
+        .overlay(alignment: .leading) {
+            timelineLineBackground(iconSize: iconSize, spacing: itemSpacing, eventCount: events.count)
+                .blendMode(.normal)
+        }
     }
-    
-    private func timelineItem(icon: String, iconColor: Color, title: String, subtitle: String, isFirst: Bool = false, isLast: Bool = false) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            // Left side: icon with continuous line
+
+    private func timelineLineBackground(iconSize: CGFloat, spacing: CGFloat, eventCount: Int) -> some View {
+        GeometryReader { geo in
+            let lineColor = Color.appAccent.opacity(0.16)
+            let fadeHeight: CGFloat = 36
+            let topOffset = iconSize / 2
+            let totalHeight = geo.size.height
+            let lineHeight = max(totalHeight - topOffset, 0)
+
             VStack(spacing: 0) {
-                // Top line segment (connects to previous item)
-                if !isFirst {
-                    Rectangle()
-                        .fill(Color.appAccent.opacity(0.3))
-                        .frame(width: 2, height: 22)
-                }
-                
-                // Icon with background
-                ZStack {
-                    Circle()
-                        .fill(Color.appAccent.opacity(0.15))
-                        .frame(width: 44, height: 44)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.appAccent)
-                }
-                
-                // Bottom line segment (connects to next item or fades out)
-                if isLast {
-                    // Fade out gradient for last item
+                Rectangle()
+                    .fill(lineColor)
+                    .frame(width: 2, height: max(lineHeight - fadeHeight, 0))
+
+                if lineHeight > 0 {
                     LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.appAccent.opacity(0.3),
-                            Color.appAccent.opacity(0.0)
-                        ]),
+                        gradient: Gradient(colors: [Color.appAccent.opacity(0.16), Color.appAccent.opacity(0)]),
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(width: 2, height: 40)
-                } else {
-                    Rectangle()
-                        .fill(Color.appAccent.opacity(0.3))
-                        .frame(width: 2, height: 44)  // Fixed height for consistent spacing
+                    .frame(width: 2, height: min(fadeHeight, lineHeight))
                 }
             }
-            .frame(width: 44)
-            
-            // Right side: title and subtitle
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 10)  // Align text with icon center
-            
-            Spacer()
+            .frame(width: 2, height: lineHeight, alignment: .top)
+            .offset(x: iconSize / 2 - 1, y: topOffset)
         }
+        .frame(width: iconSize)
+        .allowsHitTesting(false)
+    }
+
+    private func timelineIcon(for event: TimelineEvent, size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(event.iconColor.opacity(0.16))
+                .frame(width: size, height: size)
+
+            Image(systemName: event.iconName)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(event.iconColor)
+        }
+        .frame(width: size, height: size)
     }
     
     private var selectedPlanInfo: some View {
@@ -707,6 +748,323 @@ struct PaywallView: View {
                 .foregroundColor(.primary)
             
             Spacer()
+        }
+    }
+    
+    private func getLegalDocumentContent() -> String {
+        switch selectedLegalDocument {
+        case .termsOfService:
+            return """
+            Terms of Service
+            
+            Last Updated: November 13, 2025
+            
+            1. Acceptance of Terms
+            
+            By downloading, installing, or using NoteWall ("the App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the App.
+            
+            2. Description of Service
+            
+            NoteWall is a productivity application that allows users to create custom wallpapers with personal notes and reminders for their iOS devices.
+            
+            3. Subscription Terms
+            
+            • NoteWall+ Monthly: Monthly subscription with automatic renewal
+            • NoteWall+ Lifetime: One-time payment for permanent access
+            • Free trial periods may be offered for subscription plans
+            • Subscriptions automatically renew unless cancelled 24 hours before renewal
+            • Manage subscriptions in your Apple ID account settings
+            
+            4. User Obligations
+            
+            You agree to use the App only for lawful purposes and in accordance with these Terms.
+            
+            5. Privacy
+            
+            Your privacy is important to us. All notes and personal data are stored locally on your device and are not transmitted to our servers.
+            
+            6. Contact Information
+            
+            For questions or support, contact us at: iosnotewall@gmail.com
+            
+            Developer: [YOUR FULL LEGAL NAME]
+            """
+        case .privacyPolicy:
+            return """
+            Privacy Policy
+            
+            Last Updated: November 13, 2025
+            
+            1. Information We Collect
+            
+            • Notes and text you create (stored locally on your device only)
+            • Photos you select for wallpapers (processed locally)
+            • Device information for app compatibility
+            • Anonymous performance data to improve the app
+            
+            2. How We Use Information
+            
+            • Provide wallpaper generation functionality
+            • Process in-app purchases through Apple's App Store
+            • Improve app performance and fix bugs
+            • Provide customer support
+            
+            3. Data Storage
+            
+            • All personal content is stored locally on your device
+            • We do not upload your personal content to external servers
+            • Your data remains private and under your control
+            
+            4. Contact
+            
+            Email: iosnotewall@gmail.com
+            Developer: [YOUR FULL LEGAL NAME]
+            """
+        case .termsAndPrivacy:
+            return """
+            TERMS OF SERVICE & PRIVACY POLICY
+            
+            Last Updated: November 13, 2025
+            
+            PART I: END-USER LICENSE AGREEMENT (EULA)
+            
+            1. ACKNOWLEDGEMENT
+            
+            This End-User License Agreement ("EULA") is a legal agreement between you ("End-User") and NoteWall Team ("Developer") for the NoteWall mobile application ("Licensed Application"). This EULA is concluded between you and the Developer only, and not with Apple Inc. ("Apple"). The Developer, not Apple, is solely responsible for the Licensed Application and its content. The EULA may not provide for usage rules for Licensed Applications that are in conflict with the Apple Media Services Terms and Conditions.
+            
+            2. SCOPE OF LICENSE
+            
+            The license granted to the End-User for the Licensed Application must be limited to a non-transferable license to use the Licensed Application on any Apple-branded Products that the End-User owns or controls and as permitted by the Usage Rules set forth in the Apple Media Services Terms and Conditions, except that such Licensed Application may be accessed and used by other accounts associated with the purchaser via Family Sharing or volume purchasing.
+            
+            3. MAINTENANCE AND SUPPORT
+            
+            You must be solely responsible for providing any maintenance and support services with respect to the Licensed Application, as specified in the EULA, or as required under applicable law. You and the End-User must acknowledge that Apple has no obligation whatsoever to furnish any maintenance and support services with respect to the Licensed Application.
+            
+            Contact for support: iosnotewall@gmail.com
+            
+            4. WARRANTY
+            
+            You must be solely responsible for any product warranties, whether express or implied by law, to the extent not effectively disclaimed. The EULA must provide that, in the event of any failure of the Licensed Application to conform to any applicable warranty, the End-User may notify Apple, and Apple will refund the purchase price for the Licensed Application to that End-User; and that, to the maximum extent permitted by applicable law, Apple will have no other warranty obligation whatsoever with respect to the Licensed Application, and any other claims, losses, liabilities, damages, costs or expenses attributable to any failure to conform to any warranty will be Your sole responsibility.
+            
+            5. PRODUCT CLAIMS
+            
+            You and the End-User must acknowledge that You, not Apple, are responsible for addressing any claims of the End-User or any third party relating to the Licensed Application or the end-user's possession and/or use of that Licensed Application, including, but not limited to: (i) product liability claims; (ii) any claim that the Licensed Application fails to conform to any applicable legal or regulatory requirement; and (iii) claims arising under consumer protection, privacy, or similar legislation, including in connection with Your Licensed Application's use of the HealthKit and HomeKit frameworks. The EULA may not limit Your liability to the End-User beyond what is permitted by applicable law.
+            
+            6. INTELLECTUAL PROPERTY RIGHTS
+            
+            You and the End-User must acknowledge that, in the event of any third party claim that the Licensed Application or the End-User's possession and use of that Licensed Application infringes that third party's intellectual property rights, You, not Apple, will be solely responsible for the investigation, defense, settlement and discharge of any such intellectual property infringement claim.
+            
+            7. LEGAL COMPLIANCE
+            
+            The End-User must represent and warrant that (i) he/she is not located in a country that is subject to a U.S. Government embargo, or that has been designated by the U.S. Government as a "terrorist supporting" country; and (ii) he/she is not listed on any U.S. Government list of prohibited or restricted parties.
+            
+            8. DEVELOPER NAME AND ADDRESS
+            
+            Developer Name: [YOUR FULL LEGAL NAME]
+            Address: [YOUR FULL ADDRESS, CITY, POSTAL CODE, SLOVAKIA]
+            Email: iosnotewall@gmail.com
+            
+            Contact information to which any End-User questions, complaints or claims with respect to the Licensed Application should be directed.
+            
+            9. THIRD PARTY TERMS OF AGREEMENT
+            
+            You must state in the EULA that the End-User must comply with applicable third party terms of agreement when using Your Application.
+            
+            10. THIRD PARTY BENEFICIARY
+            
+            You and the End-User must acknowledge and agree that Apple, and Apple's subsidiaries, are third party beneficiaries of the EULA, and that, upon the End-User's acceptance of the terms and conditions of the EULA, Apple will have the right (and will be deemed to have accepted the right) to enforce the EULA against the End-User as a third party beneficiary thereof.
+            
+
+            PART II: SUBSCRIPTION TERMS
+
+
+            11. AUTO-RENEWABLE SUBSCRIPTIONS
+            
+            • Payment will be charged to your iTunes Account at confirmation of purchase
+            • Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period
+            • Account will be charged for renewal within 24-hours prior to the end of the current period, and identify the cost of the renewal
+            • Subscriptions may be managed by the user and auto-renewal may be turned off by going to the user's Account Settings after purchase
+            • Any unused portion of a free trial period, if offered, will be forfeited when the user purchases a subscription to that publication, where applicable
+            
+            12. FREE TRIAL TERMS
+            
+            • New users receive 3 free wallpaper exports to try the app
+            • Premium subscriptions may include a free trial period (typically 5-7 days)
+            • You will be charged at the end of the trial period unless you cancel before it ends
+            • To cancel: Settings app → [Your Name] → Subscriptions → NoteWall → Cancel Subscription
+            • Free trials are available to new subscribers only
+            
+            13. REFUND POLICY
+            
+            • All refund requests must be made through Apple's App Store
+            • Contact Apple Support directly for refund assistance
+            • Refunds are subject to Apple's refund policy
+            • We cannot process refunds directly as all payments are handled by Apple
+            
+            14. PRICING AND AVAILABILITY
+            
+            • Prices are subject to change without notice
+            • Subscription prices may vary by region and currency
+            • Features and availability may vary by device and iOS version
+            • We reserve the right to modify or discontinue features at any time
+            
+
+            PART III: PRIVACY POLICY
+
+            
+            15. INFORMATION WE COLLECT
+            
+            15.1 Personal Information You Provide:
+            • Notes and Text: All notes you create are stored locally on your device only
+            • Photos: Any photos you select for wallpaper backgrounds are processed locally on your device
+            • No personal content is transmitted to our servers or third parties
+            
+            15.2 Automatically Collected Information:
+            • Device Information: iOS version, device model (for app compatibility and optimization)
+            • App Performance Data: Anonymous crash reports and performance metrics to improve the app
+            • Purchase Information: Subscription status and transaction records (processed by Apple)
+            • Usage Analytics: Anonymous data about app features used (no personal content)
+            
+            15.3 Information We Do NOT Collect:
+            • We do not collect your name, email address, or contact information unless you contact us
+            • We do not access your contacts, location, camera roll, or other personal data
+            • We do not track your browsing habits or app usage patterns across other apps
+            • We do not use cookies or similar tracking technologies
+            
+            16. HOW WE USE YOUR INFORMATION
+            
+            We use collected information to:
+            • Provide the core wallpaper generation functionality
+            • Process in-app purchases through Apple's App Store
+            • Improve app performance and fix technical issues
+            • Provide customer support when you contact us directly
+            • Ensure app compatibility across different iOS versions and devices
+            • Analyze app usage patterns to improve user experience (anonymized data only)
+            
+            17. DATA STORAGE AND SECURITY
+            
+            17.1 Local Storage:
+            • All your notes and photos are stored exclusively on your device using iOS secure storage
+            • We do not upload, sync, or backup your personal content to external servers
+            • Your data remains completely private and under your control
+            • Data is protected by iOS built-in security features including device encryption
+            • When you delete the app, all your data is permanently removed
+            
+            17.2 Data Transmission:
+            • No personal content (notes, photos) is transmitted over the internet
+            • Only anonymous technical data may be sent for app improvement purposes
+            • All purchase transactions are handled securely by Apple using industry-standard encryption
+            • Any data transmission uses secure HTTPS protocols
+            
+            18. DATA SHARING AND DISCLOSURE
+            
+            We do not sell, trade, rent, or share your personal information with third parties, except in the following limited circumstances:
+            
+            18.1 Apple Inc.:
+            • Purchase and subscription information is shared with Apple for payment processing
+            • Anonymous crash reports may be shared through Apple's developer tools
+            • App Store analytics data is processed by Apple according to their privacy policy
+            
+            18.2 Legal Requirements:
+            • We may disclose information if required by law, court order, or government request
+            • We may disclose information to protect our rights, property, or safety
+            • We may disclose information to prevent fraud or illegal activities
+            
+            18.3 Business Transfers:
+            • In the event of a merger, acquisition, or sale of assets, user information may be transferred
+            • Users will be notified of any such transfer and their rights regarding their data
+            
+            19. YOUR PRIVACY RIGHTS
+            
+            19.1 European Union (GDPR) Rights:
+            If you are located in the EU, you have the following rights:
+            • Right of Access: Request information about data we process about you
+            • Right of Rectification: Correct inaccurate personal data
+            • Right of Erasure: Request deletion of your personal data
+            • Right of Portability: Export your data in a readable format
+            • Right to Object: Object to processing of your personal data
+            • Right to Restrict Processing: Limit how we process your data
+            • Right to Lodge a Complaint: File a complaint with your local data protection authority
+            
+            19.2 California Privacy Rights (CCPA):
+            If you are a California resident, you have the right to:
+            • Know what personal information is collected about you
+            • Delete personal information we have collected
+            • Opt-out of the sale of personal information (we do not sell personal information)
+            • Non-discrimination for exercising your privacy rights
+            
+            19.3 Exercising Your Rights:
+            To exercise any of these rights, contact us at: iosnotewall@gmail.com
+            We will respond to your request within 30 days.
+            
+            20. DATA RETENTION
+            
+            • Notes: Stored locally on your device until you delete them or uninstall the app
+            • App Settings: Stored locally until app is uninstalled
+            • Purchase Records: Maintained by Apple according to their retention policies
+            • Technical Data: Anonymous performance data may be retained for up to 2 years for app improvement
+            • Support Communications: Retained for up to 3 years for customer service purposes
+            
+            21. CHILDREN'S PRIVACY
+            
+            NoteWall is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If we become aware that we have collected personal information from a child under 13, we will take steps to delete such information immediately. Parents who believe their child has provided us with personal information should contact us at iosnotewall@gmail.com.
+            
+            22. INTERNATIONAL DATA TRANSFERS
+            
+            Since all personal data is processed locally on your device, there are no international data transfers of your personal content. Any anonymous technical data shared with us is processed in accordance with applicable data protection laws and may be transferred to countries with different data protection standards.
+            
+            23. CHANGES TO THIS PRIVACY POLICY
+            
+            We may update this Privacy Policy from time to time to reflect changes in our practices, technology, or applicable laws. We will notify you of any material changes by:
+            • Posting the updated policy in the app
+            • Updating the "Last Updated" date at the top of this policy
+            • Sending a notification through the app if changes are significant
+            
+            Your continued use of the app after any changes constitutes acceptance of the updated policy.
+            
+            24. CONTACT INFORMATION
+            
+            If you have questions, concerns, or requests regarding this Privacy Policy or our privacy practices, please contact us:
+            
+            Email: iosnotewall@gmail.com
+            Developer: [YOUR FULL LEGAL NAME]
+            
+            For EU residents: You also have the right to lodge a complaint with your local data protection authority.
+            
+            
+            PART IV: GENERAL TERMS
+
+            
+            25. DISCLAIMER OF WARRANTIES
+            
+            THE LICENSED APPLICATION IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE APP WILL BE UNINTERRUPTED OR ERROR-FREE.
+            
+            26. LIMITATION OF LIABILITY
+            
+            TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE DEVELOPER SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES.
+            
+            27. TERMINATION
+            
+            This EULA is effective until terminated by you or the Developer. Your rights under this EULA will terminate automatically without notice if you fail to comply with any term(s) of this EULA. Upon termination, you must cease all use of the Licensed Application and delete all copies.
+            
+            28. GOVERNING LAW
+            
+            This EULA and Privacy Policy are governed by the laws of Slovakia, without regard to conflict of law principles. Any disputes will be resolved in the courts of Slovakia.
+            
+            29. SEVERABILITY
+            
+            If any provision of this EULA is held to be unenforceable or invalid, such provision will be changed and interpreted to accomplish the objectives of such provision to the greatest extent possible under applicable law, and the remaining provisions will continue in full force and effect.
+            
+            30. ENTIRE AGREEMENT
+            
+            This EULA, together with this Privacy Policy, constitutes the entire agreement between you and the Developer regarding the Licensed Application and supersedes all prior or contemporaneous understandings regarding such subject matter. No amendment to or modification of this EULA will be binding unless in writing and signed by the Developer.
+
+
+            
+            By using NoteWall, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service and Privacy Policy.
+            
+            Thank you for using NoteWall!
+            """
         }
     }
 }

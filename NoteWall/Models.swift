@@ -132,3 +132,20 @@ enum PresetOption: String, CaseIterable, Identifiable {
         lockScreenOption.uiColor
     }
 }
+
+enum LegalDocumentType {
+    case termsOfService
+    case privacyPolicy
+    case termsAndPrivacy
+    
+    var title: String {
+        switch self {
+        case .termsOfService:
+            return "Terms of Service"
+        case .privacyPolicy:
+            return "Privacy Policy"
+        case .termsAndPrivacy:
+            return "Terms & Privacy"
+        }
+    }
+}

@@ -787,7 +787,7 @@ private struct NotesSectionView: View {
     var body: some View {
         Group {
             if context.notes.wrappedValue.isEmpty {
-                EmptyStateView(hideKeyboard: context.hideKeyboard)
+                EmptyStateView(hideKeyboard: context.hideKeyboard, isTextFieldFocused: context.isTextFieldFocused)
             } else {
                 NotesListView(context: context)
             }
@@ -797,16 +797,39 @@ private struct NotesSectionView: View {
 
 private struct EmptyStateView: View {
     let hideKeyboard: () -> Void
+    let isTextFieldFocused: FocusState<Bool>.Binding
 
     var body: some View {
         VStack {
             Spacer()
-            Text("No notes yet")
-                .foregroundColor(.gray)
-                .font(.title3)
-            Text("Add a note below to get started")
-                .foregroundColor(.gray)
-                .font(.caption)
+            
+            // Text always visible, arrow only when not focused
+            VStack(spacing: 8) {
+                Text("No notes yet")
+                    .foregroundColor(.gray)
+                    .font(.title3)
+                Text("Add a note below to get started")
+                    .foregroundColor(.gray)
+                    .font(.caption)
+                
+                // Arrow only appears when text field is not focused
+                if !isTextFieldFocused.wrappedValue {
+                    // Arrow pointing to plus icon
+                    HStack {
+                        Spacer()
+                        Image("arrow")
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 280, height: 160)  // Reduced height to crop top
+                            .clipped()  // Crop the excess
+                            .rotationEffect(.degrees(248)) // Rotate to point down-right
+                            .offset(x: 20, y: 90) // Adjusted offset since we cropped
+                            .opacity(0.8)
+                    }
+                    .padding(.top, -60) // Negative padding to bring arrow much closer
+                }
+            }
+            
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
