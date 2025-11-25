@@ -1,16 +1,19 @@
 import SwiftUI
-import StoreKit
+import Combine
+import RevenueCat
+#if canImport(RevenueCatUI)
+import RevenueCatUI
+#endif
 
 @available(iOS 15.0, *)
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var paywallManager = PaywallManager.shared
-    @StateObject private var storeManager = StoreKitManager.shared
     
     let triggerReason: PaywallTriggerReason
     let allowDismiss: Bool
     
-    @State private var selectedProductIndex = 0  // Default to Lifetime (index 0)
+    @State private var selectedProductIndex = 0  // Default to first package
     @State private var isPurchasing = false
     @State private var showError = false
     @State private var errorMessage = ""
@@ -22,6 +25,49 @@ struct PaywallView: View {
     @State private var showCodeSuccess = false
     @State private var showCodeError = false
     @FocusState private var isCodeFieldFocused: Bool
+    @State private var showLifetimeSheet = false
+    @State private var hasInitializedPlanSelection = false
+    @State private var benefitCarouselIndex = 0
+    @State private var isUserDraggingBenefits = false
+    @State private var lastManualSwipeTime: Date = Date()
+
+    private let benefitSlides: [BenefitSlide] = [
+        BenefitSlide(
+            icon: "sparkles",
+            title: "Lock Screen Focus",
+            subtitle: "Keep your goals in front of you every single time you pickup your phone."
+        ),
+        BenefitSlide(
+            icon: "checkmark.seal",
+            title: "Stay Accountable",
+            subtitle: "See your habits, affirmations, or to-do focus cues 50× a day without opening another app."
+        ),
+        BenefitSlide(
+            icon: "wand.and.rays",
+            title: "Instant Exports",
+            subtitle: "Create gorgeous NoteWall wallpapers in seconds with unlimited exports."
+        )
+    ]
+
+    // Create a large enough array (9 sets = 27 items) so users won't notice the jump
+    private var loopingBenefitSlides: [BenefitSlide] {
+        guard !benefitSlides.isEmpty else { return [] }
+        var slides: [BenefitSlide] = []
+        for _ in 0..<9 {
+            slides.append(contentsOf: benefitSlides)
+        }
+        return slides
+    }
+    
+    // Calculate the starting index to be in the middle of the array
+    private var startingIndex: Int {
+        let originalCount = benefitSlides.count
+        return originalCount * 4 // Start in the middle (4 sets in, so we have 4 sets before and 4 sets after)
+    }
+
+    @GestureState private var benefitDragOffset: CGFloat = 0
+    
+    private let benefitsAutoScrollTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     
     init(triggerReason: PaywallTriggerReason = .manual, allowDismiss: Bool = true) {
         self.triggerReason = triggerReason
@@ -30,16 +76,9 @@ struct PaywallView: View {
     
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.appAccent.opacity(0.15),
-                    Color(.systemBackground)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            // Enhanced background with subtle accent glows
+            paywallBackground
+                .ignoresSafeArea()
             
             if currentStep == 1 {
                 step1PlanSelection
@@ -129,8 +168,18 @@ struct PaywallView: View {
         }
         .onAppear {
             paywallManager.trackPaywallView()
+            
+            // Initialize plan selection immediately if packages are already loaded
+            initializePlanSelection()
+            
             Task {
-                await storeManager.loadProducts()
+                await paywallManager.loadOfferings(force: false)
+                await paywallManager.refreshCustomerInfo()
+                
+                // Initialize plan selection after packages are loaded (in case they weren't loaded before)
+                await MainActor.run {
+                    initializePlanSelection()
+                }
             }
             
             // Trigger animations
@@ -138,14 +187,90 @@ struct PaywallView: View {
                 animateIn = true
             }
         }
+        .onChange(of: paywallManager.availablePackages) { packages in
+            if selectedProductIndex >= packages.count {
+                selectedProductIndex = max(0, packages.count - 1)
+            }
+            initializePlanSelection()
+        }
+        .onChange(of: shouldShowTrialStep) { hasTrial in
+            if !hasTrial {
+                currentStep = 1
+            }
+        }
+        .sheet(isPresented: $showLifetimeSheet) {
+            LifetimePlanSheet(
+                priceText: lifetimePriceText,
+                subtitle: lifetimeSubtitleText,
+                isAvailable: lifetimePackage != nil,
+                onPurchase: {
+                    if selectLifetimePackage() {
+                        showLifetimeSheet = false
+                        handlePurchase()
+                    }
+                },
+                onDismiss: {
+                    showLifetimeSheet = false
+                }
+            )
+        }
+    }
+    
+    // MARK: - Background
+    
+    private var paywallBackground: some View {
+        ZStack {
+            // Base dark gradient - richer than pure black
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.05, blue: 0.08),
+                    Color(red: 0.01, green: 0.01, blue: 0.04)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // Accent color glow orb - top left
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.12), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 180
+                    )
+                )
+                .frame(width: 360, height: 360)
+                .offset(x: -120, y: -180)
+                .blur(radius: 50)
+            
+            // Accent color glow orb - bottom right
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.08), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 140
+                    )
+                )
+                .frame(width: 280, height: 280)
+                .offset(x: 140, y: 320)
+                .blur(radius: 40)
+            
+            // Very subtle noise/texture overlay for depth
+            Rectangle()
+                .fill(Color.white.opacity(0.015))
+        }
     }
     
     // MARK: - Step 1: Plan Selection
     
     private var step1PlanSelection: some View {
+        paywallScrollView {
         VStack(spacing: 20) {
-                // Close button
-                HStack {
+                // Close button + hero
+                HStack(alignment: .top) {
                     Spacer()
                     Button(action: {
                         paywallManager.trackPaywallDismiss()
@@ -156,40 +281,36 @@ struct PaywallView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                .padding(.horizontal, 24)
                 .padding(.top, 8)
-                // Header
-                VStack(spacing: 8) {
-                    Text(triggerReason.title)
-                        .font(.system(.largeTitle, design: .rounded))
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                    
-                    Text("Because if you see it - you'll do it")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .opacity(animateIn ? 1 : 0)
-                .offset(y: animateIn ? 0 : 20)
-                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animateIn)
                 
+                logoHeader
+                    .opacity(animateIn ? 1 : 0)
+                    .offset(y: animateIn ? 0 : 12)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.85), value: animateIn)
                 
-                // Features list
-                VStack(alignment: .leading, spacing: 12) {
-                    featureRow(icon: "brain", title: "Never Forget Again", subtitle: "Keep your key goals, notes, and ideas always visible - every time you look at your phone.", delay: 0.1)
-                    featureRow(icon: "target", title: "Stay Focused, Not Busy", subtitle: "See your priorities 50× a day and act on what really matters.", delay: 0.2)
-                }
-                .padding(.horizontal, 4)
+                benefitsCarousel
+                    .opacity(animateIn ? 1 : 0)
+                    .offset(y: animateIn ? 0 : 24)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.1), value: animateIn)
                 
                 // Pricing options
                 pricingSection
+                    .padding(.horizontal, 24)
                     .opacity(animateIn ? 1 : 0)
                     .offset(y: animateIn ? 0 : 30)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.5), value: animateIn)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animateIn)
                 
+                lifetimePrompt
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, -8)
+                    .opacity(animateIn ? 1 : 0)
+                    .offset(y: animateIn ? 0 : 20)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.35), value: animateIn)
                 
-                // Continue button (goes to step 2)
+                // Continue button (goes to step 2 or purchase directly)
                 Button(action: {
+                    if shouldShowTrialStep {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         currentStep = 2
                         animateIn = false
@@ -198,22 +319,32 @@ struct PaywallView: View {
                         withAnimation {
                             animateIn = true
                         }
+                        }
+                    } else {
+                        handlePurchase()
                     }
                 }) {
                     HStack(spacing: 8) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 18, weight: .bold))
-                        Text("Start Free Trial")
+                        if !shouldShowTrialStep && (isPurchasing || paywallManager.isLoadingOfferings) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        } else {
+                            Text(purchaseButtonTitle)
                             .font(.headline)
                             .fontWeight(.bold)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                        }
                     }
-                    .frame(height: 56)
+                    .frame(height: 60)
                     .frame(maxWidth: .infinity)
                     .background(Color.appAccent)
                     .foregroundColor(.white)
-                    .cornerRadius(16)
+                    .cornerRadius(12)
                     .shadow(color: Color.appAccent.opacity(0.4), radius: 12, x: 0, y: 6)
                 }
+                .padding(.horizontal, 24)
+                .disabled(!shouldShowTrialStep && (isPurchasing || paywallManager.isLoadingOfferings))
                 .opacity(animateIn ? 1 : 0)
                 .scaleEffect(animateIn ? 1 : 0.9)
                 .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.7), value: animateIn)
@@ -221,7 +352,7 @@ struct PaywallView: View {
                 
                 // Terms & Privacy and Restore Purchases
                 HStack(spacing: 24) {
-                    Button("Terms & Privacy") {
+                    Button("Terms") {
                         selectedLegalDocument = .termsAndPrivacy
                         showTermsAndPrivacy = true
                     }
@@ -230,23 +361,33 @@ struct PaywallView: View {
                     
                     Button("Restore Purchases") {
                         Task {
-                            await storeManager.restorePurchases()
+                            await paywallManager.restoreRevenueCatPurchases()
                         }
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                    Button("Privacy") {
+                        selectedLegalDocument = .privacyPolicy
+                        showTermsAndPrivacy = true
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 }
+                .padding(.horizontal, 24)
                 .padding(.top, 0)
                 .opacity(animateIn ? 1 : 0)
                 .animation(.easeIn.delay(0.7), value: animateIn)
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
+            .padding(.bottom, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
     
     // MARK: - Step 2: Trial Explanation
     
     private var step2TrialExplanation: some View {
+        paywallScrollView {
         VStack(spacing: 20) {
                 // Close button
                 HStack {
@@ -260,6 +401,7 @@ struct PaywallView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                .padding(.horizontal, 24)
                 .padding(.top, -6)
                 // Header
                 VStack(spacing: 8) {
@@ -270,12 +412,14 @@ struct PaywallView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .lineLimit(nil)
                 }
+                .padding(.horizontal, 24)
                 .opacity(animateIn ? 1 : 0)
                 .offset(y: animateIn ? 0 : 20)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animateIn)
                 
                 // Timeline
                 trialTimeline
+                    .padding(.horizontal, 24)
                     .opacity(animateIn ? 1 : 0)
                     .offset(y: animateIn ? 0 : 30)
                     .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animateIn)
@@ -303,6 +447,7 @@ struct PaywallView: View {
                     .cornerRadius(12)
                     
                 }
+                .padding(.horizontal, 24)
                 .opacity(animateIn ? 1 : 0)
                 .animation(.easeIn.delay(0.4), value: animateIn)
                 
@@ -310,7 +455,7 @@ struct PaywallView: View {
                 VStack(spacing: 12) {
                     Button(action: handlePurchase) {
                         VStack(spacing: 6) {
-                            if isPurchasing || storeManager.isLoading {
+                            if isPurchasing || paywallManager.isLoadingOfferings {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
@@ -336,9 +481,10 @@ struct PaywallView: View {
                         .cornerRadius(16)
                         .shadow(color: Color.appAccent.opacity(0.5), radius: 16, x: 0, y: 8)
                     }
-                    .disabled(isPurchasing || storeManager.isLoading)
+                    .disabled(isPurchasing || paywallManager.isLoadingOfferings)
                     
                 }
+                .padding(.horizontal, 24)
                 .opacity(animateIn ? 1 : 0)
                 .scaleEffect(animateIn ? 1 : 0.9)
                 .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.5), value: animateIn)
@@ -360,274 +506,640 @@ struct PaywallView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
+                .padding(.horizontal, 24)
                 .padding(.top, 8)
                 .opacity(animateIn ? 1 : 0)
                 .animation(.easeIn.delay(0.6), value: animateIn)
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
+            .padding(.bottom, 32)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
     
     // MARK: - Pricing Section (iOS 15+)
+
+    private var logoHeader: some View {
+        VStack(spacing: 16) {
+            Image("OnboardingLogo")
+                .resizable()
+                .interpolation(.high)
+                .antialiased(true)
+                .scaledToFit()
+                .frame(width: 160, height: 160)
+                .cornerRadius(44)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 44)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 7)
+        }
+        .padding(.horizontal, 12)
+    }
+    
+    private var benefitsCarousel: some View {
+        let slides = loopingBenefitSlides
+        let originalCount = benefitSlides.count
+        let cardHeight: CGFloat = 140
+        
+        return VStack(spacing: 8) {
+            GeometryReader { outerGeometry in
+                let screenWidth = outerGeometry.size.width
+                let cardWidth: CGFloat = screenWidth - 80 // Narrower card to show adjacent cards on both sides (40pt peek on each side)
+                let cardSpacing: CGFloat = 15.4 // Larger gap between cards to reduce needed padding
+                let sidePadding = (screenWidth - cardWidth) / 2
+                let itemWidth = cardWidth + cardSpacing
+                // Calculate offset to center the current card
+                // Start position: center the first card (sidePadding)
+                // Then shift left by (current index * itemWidth) to bring current card to center
+                let baseOffset = sidePadding - CGFloat(benefitCarouselIndex) * itemWidth
+                
+                HStack(spacing: cardSpacing) {
+                    ForEach(Array(slides.enumerated()), id: \.offset) { idx, slide in
+                        benefitCard(slide: slide)
+                            .frame(width: cardWidth, height: cardHeight, alignment: .topLeading)
+                    }
+                }
+                .offset(x: baseOffset + benefitDragOffset)
+                .animation(.spring(response: 0.45, dampingFraction: 0.85), value: benefitCarouselIndex)
+                .frame(width: screenWidth, height: cardHeight, alignment: .leading)
+                .clipped()
+                .gesture(
+                    DragGesture()
+                        .updating($benefitDragOffset) { value, state, _ in
+                            state = value.translation.width
+                        }
+                        .onChanged { _ in
+                            if !isUserDraggingBenefits {
+                                isUserDraggingBenefits = true
+                                lastManualSwipeTime = Date()
+                            }
+                        }
+                        .onEnded { value in
+                            isUserDraggingBenefits = false
+                            lastManualSwipeTime = Date()
+                            handleCarouselDragEnd(
+                                translation: value.translation.width,
+                                itemWidth: itemWidth,
+                                originalCount: originalCount,
+                                totalCount: slides.count
+                            )
+                        }
+                )
+                .onAppear {
+                    if benefitCarouselIndex == 0 {
+                        benefitCarouselIndex = startingIndex
+                    }
+                }
+            }
+            .frame(height: cardHeight)
+        }
+        .onReceive(benefitsAutoScrollTimer) { _ in
+            guard !isUserDraggingBenefits else { return }
+            
+            // Only auto-scroll if at least 2 seconds have passed since last manual swipe
+            let timeSinceLastSwipe = Date().timeIntervalSince(lastManualSwipeTime)
+            guard timeSinceLastSwipe >= 2.0 else { return }
+            
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                benefitCarouselIndex = min(benefitCarouselIndex + 1, slides.count - 1)
+            }
+            stabilizeCarouselIndex(originalCount: originalCount, totalCount: slides.count)
+        }
+    }
+    
+    private func handleCarouselDragEnd(
+        translation: CGFloat,
+        itemWidth: CGFloat,
+        originalCount: Int,
+        totalCount: Int
+    ) {
+        let threshold = itemWidth * 0.2
+        if translation < -threshold {
+            benefitCarouselIndex = min(benefitCarouselIndex + 1, totalCount - 1)
+        } else if translation > threshold {
+            benefitCarouselIndex = max(benefitCarouselIndex - 1, 0)
+        }
+        stabilizeCarouselIndex(originalCount: originalCount, totalCount: totalCount)
+    }
+    
+    private func stabilizeCarouselIndex(originalCount: Int, totalCount: Int) {
+        guard totalCount > 0 else { return }
+        let lowerBound = originalCount * 2
+        let upperBound = originalCount * 7
+        if benefitCarouselIndex < lowerBound {
+            benefitCarouselIndex = originalCount * 5
+        } else if benefitCarouselIndex > upperBound {
+            benefitCarouselIndex = originalCount * 3
+        }
+    }
+    
+    private func benefitCard(slide: BenefitSlide) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: slide.icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.appAccent)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.appAccent.opacity(0.12)))
+                
+                Text(slide.title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.9)
+            }
+            
+            Text(slide.subtitle)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.8))
+                .lineLimit(3)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(.tertiarySystemFill).opacity(0.6))
+        )
+    }
+    
+    private var lifetimePrompt: some View {
+        VStack(spacing: 6) {
+            Text("Want a lifetime solution?")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+            
+            Button(action: {
+                showLifetimeSheet = true
+            }) {
+                Text("Unlock once, own NoteWall+ forever →")
+                    .font(.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appAccent)
+            }
+            .buttonStyle(.plain)
+        }
+    }
     
     @available(iOS 15.0, *)
     private var pricingSection: some View {
-        VStack(spacing: 12) {
-            if storeManager.isLoading {
+        VStack(spacing: 16) {
+            if paywallManager.isLoadingOfferings {
                 ProgressView()
                     .padding()
-            } else if storeManager.products.isEmpty {
-                // Show fallback pricing when products aren't loaded from App Store Connect
+            } else if primaryPackages.isEmpty {
                 fallbackPricingCards
             } else {
-                ForEach(Array(storeManager.products.enumerated()), id: \.element.id) { index, product in
-                    pricingCard(for: product, index: index)
+                ForEach(Array(sortedPrimaryPackages.enumerated()), id: \.element.identifier) { index, package in
+                    pricingCard(for: package, index: packageGlobalIndex(package))
                 }
             }
         }
+        .padding(.top, 4)
+    }
+
+    private var availablePackages: [Package] {
+        paywallManager.availablePackages
+    }
+    
+    private var primaryPackages: [Package] {
+        availablePackages.filter { planKind(for: $0) != .lifetime }
+    }
+    
+    private var sortedPrimaryPackages: [Package] {
+        primaryPackages.sorted { planSortPriority(for: $0) < planSortPriority(for: $1) }
+    }
+    
+    private func packageGlobalIndex(_ package: Package) -> Int {
+        availablePackages.firstIndex(where: { $0.identifier == package.identifier }) ?? 0
+    }
+    
+    private func planSortPriority(for package: Package) -> Int {
+        switch planKind(for: package) {
+        case .yearly:
+            return 0
+        case .monthly:
+            return 1
+        default:
+            return 2
+        }
+    }
+
+    private var selectedPackage: Package? {
+        guard selectedProductIndex >= 0,
+              selectedProductIndex < availablePackages.count else {
+            return nil
+        }
+        return availablePackages[selectedProductIndex]
+    }
+
+    private var selectedPlanKind: PlanKind {
+        planKind(for: selectedPackage)
+    }
+
+    private var shouldShowTrialStep: Bool {
+        selectedPlanKind == .yearly && trialDaysForSelectedPackage(selectedPackage) != nil
+    }
+
+    private var monthlyPackage: Package? {
+        availablePackages.first { planKind(for: $0) == .monthly }
+    }
+    
+    private var lifetimePackage: Package? {
+        availablePackages.first { planKind(for: $0) == .lifetime }
+    }
+    
+    private var lifetimeFallbackPlan: FallbackPlan? {
+        fallbackPlans.first { $0.kind == .lifetime }
+    }
+    
+    private var lifetimePriceText: String {
+        lifetimePackage?.localizedPriceString ?? lifetimeFallbackPlan?.priceText ?? "€24.99"
+    }
+    
+    private var lifetimeSubtitleText: String {
+        "Own NoteWall+ forever • No renewals"
+    }
+    
+    @discardableResult
+    private func selectLifetimePackage() -> Bool {
+        guard let lifetimeIndex = availablePackages.firstIndex(where: { planKind(for: $0) == .lifetime }) else {
+            return false
+        }
+        selectedProductIndex = lifetimeIndex
+        return true
+    }
+
+    private var fallbackPlans: [FallbackPlan] {
+        [
+            FallbackPlan(
+                kind: .yearly,
+                label: "Yearly",
+                subtitle: "",
+                priceText: "€14.99",
+                highlight: false,
+                trialDays: 7
+            ),
+            FallbackPlan(
+                kind: .lifetime,
+                label: "Lifetime",
+                subtitle: "One-time purchase, own NoteWall+ forever",
+                priceText: "€24.99",
+                highlight: false,
+                trialDays: nil
+            ),
+            FallbackPlan(
+                kind: .monthly,
+                label: "Monthly",
+                subtitle: "",
+                priceText: "€6.99",
+                highlight: false,
+                trialDays: 3
+            )
+        ]
+    }
+
+    private var currentFallbackPlan: FallbackPlan? {
+        guard availablePackages.isEmpty,
+              selectedProductIndex >= 0,
+              selectedProductIndex < fallbackPlans.count else {
+            return nil
+        }
+        return fallbackPlans[selectedProductIndex]
     }
     
     // Fallback pricing cards for testing before App Store Connect setup
     private var fallbackPricingCards: some View {
-        VStack(spacing: 12) {
-            fallbackPricingCard(title: "NoteWall+ Lifetime", price: "€9.99", subtitle: "7-day free trial", index: 0)
-            fallbackPricingCard(title: "NoteWall+ Monthly", price: "€5.99/m", subtitle: "5-day free trial", index: 1)
+        VStack(spacing: 16) {
+            ForEach(Array(fallbackPlans.enumerated()), id: \.element.id) { index, plan in
+                fallbackPricingCard(plan: plan, index: index)
+            }
         }
     }
     
-    private func fallbackPricingCard(title: String, price: String, subtitle: String, index: Int) -> some View {
-        let isSelected = selectedProductIndex == index
-        let isLifetime = index == 0  // Lifetime is now first
-        
-        return Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                selectedProductIndex = index
-            }
-        }) {
-            ZStack(alignment: .topLeading) {
-                HStack(spacing: 16) {
-                    // Selection indicator
-                    ZStack {
-                        Circle()
-                            .stroke(isSelected ? Color.appAccent : Color.secondary.opacity(0.3), lineWidth: 2)
-                            .frame(width: 24, height: 24)
-                        
-                        if isSelected {
-                            Circle()
-                                .fill(Color.appAccent)
-                                .frame(width: 14, height: 14)
-                                .scaleEffect(isSelected ? 1 : 0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
-                        }
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(isLifetime ? "Lifetime" : "Monthly")
-                            .font(.system(.title3, design: .rounded))
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                        
-                        if isLifetime {
-                            Text("7-day free trial")
-                                .font(.subheadline)
-                                .foregroundColor(.appAccent)
-                                .fontWeight(.medium)
-                        } else {
-                            Text("5-day free trial")
-                                .font(.subheadline)
-                                .foregroundColor(.appAccent)
-                                .fontWeight(.medium)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text(price)
-                            .font(.system(.title2, design: .rounded))
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                    }
-                }
-                .padding(18)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: isSelected ? Color.appAccent.opacity(0.3) : Color.black.opacity(0.05), radius: isSelected ? 12 : 4, x: 0, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? Color.appAccent : Color.clear, lineWidth: 2)
-            )
-            .overlay(
-                // Popular badge on the edge - in separate overlay to be above border
-                Group {
-                    if isLifetime {
-                        HStack {
-                            Spacer()
-                            Text("POPULAR")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Capsule().fill(Color.appAccent))
-                                .offset(x: -8, y: -8)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    }
-                }
-            )
-            .scaleEffect(isSelected ? 1.02 : 1)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-        }
-        .buttonStyle(.plain)
+    private func fallbackPricingCard(plan: FallbackPlan, index: Int) -> some View {
+        selectablePricingCard(
+            planLabel: plan.label,
+            subtitle: plan.subtitle,
+            price: plan.priceText,
+            highlight: plan.highlight,
+            index: index,
+            perMonthText: nil,
+            badgeText: nil
+        )
     }
-    
+
     @available(iOS 15.0, *)
-    private func pricingCard(for product: Product, index: Int) -> some View {
+    private func pricingCard(for package: Package, index: Int) -> some View {
+        let identifier = package.storeProduct.productIdentifier.lowercased()
+        let planLabel: String
+        if package.packageType == .lifetime || identifier.contains("lifetime") {
+            planLabel = "Lifetime"
+        } else if package.packageType == .annual || identifier.contains("year") {
+            planLabel = "Yearly"
+        } else {
+            planLabel = "Monthly"
+        }
+
+        let highlight = false
+
+        return selectablePricingCard(
+            planLabel: planLabel,
+            subtitle: packageSubtitle(for: package),
+            price: package.localizedPriceString,
+            highlight: highlight,
+            index: index,
+            perMonthText: perMonthText(for: package, displayAlways: true),
+            badgeText: discountBadgeText(for: package)
+        )
+    }
+
+    private func selectablePricingCard(
+        planLabel: String,
+        subtitle: String,
+        price: String,
+        highlight: Bool,
+        index: Int,
+        perMonthText: String? = nil,
+        badgeText: String? = nil
+    ) -> some View {
         let isSelected = selectedProductIndex == index
-        let isLifetime = !product.id.contains("monthly")  // Lifetime doesn't contain "monthly"
+        let isMonthlyPlan = planLabel.lowercased().contains("month")
+        let isYearlyPlan = planLabel.lowercased().contains("year")
+        let selectionAnimation: Animation = isYearlyPlan
+            ? .spring(response: 0.32, dampingFraction: 0.65)
+            : .easeOut(duration: 0.18)
         
         return Button(action: {
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(selectionAnimation) {
                 selectedProductIndex = index
             }
         }) {
-            ZStack(alignment: .topLeading) {
-                HStack(spacing: 16) {
-                    // Selection indicator
+            HStack(alignment: .center, spacing: 14) {
                     ZStack {
+                        let indicatorSize: CGFloat = 18
                         Circle()
-                            .stroke(isSelected ? Color.appAccent : Color.secondary.opacity(0.3), lineWidth: 2)
-                            .frame(width: 24, height: 24)
+                            .stroke(isSelected ? Color.appAccent : Color.secondary.opacity(0.35), lineWidth: 2)
+                            .frame(width: indicatorSize, height: indicatorSize)
                         
                         if isSelected {
                             Circle()
                                 .fill(Color.appAccent)
-                                .frame(width: 14, height: 14)
-                                .scaleEffect(isSelected ? 1 : 0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                                .frame(width: indicatorSize, height: indicatorSize)
+                                .overlay(
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                                .transition(.scale.combined(with: .opacity))
                         }
                     }
                     
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(isLifetime ? "Lifetime" : "Monthly")
-                            .font(.system(.title3, design: .rounded))
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                        
-                        if isLifetime {
-                            Text("7-day free trial")
-                                .font(.subheadline)
-                                .foregroundColor(.appAccent)
-                                .fontWeight(.medium)
-                        } else {
-                            Text("5-day free trial")
-                                .font(.subheadline)
-                                .foregroundColor(.appAccent)
-                                .fontWeight(.medium)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: isYearlyPlan ? 6 : 2) {
+                        Text(planLabel)
+                        .font(.system(.subheadline, design: .rounded))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                     
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text(product.displayPrice)
-                            .font(.system(.title2, design: .rounded))
-                            .fontWeight(.bold)
+                    if isYearlyPlan {
+                        Text(price)
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
+                    } else if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
-                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                if let perMonthText {
+                    Text(perMonthText)
+                        .font(.footnote)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.trailing)
+                        .frame(minWidth: 68)
+                        .padding(.vertical, isYearlyPlan ? 8 : 6)
+                }
             }
+            .padding(.vertical, isYearlyPlan ? 18 : 15)
+            .padding(.horizontal, 20)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(Color(.systemBackground))
-                    .shadow(color: isSelected ? Color.appAccent.opacity(0.3) : Color.black.opacity(0.05), radius: isSelected ? 12 : 4, x: 0, y: 2)
+                    .shadow(color: (isSelected && isYearlyPlan) ? Color.appAccent.opacity(0.25) : Color.black.opacity(0.05), radius: isSelected ? 14 : 6, x: 0, y: 4)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? Color.appAccent : Color.clear, lineWidth: 2)
+                    .stroke((isSelected && isYearlyPlan) ? Color.appAccent : Color.clear, lineWidth: 2)
             )
             .overlay(
-                // Popular badge on the edge - in separate overlay to be above border
                 Group {
-                    if isLifetime {
-                        HStack {
-                            Spacer()
-                            Text("POPULAR")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Capsule().fill(Color.appAccent))
-                                .offset(x: -8, y: -8)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    if let badgeText {
+                        badgeLabel(text: badgeText)
+                    } else if highlight {
+                        badgeLabel(text: "Steal deal")
                     }
                 }
             )
-            .scaleEffect(isSelected ? 1.02 : 1)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+            .scaleEffect((isSelected && isYearlyPlan) ? 1.02 : 1)
+            .animation(selectionAnimation, value: isSelected)
         }
         .buttonStyle(.plain)
     }
     
+    private func packageSubtitle(for package: Package) -> String {
+        if let discount = package.storeProduct.introductoryDiscount {
+            let period = trialDescription(for: discount.subscriptionPeriod)
+            return period.isEmpty ? "Includes trial" : "\(period) free trial"
+        }
+
+        if package.packageType == .lifetime {
+            return "Own NoteWall+ forever"
+        }
+
+        return ""
+    }
+
+    private func trialDescription(for period: SubscriptionPeriod?) -> String {
+        guard let period else { return "" }
+        switch period.unit {
+        case .day:
+            return period.value == 1 ? "1-day" : "\(period.value)-day"
+        case .week:
+            return period.value == 1 ? "1-week" : "\(period.value)-week"
+        case .month:
+            return period.value == 1 ? "1-month" : "\(period.value)-month"
+        case .year:
+            return period.value == 1 ? "1-year" : "\(period.value)-year"
+        @unknown default:
+            return ""
+        }
+    }
+
+    private func planKind(for package: Package?) -> PlanKind {
+        if let package {
+            switch package.packageType {
+            case .monthly: return .monthly
+            case .annual: return .yearly
+            case .lifetime: return .lifetime
+            default:
+                let identifier = package.storeProduct.productIdentifier.lowercased()
+                if identifier.contains("month") { return .monthly }
+                if identifier.contains("year") || identifier.contains("annual") { return .yearly }
+                if identifier.contains("life") { return .lifetime }
+            }
+        }
+        return currentFallbackPlan?.kind ?? .unknown
+    }
+
+    private func fallbackPriceDescription(for plan: FallbackPlan) -> String {
+        switch plan.kind {
+        case .monthly:
+            return "\(plan.priceText)/month"
+        case .yearly:
+            return "\(plan.priceText)/year"
+        case .lifetime:
+            return plan.priceText
+        case .unknown:
+            return plan.priceText
+        }
+    }
+
+    private func isLifetimePlan(_ package: Package?) -> Bool {
+        guard let package else { return selectedProductIndex == 0 }
+        if package.packageType == .lifetime { return true }
+        return package.storeProduct.productIdentifier.lowercased().contains("lifetime")
+    }
+
+    private func trialDaysForSelectedPackage(_ package: Package?) -> Int? {
+        if let period = package?.storeProduct.introductoryDiscount?.subscriptionPeriod {
+            return convertPeriodToDays(period)
+        }
+        return currentFallbackPlan?.trialDays
+    }
+
+    private func convertPeriodToDays(_ period: SubscriptionPeriod) -> Int {
+        switch period.unit {
+        case .day:
+            return period.value
+        case .week:
+            return period.value * 7
+        case .month:
+            return period.value * 30
+        case .year:
+            return period.value * 365
+        @unknown default:
+            return period.value
+        }
+    }
+
+    private func localizedPriceDescription(for package: Package?) -> String? {
+        if let package {
+            switch planKind(for: package) {
+            case .monthly:
+                return "\(package.localizedPriceString)/month"
+            case .yearly:
+                return "\(package.localizedPriceString)/year"
+            case .lifetime:
+                return package.localizedPriceString
+            case .unknown:
+                return package.localizedPriceString
+            }
+        }
+        if let fallbackPlan = currentFallbackPlan {
+            return fallbackPriceDescription(for: fallbackPlan)
+        }
+        return nil
+    }
     
     private var purchaseButtonTitle: String {
-        selectedProductIndex == 0 ? "Start 7-Day Free Trial" : "Start 5-Day Free Trial"
+        if let package = selectedPackage {
+            let plan = planKind(for: package)
+            let trialDays = trialDaysForSelectedPackage(package)
+            return ctaTitle(for: plan, trialDays: trialDays)
+        } else if let fallbackPlan = currentFallbackPlan {
+            return ctaTitle(for: fallbackPlan.kind, trialDays: fallbackPlan.trialDays)
+        }
+        return "Continue"
+    }
+    
+    private func ctaTitle(for plan: PlanKind, trialDays: Int?) -> String {
+        switch plan {
+        case .yearly:
+            let days = trialDays ?? 7
+            return "Start \(days)-day free trial"
+        case .monthly:
+            return "Continue"
+        case .lifetime:
+            return "Unlock lifetime access"
+        case .unknown:
+            return "Continue"
+        }
     }
     
     // MARK: - Actions
     
+    private func initializePlanSelection() {
+        guard !hasInitializedPlanSelection else { return }
+        let packages = paywallManager.availablePackages
+        
+        guard !packages.isEmpty else { return }
+        
+        // Find yearly package index in availablePackages
+        if let yearlyIndex = packages.firstIndex(where: { planKind(for: $0) == .yearly }) {
+            selectedProductIndex = yearlyIndex
+            hasInitializedPlanSelection = true
+        } else if !packages.isEmpty {
+            // If no yearly package, select first available (but mark as initialized)
+            selectedProductIndex = 0
+            hasInitializedPlanSelection = true
+        }
+    }
+    
+    @ViewBuilder
+    private func paywallScrollView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+    }
+    
     private func handlePurchase() {
-        // If products aren't loaded from App Store Connect, show helpful message
-        if storeManager.products.isEmpty {
-            errorMessage = "In-app purchases are not yet configured. Please set up products in App Store Connect first."
+        guard let package = selectedPackage else {
+            errorMessage = availablePackages.isEmpty
+            ? "Products are still loading. Please try again in a moment."
+            : "Please select a pricing option."
             showError = true
             return
         }
-        
-        guard selectedProductIndex < storeManager.products.count else {
-            errorMessage = "Please select a pricing option"
-            showError = true
-            return
-        }
-        
-        let product = storeManager.products[selectedProductIndex]
         
         Task {
             isPurchasing = true
-            
             do {
-                let transaction = try await storeManager.purchase(product)
-                
+                try await paywallManager.purchase(package: package)
                 await MainActor.run {
                     isPurchasing = false
-                    
-                    if transaction != nil {
-                        // Purchase successful with haptic feedback
                         let generator = UINotificationFeedbackGenerator()
                         generator.notificationOccurred(.success)
                         dismiss()
-                    }
                 }
             } catch {
                 await MainActor.run {
                     isPurchasing = false
-                    errorMessage = error.localizedDescription
+                    errorMessage = paywallManager.lastErrorMessage ?? error.localizedDescription
                     showError = true
-                    
                     let generator = UINotificationFeedbackGenerator()
                     generator.notificationOccurred(.error)
                 }
             }
         }
+    }
+    
+    private func openSubscriptionManagement() {
+        guard let url = URL(string: "https://apps.apple.com/account/subscriptions") else { return }
+        UIApplication.shared.open(url)
     }
     
     private func validateAndApplyCode() {
@@ -670,42 +1182,69 @@ struct PaywallView: View {
     }
 
     private var trialTimeline: some View {
-        let isLifetime = selectedProductIndex == 0  // Index 0 is now Lifetime
-        let trialDays = isLifetime ? 7 : 5
-        let reminderDay = isLifetime ? 5 : 3
+        let package = selectedPackage
+        let planKind = planKind(for: package)
+        let trialDays = trialDaysForSelectedPackage(package)
+        let reminderDay = max((trialDays ?? 3) - 2, 1)
         let iconSize: CGFloat = 44
         let itemSpacing: CGFloat = 18
 
-        // Get price information
-        let priceText: String
-        if !storeManager.products.isEmpty && selectedProductIndex < storeManager.products.count {
-            let product = storeManager.products[selectedProductIndex]
-            priceText = product.displayPrice
-        } else {
-            // Fallback prices
-            priceText = isLifetime ? "€9.99" : "€5.99/month"
-        }
+        let priceText = localizedPriceDescription(for: package)
+            ?? currentFallbackPlan.flatMap { fallbackPriceDescription(for: $0) }
+            ?? "€14.99"
 
-        let events: [TimelineEvent] = [
+        var events: [TimelineEvent] = [
             TimelineEvent(
                 iconName: "crown.fill",
                 iconColor: .appAccent,
                 title: "Today",
                 subtitle: "Start enjoying full access to unlimited wallpapers."
-            ),
+            )
+        ]
+
+        if let trialDays {
+            if planKind == .yearly {
+            events.append(
             TimelineEvent(
                 iconName: "bell.fill",
                 iconColor: .appAccent,
-                title: "In \(reminderDay) days",
+                        title: "After 5 days",
+                        subtitle: "We’ll remind you so you only keep NoteWall+ if you love it."
+                    )
+                )
+            } else {
+                events.append(
+                    TimelineEvent(
+                        iconName: "bell.fill",
+                        iconColor: .appAccent,
+                        title: reminderDay == 1 ? "Tomorrow" : "In \(reminderDay) days",
                 subtitle: "You'll get a reminder that your trial is about to end."
-            ),
+                )
+            )
+            }
+
+            events.append(
             TimelineEvent(
                 iconName: "checkmark.circle.fill",
                 iconColor: .appAccent,
-                title: "In \(trialDays) days",
-                subtitle: isLifetime ? "Your lifetime access will begin and you'll be charged \(priceText)." : "Your subscription will begin and you'll be charged \(priceText)."
+                    title: planKind == .yearly ? "Day \(trialDays)" : "In \(trialDays) days",
+                    subtitle: planKind == .lifetime
+                        ? "Your lifetime access will begin and you'll be charged \(priceText)."
+                        : "Your subscription will begin and you'll be charged \(priceText)."
+                )
             )
-        ]
+        } else {
+            events.append(
+                TimelineEvent(
+                    iconName: "checkmark.circle.fill",
+                    iconColor: .appAccent,
+                    title: "After confirmation",
+                    subtitle: planKind == .lifetime
+                        ? "Lifetime access unlocks immediately for \(priceText)."
+                        : "Your subscription will begin immediately for \(priceText)."
+                )
+            )
+        }
 
         return VStack(alignment: .leading, spacing: itemSpacing) {
             ForEach(events) { event in
@@ -776,62 +1315,64 @@ struct PaywallView: View {
         .frame(width: size, height: size)
     }
     
-    private var selectedPlanInfo: some View {
-        let isLifetime = selectedProductIndex == 0  // Index 0 is now Lifetime
-        let trialDays = isLifetime ? 7 : 5
-        let price = isLifetime ? "€9.99" : "€5.99/month"
-        let planName = isLifetime ? "Lifetime" : "Monthly"
+    private func perMonthPrice(for package: Package) -> Decimal? {
+        let price = package.storeProduct.price
+        switch planKind(for: package) {
+        case .monthly:
+            return price
+        case .yearly:
+            return price / Decimal(12)
+        default:
+            return nil
+        }
+    }
+    
+    private func perMonthText(for package: Package, displayAlways: Bool = false) -> String? {
+        guard displayAlways || planKind(for: package) != .monthly,
+              let value = perMonthPrice(for: package) else { return nil }
+        let formatter = currencyFormatter(for: package)
+        let formatted = formatter.string(from: NSDecimalNumber(decimal: value))
+        return formatted.map { "\($0)/mo" }
+    }
+    
+    private func discountBadgeText(for package: Package) -> String? {
+        guard planKind(for: package) == .yearly,
+              let baseline = monthlyPackage.flatMap({ perMonthPrice(for: $0) }),
+              let perMonth = perMonthPrice(for: package) else { return nil }
         
-        return VStack(spacing: 8) {
-            Text("\(trialDays)-day free trial, then \(price)")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            Text(planName)
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.7))
-        }
+        let baselineValue = NSDecimalNumber(decimal: baseline).doubleValue
+        let perMonthValue = NSDecimalNumber(decimal: perMonth).doubleValue
+        guard baselineValue > 0, perMonthValue < baselineValue else { return nil }
+        
+        let discount = 1 - (perMonthValue / baselineValue)
+        let percent = Int((discount * 100).rounded())
+        return percent >= 5 ? "\(percent)% OFF" : nil
     }
     
-    // MARK: - Feature Row
-    
-    private func featureRow(icon: String, title: String, subtitle: String, delay: Double) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.appAccent)
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 32)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
+    private func currencyFormatter(for package: Package) -> NumberFormatter {
+        if let formatter = package.storeProduct.priceFormatter {
+            return formatter
         }
-        .opacity(animateIn ? 1 : 0)
-        .offset(x: animateIn ? 0 : -20)
-        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(delay), value: animateIn)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = package.storeProduct.priceFormatter?.locale ?? Locale.current
+        formatter.maximumFractionDigits = 2
+        return formatter
     }
     
-    private func benefitRow(icon: String, text: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.appAccent)
-            
-            Text(text)
-                .font(.subheadline)
-                .foregroundColor(.primary)
-            
-            Spacer()
-        }
+    @ViewBuilder
+    private func badgeLabel(text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.appAccent))
+            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+            .padding(.trailing, 4)
+            .padding(.top, -2)
+            .offset(x: -10, y: -12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
     }
     
     private func getLegalDocumentContent() -> String {
@@ -1162,3 +1703,492 @@ struct PaywallView_Previews: PreviewProvider {
             .preferredColorScheme(.dark)
     }
 }
+
+private enum PlanKind {
+    case monthly
+    case yearly
+    case lifetime
+    case unknown
+
+    var friendlyName: String {
+        switch self {
+        case .monthly: return "Monthly"
+        case .yearly: return "Yearly"
+        case .lifetime: return "Lifetime"
+        case .unknown: return "Plan"
+        }
+    }
+}
+
+private struct BenefitSlide: Identifiable {
+    let id = UUID()
+    let icon: String
+    let title: String
+    let subtitle: String
+}
+
+private struct LifetimePlanSheet: View {
+    let priceText: String
+    let subtitle: String
+    let isAvailable: Bool
+    let onPurchase: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var animateIn = false
+    @State private var pulseGlow = false
+    @State private var shimmerOffset: CGFloat = -200
+    @State private var floatingOffset: CGFloat = 0
+    
+    private let lifetimeFeatures = [
+        ("infinity", "Forever Access", "Your goals appear every time you pick up your phone — stay consistent effortlessly"),
+        ("arrow.triangle.2.circlepath", "Habit Builder", "Micro-reminders on each pickup help you follow through without thinking"),
+        ("sparkles", "Daily Motivation", "Turn your phone into a focus anchor instead of a distraction magnet"),
+        ("paintbrush.fill", "Unlimited Personalization", "Create unlimited NoteWalls with full customization"),
+        ("crown.fill", "Lifetime Ownership", "Pay once. Use forever. No subscriptions or future charges")
+    ]
+
+    var body: some View {
+        ZStack {
+            // Animated mesh gradient background
+            animatedBackground
+            
+            // Floating particles
+            floatingParticles
+            
+            // Main content
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // Close button - top right
+                    HStack {
+                        Spacer()
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.6))
+                                .frame(width: 32, height: 32)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.1))
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                        )
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    
+                    Spacer().frame(height: 20)
+                    
+                    // Premium crown badge
+                    ZStack {
+                        // Outer glow rings
+                        ForEach(0..<3, id: \.self) { i in
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.appAccent.opacity(0.3), Color.appAccent.opacity(0)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 1
+                                )
+                                .frame(width: 140 + CGFloat(i) * 30, height: 140 + CGFloat(i) * 30)
+                                .scaleEffect(pulseGlow ? 1.1 : 1.0)
+                                .opacity(pulseGlow ? 0.3 : 0.6)
+                                .animation(
+                                    Animation.easeInOut(duration: 2)
+                                        .repeatForever(autoreverses: true)
+                                        .delay(Double(i) * 0.3),
+                                    value: pulseGlow
+                                )
+                        }
+                        
+                        // Logo with premium glow
+                Image("OnboardingLogo")
+                    .resizable()
+                    .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .cornerRadius(26)
+                            .shadow(color: Color.appAccent.opacity(0.6), radius: 30, x: 0, y: 10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 26)
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 2
+                                    )
+                            )
+                            .offset(y: floatingOffset)
+                        
+                        // Crown badge
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color(red: 1, green: 0.84, blue: 0), Color(red: 1, green: 0.65, blue: 0)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 36, height: 36)
+                                        .shadow(color: Color.orange.opacity(0.6), radius: 8, x: 0, y: 4)
+                                    
+                                    Image(systemName: "crown.fill")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                                .offset(x: 8, y: 8)
+                            }
+                        }
+                        .frame(width: 100, height: 100)
+                        .offset(y: floatingOffset)
+                    }
+                    .frame(height: 180)
+                    .opacity(animateIn ? 1 : 0)
+                    .scaleEffect(animateIn ? 1 : 0.8)
+                    .animation(.spring(response: 0.7, dampingFraction: 0.7).delay(0.1), value: animateIn)
+                    
+                    // Lifetime badge with shimmer
+                    ZStack {
+                        Text("LIFETIME")
+                            .font(.system(size: 14, weight: .black, design: .rounded))
+                            .foregroundColor(.appAccent)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color.appAccent.opacity(0.15))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(Color.appAccent.opacity(0.4), lineWidth: 1)
+                                    )
+                            )
+                            .overlay(
+                                // Shimmer effect
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0),
+                                                Color.white.opacity(0.4),
+                                                Color.white.opacity(0)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .offset(x: shimmerOffset)
+                                    .mask(
+                                        Capsule()
+                                            .padding(.horizontal, 20)
+                                            .padding(.vertical, 8)
+                                    )
+                            )
+                    }
+                    .padding(.top, 8)
+                    .opacity(animateIn ? 1 : 0)
+                    .animation(.easeOut(duration: 0.5).delay(0.3), value: animateIn)
+                    
+                    // Main headline
+                    VStack(spacing: 12) {
+                        Text("Own NoteWall+")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Text("Forever")
+                            .font(.system(size: 44, weight: .black, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.appAccent, Color.appAccent.opacity(0.7)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                    }
+                .multilineTextAlignment(.center)
+                    .padding(.top, 20)
+                    .opacity(animateIn ? 1 : 0)
+                    .offset(y: animateIn ? 0 : 20)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animateIn)
+                    
+                    // Price display
+                    VStack(spacing: 6) {
+                        Text(priceText)
+                            .font(.system(size: 56, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Text("one-time payment")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
+                            .textCase(.uppercase)
+                    }
+                    .padding(.top, 20)
+                    .opacity(animateIn ? 1 : 0)
+                    .offset(y: animateIn ? 0 : 20)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: animateIn)
+                    
+                    // Features list
+                    VStack(spacing: 14) {
+                        ForEach(Array(lifetimeFeatures.enumerated()), id: \.offset) { index, feature in
+                            featureRow(icon: feature.0, title: feature.1, subtitle: feature.2)
+                                .opacity(animateIn ? 1 : 0)
+                                .offset(x: animateIn ? 0 : -30)
+                                .animation(
+                                    .spring(response: 0.5, dampingFraction: 0.8)
+                                        .delay(0.4 + Double(index) * 0.08),
+                                    value: animateIn
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 32)
+                    
+                    Spacer().frame(height: 32)
+                    
+                    // CTA Button with glow
+                    Button(action: {
+                        let generator = UIImpactFeedbackGenerator(style: .heavy)
+                        generator.impactOccurred()
+                        onPurchase()
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 18, weight: .bold))
+                            
+                            Text("Unlock Forever")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 60)
+                        .background(
+                            ZStack {
+                                // Glow layer
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.appAccent)
+                                    .blur(radius: pulseGlow ? 20 : 15)
+                                    .opacity(0.6)
+                                    .scaleEffect(pulseGlow ? 1.05 : 1.0)
+                                
+                                // Main button
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.appAccent, Color.appAccent.opacity(0.85)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                            }
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .disabled(!isAvailable)
+                    .opacity(isAvailable ? 1 : 0.5)
+                    .padding(.horizontal, 24)
+                    .opacity(animateIn ? 1 : 0)
+                    .scaleEffect(animateIn ? 1 : 0.9)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.7), value: animateIn)
+                
+                if !isAvailable {
+                        Text("Lifetime option is currently unavailable")
+                        .font(.footnote)
+                            .foregroundColor(.white.opacity(0.4))
+                            .padding(.top, 12)
+                    }
+                    
+                    // Trust badges
+                    HStack(spacing: 24) {
+                        trustBadge(icon: "lock.shield.fill", text: "Secure")
+                        trustBadge(icon: "arrow.triangle.2.circlepath", text: "Restore Anytime")
+                        trustBadge(icon: "checkmark.seal.fill", text: "Verified")
+                    }
+                    .padding(.top, 24)
+                    .opacity(animateIn ? 1 : 0)
+                    .animation(.easeIn.delay(0.8), value: animateIn)
+                    
+                    // Skip button
+                    Button(action: onDismiss) {
+                        Text("Maybe later")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
+                    .padding(.top, 20)
+                    .padding(.bottom, 32)
+                    .opacity(animateIn ? 1 : 0)
+                    .animation(.easeIn.delay(0.9), value: animateIn)
+                }
+            }
+        }
+        .onAppear {
+            withAnimation {
+                animateIn = true
+            }
+            
+            // Start pulse animation
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                pulseGlow = true
+            }
+            
+            // Start floating animation
+            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+                floatingOffset = -8
+            }
+            
+            // Start shimmer animation
+            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                shimmerOffset = 200
+            }
+        }
+    }
+    
+    private var animatedBackground: some View {
+        ZStack {
+            // Base dark gradient
+            LinearGradient(
+                colors: [
+                    Color(red: 0.06, green: 0.06, blue: 0.12),
+                    Color(red: 0.02, green: 0.02, blue: 0.06)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // Accent glow orbs
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.3), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 200
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .offset(x: -100, y: -200)
+                .blur(radius: 60)
+            
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.2), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 150
+                    )
+                )
+                .frame(width: 300, height: 300)
+                .offset(x: 150, y: 300)
+                .blur(radius: 50)
+            
+            // Subtle noise texture overlay
+            Rectangle()
+                .fill(Color.white.opacity(0.02))
+                .background(
+                    Image(systemName: "circle.fill")
+                        .resizable()
+                        .frame(width: 2, height: 2)
+                        .foregroundColor(.white.opacity(0.03))
+                )
+        }
+        .ignoresSafeArea()
+    }
+    
+    private var floatingParticles: some View {
+        GeometryReader { geo in
+            ForEach(0..<15, id: \.self) { i in
+                Circle()
+                    .fill(Color.appAccent.opacity(Double.random(in: 0.1...0.4)))
+                    .frame(width: CGFloat.random(in: 3...8), height: CGFloat.random(in: 3...8))
+                    .offset(
+                        x: CGFloat.random(in: 0...geo.size.width),
+                        y: CGFloat.random(in: 0...geo.size.height)
+                    )
+                    .offset(y: animateIn ? -20 : 20)
+                    .opacity(animateIn ? 1 : 0)
+                    .animation(
+                        Animation.easeInOut(duration: Double.random(in: 3...5))
+                            .repeatForever(autoreverses: true)
+                            .delay(Double.random(in: 0...2)),
+                        value: animateIn
+                    )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+    
+    private func featureRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Color.appAccent.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.appAccent)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+            
+            Spacer()
+            
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20))
+                .foregroundColor(.appAccent.opacity(0.7))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+    
+    private func trustBadge(icon: String, text: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(.appAccent.opacity(0.7))
+            
+            Text(text)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.4))
+        }
+    }
+}
+
+private struct FallbackPlan: Identifiable {
+    let id = UUID()
+    let kind: PlanKind
+    let label: String
+    let subtitle: String
+    let priceText: String
+    let highlight: Bool
+    let trialDays: Int?
+}
+

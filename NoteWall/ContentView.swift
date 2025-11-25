@@ -6,12 +6,32 @@ struct ContentView: View {
     @AppStorage("savedNotes") private var savedNotesData: Data = Data()
     @AppStorage("lastLockScreenIdentifier") private var lastLockScreenIdentifier: String = ""
     @AppStorage("skipDeletingOldWallpaper") private var skipDeletingOldWallpaper = false
+    @AppStorage("autoUpdateWallpaperAfterDeletion") private var autoUpdateWallpaperAfterDeletionRaw: String = ""
+    @AppStorage("hasShownAutoUpdatePrompt") private var hasShownAutoUpdatePrompt = false
+    
+    // Computed property for auto-update preference (nil = not set, true/false = user choice)
+    private var autoUpdateWallpaperAfterDeletion: Bool? {
+        get {
+            if autoUpdateWallpaperAfterDeletionRaw.isEmpty {
+                return nil
+            }
+            return autoUpdateWallpaperAfterDeletionRaw == "true"
+        }
+        set {
+            if let value = newValue {
+                autoUpdateWallpaperAfterDeletionRaw = value ? "true" : "false"
+            } else {
+                autoUpdateWallpaperAfterDeletionRaw = ""
+            }
+        }
+    }
     @AppStorage("lockScreenBackground") private var lockScreenBackgroundRaw = LockScreenBackgroundOption.default.rawValue
     @AppStorage("lockScreenBackgroundMode") private var lockScreenBackgroundModeRaw = LockScreenBackgroundMode.default.rawValue
     @AppStorage("lockScreenBackgroundPhotoData") private var lockScreenBackgroundPhotoData: Data = Data()
     @AppStorage("homeScreenPresetSelection") private var homeScreenPresetSelectionRaw = ""
     @AppStorage("hasCompletedInitialWallpaperSetup") private var hasCompletedInitialWallpaperSetup = false
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
+    @AppStorage("shouldShowTroubleshootingBanner") private var shouldShowTroubleshootingBanner = false
     @StateObject private var paywallManager = PaywallManager.shared
     @State private var notes: [Note]
     @State private var newNoteText = ""
@@ -24,6 +44,8 @@ struct ContentView: View {
     @State private var selectedNotes: Set<UUID> = []
     @State private var shouldSkipDeletionPrompt = false
     @State private var isUserInitiatedUpdate = false
+    @State private var showTroubleshooting = false
+    @State private var shouldRestartOnboarding = false
     @FocusState private var isTextFieldFocused: Bool
 
     // Computed property to get indices of notes that will appear on wallpaper
@@ -120,6 +142,13 @@ struct ContentView: View {
 
     var body: some View {
         AnyView(ContentViewRoot(context: viewContext))
+            .onChange(of: shouldRestartOnboarding) { shouldRestart in
+                if shouldRestart {
+                    // Reset hasCompletedSetup to force onboarding to show
+                    hasCompletedSetup = false
+                    shouldRestartOnboarding = false
+                }
+            }
     }
 
     private var viewContext: ContentViewContext {
@@ -135,6 +164,9 @@ struct ContentView: View {
             isUserInitiatedUpdate: $isUserInitiatedUpdate,
             savedNotesData: $savedNotesData,
             hasCompletedSetup: hasCompletedSetup,
+            shouldShowTroubleshootingBanner: $shouldShowTroubleshootingBanner,
+            showTroubleshooting: $showTroubleshooting,
+            shouldRestartOnboarding: $shouldRestartOnboarding,
             isTextFieldFocused: $isTextFieldFocused,
             addNote: addNote,
             moveNotes: moveNotes,
@@ -149,7 +181,11 @@ struct ContentView: View {
             restorePendingDeletionIfNeeded: restorePendingDeletionIfNeeded,
             finalizePendingDeletion: finalizePendingDeletion,
             deleteSelectedNotes: deleteSelectedNotes,
-            loadNotes: loadNotes
+            loadNotes: loadNotes,
+            setAutoUpdatePreference: { value in
+                autoUpdateWallpaperAfterDeletionRaw = value ? "true" : "false"
+            },
+            handleNotesChangedAfterDeletion: handleNotesChangedAfterDeletion
         )
     }
 
@@ -277,12 +313,20 @@ struct ContentView: View {
 
     private func toggleCompletion(for note: Note) {
         if let index = notes.firstIndex(where: { $0.id == note.id }) {
+            let wasCompleted = notes[index].isCompleted
             notes[index].isCompleted.toggle()
             saveNotes()
             
             // Light impact haptic for toggling completion
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
+            
+            // Auto-update wallpaper when note completion status changes
+            // Skip deletion prompt and don't track for paywall (automatic update)
+            if hasCompletedInitialWallpaperSetup {
+                let request = WallpaperUpdateRequest(skipDeletionPrompt: true, trackForPaywall: false)
+                NotificationCenter.default.post(name: .requestWallpaperUpdate, object: request)
+            }
         }
     }
 
@@ -395,7 +439,14 @@ struct ContentView: View {
         pendingDeletionIndex = nil
 
         saveNotes()
-        handleNotesChangedAfterDeletion()
+        
+        // Check if this is first deletion after onboarding and preference not set
+        if hasCompletedSetup && !hasShownAutoUpdatePrompt && autoUpdateWallpaperAfterDeletion == nil {
+            hasShownAutoUpdatePrompt = true
+            activeAlert = .autoUpdateWallpaperPrompt
+        } else {
+            handleNotesChangedAfterDeletion()
+        }
     }
 
     private func deleteSelectedNotes() {
@@ -406,8 +457,15 @@ struct ContentView: View {
         notes.removeAll { selectedNotes.contains($0.id) }
         selectedNotes.removeAll()
         saveNotes()
-        handleNotesChangedAfterDeletion()
-        activeAlert = nil
+        
+        // Check if this is first deletion after onboarding and preference not set
+        if hasCompletedSetup && !hasShownAutoUpdatePrompt && autoUpdateWallpaperAfterDeletion == nil {
+            hasShownAutoUpdatePrompt = true
+            activeAlert = .autoUpdateWallpaperPrompt
+        } else {
+            handleNotesChangedAfterDeletion()
+            activeAlert = nil
+        }
     }
 
     private func updateWallpaper() {
@@ -563,6 +621,9 @@ struct ContentView: View {
 
         if notes.isEmpty {
             setBlankWallpaper()
+        } else if autoUpdateWallpaperAfterDeletion == true {
+            // Auto-update wallpaper after deletion if user enabled it
+            updateWallpaper()
         }
     }
 
@@ -616,6 +677,9 @@ private struct ContentViewContext {
     let isUserInitiatedUpdate: Binding<Bool>
     let savedNotesData: Binding<Data>
     let hasCompletedSetup: Bool
+    let shouldShowTroubleshootingBanner: Binding<Bool>
+    let showTroubleshooting: Binding<Bool>
+    let shouldRestartOnboarding: Binding<Bool>
     let isTextFieldFocused: FocusState<Bool>.Binding
     let addNote: () -> Void
     let moveNotes: (IndexSet, Int) -> Void
@@ -631,6 +695,8 @@ private struct ContentViewContext {
     let finalizePendingDeletion: () -> Void
     let deleteSelectedNotes: () -> Void
     let loadNotes: () -> Void
+    let setAutoUpdatePreference: (Bool) -> Void
+    let handleNotesChangedAfterDeletion: () -> Void
 }
 
 private enum ActiveAlert: String, Identifiable {
@@ -638,6 +704,7 @@ private enum ActiveAlert: String, Identifiable {
     case deleteNote
     case deleteSelectedNotes
     case wallpaperFull
+    case autoUpdateWallpaperPrompt
 
     var id: String { rawValue }
 }
@@ -729,6 +796,10 @@ private struct RootConfiguredModifier: ViewModifier {
                     context.pendingLockScreenImage.wrappedValue = nil
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .appResetToFreshInstall)) { _ in
+                // Force reload notes after app reset
+                context.loadNotes()
+            }
             .onChange(of: context.savedNotesData.wrappedValue) { _ in
                 context.loadNotes()
             }
@@ -794,6 +865,25 @@ private struct RootConfiguredModifier: ViewModifier {
                     generator.impactOccurred()
                 }
             )
+        case .autoUpdateWallpaperPrompt:
+            return Alert(
+                title: Text("Update Wallpaper Automatically?"),
+                message: Text("Would you like NoteWall to automatically update your lock screen wallpaper when you delete notes, or would you prefer to update it manually?"),
+                primaryButton: .default(Text("Update Automatically")) {
+                    // Light impact haptic
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    context.setAutoUpdatePreference(true)
+                    context.handleNotesChangedAfterDeletion()
+                },
+                secondaryButton: .default(Text("Update Manually")) {
+                    // Light impact haptic
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    context.setAutoUpdatePreference(false)
+                    context.handleNotesChangedAfterDeletion()
+                }
+            )
         }
     }
 }
@@ -825,6 +915,12 @@ private struct MainContentView: View {
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
             context.loadNotes()
+        }
+        .sheet(isPresented: context.showTroubleshooting) {
+            TroubleshootingView(
+                isPresented: context.showTroubleshooting,
+                shouldRestartOnboarding: context.shouldRestartOnboarding
+            )
         }
     }
 }
@@ -904,6 +1000,11 @@ private struct NotesListView: View {
                 context.moveNotes(source, destination)
             }
 
+            // Troubleshooting banner appears after notes
+            if context.shouldShowTroubleshootingBanner.wrappedValue && !context.isEditMode.wrappedValue {
+                TroubleshootingBannerView(context: context)
+            }
+
             if context.isEditMode.wrappedValue {
                 EditModeSupplementView(context: context, notes: notes)
             }
@@ -926,6 +1027,7 @@ private struct EditModeMenuButton: View {
                     .font(.system(size: 16, weight: .bold))
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(Color.white)
+                    .padding(12) // Adds extra tappable area around the button
             }
             .buttonStyle(EditModeChipButtonStyle(isActive: context.isEditMode.wrappedValue))
             .contentShape(Circle())
@@ -1271,6 +1373,101 @@ struct NoteRowView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: isEditMode)
+    }
+}
+
+private struct TroubleshootingBannerView: View {
+    let context: ContentViewContext
+    @State private var isTemporarilyHidden = false
+    
+    var body: some View {
+        Group {
+            if !isTemporarilyHidden {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.appAccent)
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Wallpaper Not Showing?")
+                                .font(.system(.headline, design: .rounded))
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+                            
+                            Text("We can help you fix it in just a few steps.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            withAnimation {
+                                isTemporarilyHidden = true
+                            }
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.secondary.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    Button(action: {
+                        context.showTroubleshooting.wrappedValue = true
+                    }) {
+                        HStack {
+                            Image(systemName: "wrench.and.screwdriver.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Get Help")
+                                .fontWeight(.semibold)
+                                .font(.subheadline)
+                            Spacer()
+                            Image(systemName: "arrow.right.circle.fill")
+                                .font(.system(size: 16))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color.appAccent,
+                                            Color.appAccent.opacity(0.9)
+                                        ]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.appAccent.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(Color.appAccent.opacity(0.2), lineWidth: 1)
+                        )
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 8)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .transition(.asymmetric(
+                    insertion: .scale.combined(with: .opacity),
+                    removal: .scale.combined(with: .opacity)
+                ))
+            }
+        }
     }
 }
 

@@ -28,21 +28,19 @@ struct WallpaperRenderer {
                 print("   ✅ Drew background image")
             }
 
-            // Filter out completed notes and limit to notes that fit
-            let activeNotes = notes.filter { !$0.isCompleted }
-            let notesToShow = limitNotesToSafeArea(activeNotes)
+            // Include all notes (both active and completed) and limit to notes that fit
+            let notesToShow = limitNotesToSafeArea(notes)
             
+            let activeNotes = notes.filter { !$0.isCompleted }
+            let completedNotes = notes.filter { $0.isCompleted }
             print("   Active notes: \(activeNotes.count)")
+            print("   Completed notes: \(completedNotes.count)")
             print("   Notes to show: \(notesToShow.count)")
 
             guard !notesToShow.isEmpty else {
                 print("   ⚠️ NO NOTES TO SHOW - Wallpaper will be blank")
                 return
             }
-
-            // Prepare text
-            let combinedText = notesToShow.map { $0.text }.joined(separator: "\n\n")
-            print("   📝 Combined text length: \(combinedText.count) chars")
 
             // Text attributes - white, left-aligned
             let paragraphStyle = NSMutableParagraphStyle()
@@ -51,18 +49,47 @@ struct WallpaperRenderer {
 
             // Increased font size for better visibility
             let fontSize: CGFloat = 96
-            let textColor = textColorForBackground(
+            let baseTextColor = textColorForBackground(
                 backgroundColor: backgroundColor,
                 backgroundImage: backgroundImage
             )
             
-            print("   🎨 Text color: \(textColor == .white ? "WHITE" : "BLACK")")
+            // App accent color for strikethrough (cyan: RGB 0, 0.768, 0.722)
+            let accentColor = UIColor(red: 0.0, green: 0.768, blue: 0.722, alpha: 1.0)
+            
+            print("   🎨 Text color: \(baseTextColor == .white ? "WHITE" : "BLACK")")
 
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: fontSize, weight: .medium),
-                .foregroundColor: textColor,
-                .paragraphStyle: paragraphStyle
-            ]
+            // Build attributed string with strikethrough for completed notes
+            let attributedString = NSMutableAttributedString()
+            
+            for (index, note) in notesToShow.enumerated() {
+                if index > 0 {
+                    // Add separator between notes
+                    attributedString.append(NSAttributedString(string: "\n\n"))
+                }
+                
+                // Base attributes for all notes
+                var noteAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: fontSize, weight: .medium),
+                    .paragraphStyle: paragraphStyle
+                ]
+                
+                if note.isCompleted {
+                    // Completed notes: dimmed text color and strikethrough
+                    let dimmedColor = baseTextColor.withAlphaComponent(0.5)
+                    noteAttributes[.foregroundColor] = dimmedColor
+                    noteAttributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+                    noteAttributes[.strikethroughColor] = accentColor
+                } else {
+                    // Active notes: normal text color
+                    noteAttributes[.foregroundColor] = baseTextColor
+                }
+                
+                let noteAttributedString = NSAttributedString(string: note.text, attributes: noteAttributes)
+                attributedString.append(noteAttributedString)
+            }
+            
+            print("   📝 Combined text length: \(attributedString.length) chars")
 
             // Calculate text size and position
             let horizontalPadding: CGFloat = 80
@@ -71,7 +98,6 @@ struct WallpaperRenderer {
             let topPadding: CGFloat = 1075 // Increased to move notes further down towards bottom
             let textMaxWidth = width - (horizontalPadding * 2)
 
-            let attributedString = NSAttributedString(string: combinedText, attributes: attributes)
             let textSize = attributedString.boundingRect(
                 with: CGSize(width: textMaxWidth, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading],
@@ -88,9 +114,9 @@ struct WallpaperRenderer {
             
             print("   📍 Text rect: x=\(horizontalPadding), y=\(topPadding), w=\(textMaxWidth), h=\(textSize.height)")
 
-            // Draw text
-            combinedText.draw(in: textRect, withAttributes: attributes)
-            print("   ✅ Drew text on wallpaper")
+            // Draw attributed text
+            attributedString.draw(in: textRect)
+            print("   ✅ Drew text on wallpaper (with strikethrough for completed notes)")
         }
     }
 
@@ -115,8 +141,8 @@ struct WallpaperRenderer {
 
     // Calculate how many notes will appear on wallpaper
     static func getWallpaperNoteCount(from notes: [Note]) -> Int {
-        let activeNotes = notes.filter { !$0.isCompleted }
-        return limitNotesToSafeArea(activeNotes).count
+        // Include all notes (both active and completed) in the count
+        return limitNotesToSafeArea(notes).count
     }
 
     private static func limitNotesToSafeArea(_ notes: [Note]) -> [Note] {

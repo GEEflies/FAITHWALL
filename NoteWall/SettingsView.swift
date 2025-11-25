@@ -6,6 +6,24 @@ import Combine
 struct SettingsView: View {
     @AppStorage("savedNotes") private var savedNotesData: Data = Data()
     @AppStorage("skipDeletingOldWallpaper") private var skipDeletingOldWallpaper = false
+    @AppStorage("autoUpdateWallpaperAfterDeletion") private var autoUpdateWallpaperAfterDeletionRaw: String = ""
+    
+    // Computed property for auto-update preference
+    private var autoUpdateWallpaperAfterDeletion: Bool? {
+        get {
+            if autoUpdateWallpaperAfterDeletionRaw.isEmpty {
+                return nil
+            }
+            return autoUpdateWallpaperAfterDeletionRaw == "true"
+        }
+        set {
+            if let value = newValue {
+                autoUpdateWallpaperAfterDeletionRaw = value ? "true" : "false"
+            } else {
+                autoUpdateWallpaperAfterDeletionRaw = ""
+            }
+        }
+    }
     @AppStorage("lockScreenBackground") private var lockScreenBackgroundRaw = LockScreenBackgroundOption.default.rawValue
     @AppStorage("lockScreenBackgroundMode") private var lockScreenBackgroundModeRaw = LockScreenBackgroundMode.default.rawValue
     @AppStorage("lockScreenBackgroundPhotoData") private var lockScreenBackgroundPhotoData: Data = Data()
@@ -16,9 +34,25 @@ struct SettingsView: View {
     @State private var showDeleteAlert = false
     @State private var showResetAlert = false
     @State private var showPaywall = false
+    @State private var showTroubleshooting = false
+    @State private var shouldRestartOnboarding = false
     var selectedTab: Binding<Int>?
 
     private let shortcutURL = "https://www.icloud.com/shortcuts/5c43e6ec791e4a90b8172bda31243e5c"
+    private let testFlightShortcutURL = "https://www.icloud.com/shortcuts/1c815657ac7c446a996d505032471cea"
+    
+    // Detect if running from TestFlight
+    private var isTestFlightBuild: Bool {
+        guard let path = Bundle.main.appStoreReceiptURL?.path else {
+            return false
+        }
+        return path.contains("sandboxReceipt")
+    }
+    
+    // Get the appropriate shortcut URL based on build type
+    private var currentShortcutURL: String {
+        return isTestFlightBuild ? testFlightShortcutURL : shortcutURL
+    }
     init(selectedTab: Binding<Int>? = nil) {
         self.selectedTab = selectedTab
     }
@@ -81,6 +115,12 @@ struct SettingsView: View {
                 PaywallView(triggerReason: .settings, allowDismiss: true)
             }
         }
+        .sheet(isPresented: $showTroubleshooting) {
+            TroubleshootingView(
+                isPresented: $showTroubleshooting,
+                shouldRestartOnboarding: $shouldRestartOnboarding
+            )
+        }
         .sheet(isPresented: $showLegalDocument) {
             NavigationView {
                 ScrollView {
@@ -104,33 +144,60 @@ struct SettingsView: View {
                 }
             }
         }
+        .onChange(of: shouldRestartOnboarding) { shouldRestart in
+            if shouldRestart {
+                // Reset to fresh install state to force onboarding
+                hasCompletedSetup = false
+                completedOnboardingVersion = 0
+                shouldRestartOnboarding = false
+            }
+        }
     }
     
     private var premiumSection: some View {
         Section {
             if paywallManager.isPremium {
-                HStack(spacing: 12) {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.appAccent)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("NoteWall+ Active")
-                            .font(.headline)
-                            .foregroundColor(.primary)
+                Button(action: openSubscriptionManagement) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.appAccent)
                         
-                        Text(paywallManager.hasLifetimeAccess ? "Lifetime Access" : "Subscription Active")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("NoteWall+ Active")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            Text(paywallManager.hasLifetimeAccess ? "Lifetime Access" : "Subscription Active")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.appAccent)
+                    }
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: {
+                    paywallManager.resetPaywallData()
+                    paywallManager.showPaywall(reason: .settings)
+                }) {
+                    HStack {
+                        Text("Revert to Paywall (Test)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Image(systemName: "arrow.counterclockwise")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.appAccent)
                 }
-                .padding(.vertical, 8)
+                .buttonStyle(.plain)
             } else {
                 Button(action: {
                     // Light impact haptic for opening paywall
@@ -182,6 +249,25 @@ struct SettingsView: View {
                     Text("When enabled, old wallpapers won't be deleted automatically. This avoids system permission popups.")
                         .font(.caption)
                         .foregroundColor(.gray)
+                }
+            }
+            
+            if autoUpdateWallpaperAfterDeletion != nil {
+                Toggle(isOn: Binding(
+                    get: { autoUpdateWallpaperAfterDeletion ?? false },
+                    set: { newValue in
+                        autoUpdateWallpaperAfterDeletionRaw = newValue ? "true" : "false"
+                        // Light impact haptic for toggle switch
+                        let generator = UIImpactFeedbackGenerator(style: .light)
+                        generator.impactOccurred()
+                    }
+                )) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Auto-Update After Deletion")
+                        Text("When enabled, your lock screen wallpaper will automatically update when you delete notes.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
                 }
             }
         }
@@ -285,6 +371,37 @@ struct SettingsView: View {
                         .foregroundColor(.cyan)
                 }
             }
+            
+            // MARK: - TESTING ONLY: Reset App Button
+            // TODO: Remove this before production release
+            #if DEBUG
+            Button(action: {
+                // Medium impact haptic
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                NotificationCenter.default.post(name: .requestAppReset, object: nil)
+            }) {
+                HStack {
+                    Text("🧪 Reset to Fresh Install (Testing)")
+                        .foregroundColor(.orange)
+                    Spacer()
+                    Image(systemName: "arrow.counterclockwise")
+                        .foregroundColor(.orange)
+                }
+            }
+            #endif
+            
+            Button(action: {
+                showTroubleshooting = true
+            }) {
+                HStack {
+                    Text("Wallpaper Not Showing?")
+                        .foregroundColor(.appAccent)
+                    Spacer()
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .foregroundColor(.appAccent)
+                }
+            }
         }
     }
 
@@ -376,6 +493,9 @@ struct SettingsView: View {
         
         // Reset paywall data for fresh install
         PaywallManager.shared.resetForFreshInstall()
+        
+        // Reset shortcut setup completion flag
+        ShortcutVerificationService.resetSetupCompletion()
         
         print("✅ Cleared all AppStorage data")
         
@@ -513,6 +633,12 @@ private extension SettingsView {
         let shouldBeEnabled = homeScreenPresetSelectionRaw.isEmpty && HomeScreenImageManager.homeScreenImageExists()
         if homeScreenUsesCustomPhoto != shouldBeEnabled {
             homeScreenUsesCustomPhoto = shouldBeEnabled
+        }
+    }
+    
+    private func openSubscriptionManagement() {
+        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+            UIApplication.shared.open(url)
         }
     }
     

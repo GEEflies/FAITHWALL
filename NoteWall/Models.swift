@@ -20,6 +20,8 @@ extension Notification.Name {
     static let onboardingReplayRequested = Notification.Name("onboardingReplayRequested")
     static let shortcutWallpaperApplied = Notification.Name("shortcutWallpaperApplied")
     static let onboardingCompleted = Notification.Name("onboardingCompleted")
+    static let appResetToFreshInstall = Notification.Name("appResetToFreshInstall")
+    static let requestAppReset = Notification.Name("requestAppReset")
 }
 
 struct WallpaperUpdateRequest {

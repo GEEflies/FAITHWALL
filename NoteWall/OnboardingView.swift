@@ -4,6 +4,7 @@ import UIKit
 import QuartzCore
 import AVKit
 import AVFoundation
+import AudioToolbox
 
 // Only log in debug builds to reduce console noise
 #if DEBUG
@@ -31,6 +32,7 @@ struct OnboardingView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
     @AppStorage("completedOnboardingVersion") private var completedOnboardingVersion = 0
+    @AppStorage("shouldShowTroubleshootingBanner") private var shouldShowTroubleshootingBanner = false
     @AppStorage("lockScreenBackground") private var lockScreenBackgroundRaw = LockScreenBackgroundOption.default.rawValue
     @AppStorage("lockScreenBackgroundMode") private var lockScreenBackgroundModeRaw = LockScreenBackgroundMode.default.rawValue
     @AppStorage("lockScreenBackgroundPhotoData") private var lockScreenBackgroundPhotoData: Data = Data()
@@ -56,7 +58,13 @@ struct OnboardingView: View {
     @State private var demoVideoLooper: AVPlayerLooper?
     @State private var notificationsVideoPlayer: AVQueuePlayer?
     @State private var notificationsVideoLooper: AVPlayerLooper?
+    @StateObject private var pipVideoPlayerManager = PIPVideoPlayerManager()
+    @State private var shouldStartPiP = false
     private let demoVideoPlaybackRate: Float = 1.5
+    
+    // Post-onboarding troubleshooting
+    @State private var showTroubleshooting = false
+    @State private var shouldRestartOnboarding = false
     
     // Notes management for onboarding
     @State private var onboardingNotes: [Note] = []
@@ -64,6 +72,20 @@ struct OnboardingView: View {
     @FocusState private var isNoteFieldFocused: Bool
 
     private let shortcutURL = "https://www.icloud.com/shortcuts/5c43e6ec791e4a90b8172bda31243e5c"
+    private let testFlightShortcutURL = "https://www.icloud.com/shortcuts/1c815657ac7c446a996d505032471cea"
+    
+    // Detect if running from TestFlight
+    private var isTestFlightBuild: Bool {
+        guard let path = Bundle.main.appStoreReceiptURL?.path else {
+            return false
+        }
+        return path.contains("sandboxReceipt")
+    }
+    
+    // Get the appropriate shortcut URL based on build type
+    private var currentShortcutURL: String {
+        return isTestFlightBuild ? testFlightShortcutURL : shortcutURL
+    }
 
     var body: some View {
         Group {
@@ -74,6 +96,14 @@ struct OnboardingView: View {
             }
         }
         .interactiveDismissDisabled()
+        .overlay(
+            // Player layer for PiP support - must be in view hierarchy
+            // Keep it off-screen but with proper video dimensions
+            HiddenPiPPlayerLayerView(playerManager: pipVideoPlayerManager)
+                .frame(width: 320, height: 568) // Proper video dimensions
+                .offset(x: -10000, y: 0) // Off-screen to the left
+                .allowsHitTesting(false)
+        )
         .task {
             HomeScreenImageManager.prepareStorageStructure()
         }
@@ -85,14 +115,53 @@ struct OnboardingView: View {
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
-                // Only advance if we're still on the install shortcut step
-                // Don't interfere with other steps (like allowPermissions)
-                if currentPage == .installShortcut {
-                    advanceAfterShortcutInstallIfNeeded()
+                print("📱 Onboarding: App became active, currentPage: \(currentPage), didOpenShortcut: \(didOpenShortcut)")
+                // Stop PiP when returning to app
+                if pipVideoPlayerManager.isPiPActive {
+                    pipVideoPlayerManager.stopPictureInPicture()
+                    pipVideoPlayerManager.stop()
+                }
+                shouldStartPiP = false
+                
+                // Handle return from Shortcuts app after installing shortcut
+                // Only advance if we're still on the install shortcut step and shortcut was opened
+                if currentPage == .installShortcut && didOpenShortcut {
+                    print("📱 Onboarding: Detected return from Shortcuts app, navigating to add notes step immediately")
+                    // Navigate immediately - no delay needed
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self.currentPage = .addNotes
+                    }
+                    self.didOpenShortcut = false
+                    print("✅ Onboarding: Now on page: \(self.currentPage)")
                 }
                 // Only complete shortcut launch if we're on the chooseWallpapers step
                 if currentPage == .chooseWallpapers {
                     completeShortcutLaunch()
+                }
+            } else if newPhase == .background {
+                // PiP should automatically take over the already-playing video
+                // because we set canStartPictureInPictureAutomaticallyFromInline = true
+                if shouldStartPiP && currentPage == .installShortcut {
+                    print("🎬 Onboarding: App went to background")
+                    print("   - Video should already be playing")
+                    print("   - PiP should take over automatically")
+                    
+                    // If automatic PiP doesn't work, try manual start as fallback
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        if !self.pipVideoPlayerManager.isPiPActive {
+                            print("⚠️ Onboarding: Automatic PiP didn't start, trying manual start")
+                            if self.pipVideoPlayerManager.isReadyToPlay && self.pipVideoPlayerManager.isPiPControllerReady {
+                                let success = self.pipVideoPlayerManager.startPictureInPicture()
+                                if success {
+                                    print("✅ Onboarding: PiP started manually")
+                                } else {
+                                    print("❌ Onboarding: Manual PiP start also failed")
+                                }
+                            }
+                        } else {
+                            print("✅ Onboarding: Automatic PiP is active")
+                        }
+                    }
                 }
             }
         }
@@ -101,6 +170,16 @@ struct OnboardingView: View {
                 HomeScreenImageManager.prepareStorageStructure()
             }
         }
+        .onChange(of: shouldRestartOnboarding) { shouldRestart in
+            if shouldRestart {
+                // Reset to first page and restart onboarding
+                withAnimation {
+                    currentPage = .welcome
+                }
+                shouldRestartOnboarding = false
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
@@ -220,7 +299,8 @@ struct OnboardingView: View {
                         .interpolation(.high)
                         .antialiased(true)
                         .scaledToFit()
-                        .frame(width: 148, height: 148)
+                        .frame(width: 110, height: 110)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                         .shadow(color: Color.black.opacity(0.18), radius: 18, x: 0, y: 10)
                         .accessibilityHidden(true)
                     
@@ -230,7 +310,7 @@ struct OnboardingView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                     
-                    Text("Never forget again. NoteWall keeps the things you care about front and center every time you glance at your phone.")
+                    Text("Because if you see it 50x per day, you'll do it and will never forget anything again.")
                         .font(.system(.title3))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -291,15 +371,103 @@ struct OnboardingView: View {
     }
     
     private func installShortcutStep() -> some View {
-        GeometryReader { proxy in
-            VStack {
-                demoVideoSection(minHeight: proxy.size.height - 48)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
-                    .padding(.bottom, 24)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 24) {
+                VStack(spacing: 16) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 60, weight: .semibold))
+                        .foregroundColor(.appAccent)
+                        .padding(.top, 8)
+                    
+                    Text("Install the Shortcut")
+                        .font(.system(.largeTitle, design: .rounded))
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("This takes 30 seconds. A video guide will help you.")
+                        .font(.system(.title3))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                }
+                
+                VStack(spacing: 14) {
+                    installShortcutInfoCard(
+                        title: "Add the Shortcut",
+                        subtitle: "Tap 'Add Shortcut' in the Shortcuts app.",
+                        icon: "plus.circle.fill"
+                    )
+                    
+                    installShortcutInfoCard(
+                        title: "Choose Your Current Wallpaper",
+                        subtitle: "Select the wallpaper you're using RIGHT NOW. This is the one you want to replace with notes.",
+                        icon: "photo.fill",
+                        highlightedText: "Current Wallpaper"
+                    )
+                    
+                    installShortcutInfoCard(
+                        title: "Follow the Video",
+                        subtitle: "A Picture-in-Picture video will show you exactly what to do.",
+                        icon: "play.rectangle.fill"
+                    )
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 36)
         }
+        .scrollAlwaysBounceIfAvailable()
+        .onAppear {
+            // Prepare PiP video when this step appears
+            preparePiPVideo()
+            // Preload/prepare the next step (addNotes) for instant transition
+            // This ensures the view is ready when user returns from Shortcuts app
+        }
+    }
+    
+    private func installShortcutInfoCard(title: String, subtitle: String, icon: String, highlightedText: String? = nil) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(.appAccent)
+                .frame(width: 40, height: 40)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.system(.title3, design: .rounded))
+                    .fontWeight(.semibold)
+                
+                if let highlightedText = highlightedText, subtitle.contains(highlightedText) {
+                    // Create attributed text with highlighted portion
+                    let parts = subtitle.components(separatedBy: highlightedText)
+                    if parts.count == 2 {
+                        (Text(parts[0])
+                            .foregroundColor(.secondary) +
+                         Text(highlightedText)
+                            .foregroundColor(.appAccent)
+                            .fontWeight(.bold) +
+                         Text(parts[1])
+                            .foregroundColor(.secondary))
+                        .font(.body)
+                    } else {
+                        Text(subtitle)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Text(subtitle)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
     }
     
     private func addNotesStep() -> some View {
@@ -393,8 +561,8 @@ struct OnboardingView: View {
                 isNoteFieldFocused = false
             }
             .onAppear {
-                // Focus the text field when the view appears
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                // Focus the text field when the view appears - reduced delay for faster feel
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isNoteFieldFocused = true
                 }
             }
@@ -439,41 +607,33 @@ struct OnboardingView: View {
 
     private func allowPermissionsStep() -> some View {
         GeometryReader { proxy in
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text("Allow Permissions")
                     .font(.system(.largeTitle, design: .rounded))
                     .fontWeight(.bold)
                     .padding(.top, 24)
+                    .padding(.horizontal, 24)
                 
                 Text("Click \"Allow\" for ALL permissions")
                     .font(.system(.title3))
                     .foregroundColor(.appAccent)
                     .fontWeight(.semibold)
                     .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .padding(.top, 8)
-                
-                notificationsVideoSection(minHeight: proxy.size.height * 0.45)
                     .padding(.horizontal, 24)
-                    .padding(.top, 12)
+                    .zIndex(10)
                 
-                VStack(spacing: 12) {
-                    overviewInfoCard(
-                        title: "Capture Notes Fast",
-                        subtitle: "Add or pin notes in the Home tab whenever inspiration hits.",
-                        icon: "square.and.pencil"
-                    )
-                    
-                    overviewInfoCard(
-                        title: "Update the Wallpaper",
-                        subtitle: "Tap \"Update Wallpaper\" to create the latest lock screen image with your current notes.",
-                        icon: "paintbrush"
-                    )
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-                .padding(.bottom, 8)
+                notificationsVideoSection(minHeight: proxy.size.height - 200)
+                    .padding(.horizontal, 16)
+                    .padding(.top, -30)
+                    .zIndex(1)
+                
+                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .onAppear {
             // Prepare video player (may already be preloaded from step 3)
@@ -601,40 +761,26 @@ struct OnboardingView: View {
     }
 
     private func overviewStep() -> some View {
-        GeometryReader { proxy in
-            VStack(spacing: 0) {
-                Text("Ready to Go")
-                    .font(.system(.largeTitle, design: .rounded))
-                    .fontWeight(.bold)
-                    .padding(.top, 24)
-                
-                Text("You're all set! Start adding notes and updating your wallpaper.")
-                    .font(.system(.title3))
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 8)
-                    .padding(.horizontal, 24)
-                
-                Spacer()
-                
-                VStack(spacing: 16) {
-                    overviewInfoCard(
-                        title: "Add Notes",
-                        subtitle: "Capture your thoughts in the Home tab.",
-                        icon: "square.and.pencil"
-                    )
-                    
-                    overviewInfoCard(
-                        title: "Update Wallpaper",
-                        subtitle: "Tap \"Update Wallpaper\" to refresh your lock screen.",
-                        icon: "paintbrush"
-                    )
-                }
+        VStack(spacing: 24) {
+            Text("Ready to Go")
+                .font(.system(.largeTitle, design: .rounded))
+                .fontWeight(.bold)
+                .padding(.top, 32)
+            
+            Text("You're all set! Start adding notes and updating your wallpaper.")
+                .font(.system(.title3))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            Spacer(minLength: 40)
+            
+            AnimatedCheckmarkView()
+                .padding(.top, -60)
+            
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func demoVideoSection(minHeight: CGFloat) -> some View {
@@ -694,7 +840,7 @@ struct OnboardingView: View {
         case .allowPermissions:
             return "Continue"
         case .installShortcut:
-            return didOpenShortcut ? "Next" : "Install Shortcut"
+            return didOpenShortcut ? "Next" : "Install"
         case .addNotes:
             return "Continue"
         }
@@ -762,13 +908,18 @@ struct OnboardingView: View {
             advanceStep()
         case .installShortcut:
             if didOpenShortcut {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        self.currentPage = .addNotes
-                    }
+                // User already tapped "Next" after installing shortcut
+                // Navigate to add notes step (this happens if user taps Next before leaving app)
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    currentPage = .addNotes
+                    didOpenShortcut = false // Reset flag to prevent double navigation
                 }
             } else {
+                // Open shortcut installation URL
                 installShortcut()
+                // Navigation to addNotes will happen automatically when user 
+                // returns to app (handled in onChange of scenePhase)
+                // The flag didOpenShortcut is set in installShortcut() callback
             }
         case .addNotes:
             // Preload video player when moving to step 3 (so it's ready for step 4)
@@ -840,7 +991,7 @@ struct OnboardingView: View {
             if currentPage == .welcome {
                 advanceStep()
             } else if currentPage == .installShortcut && didOpenShortcut {
-                currentPage = .chooseWallpapers
+                currentPage = .addNotes
             } else if currentPage == .chooseWallpapers && primaryButtonEnabled {
                 startShortcutLaunch()
             } else if currentPage == .allowPermissions {
@@ -879,21 +1030,101 @@ struct OnboardingView: View {
     }
 
     private func installShortcut() {
-        guard let url = URL(string: shortcutURL) else { return }
-        UIApplication.shared.open(url) { success in
-            DispatchQueue.main.async {
-                if success {
-                    didOpenShortcut = true
-                } else {
-                    // NSFileProviderErrorDomain error -1005 can occur due to iCloud/file provider issues
-                    // This is typically a system-level issue, not an app bug
-                    print("⚠️ Onboarding: Shortcut URL open failed. This may be due to:")
-                    print("   - iCloud Drive connectivity issues")
-                    print("   - Pending iCloud terms acceptance")
-                    print("   - Network connectivity problems")
-                    print("   - Shortcuts app privacy settings")
-                    // Don't block the user - they can manually install later
-                    // The error dialog from iOS will inform them
+        guard let url = URL(string: currentShortcutURL) else { return }
+        
+        // Prepare PiP video before opening Shortcuts app
+        preparePiPVideo()
+        shouldStartPiP = true
+        
+        // Prepare the video but DON'T start playing yet
+        // We'll start it when the app goes to background so user sees it from the beginning
+        Task {
+            // Wait for player to be ready
+            var attempts = 0
+            while !pipVideoPlayerManager.isReadyToPlay && attempts < 50 {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                attempts += 1
+            }
+            
+            // Wait for PiP controller to be ready
+            attempts = 0
+            while !pipVideoPlayerManager.isPiPControllerReady && attempts < 50 {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                attempts += 1
+            }
+            
+            if pipVideoPlayerManager.isReadyToPlay && pipVideoPlayerManager.isPiPControllerReady {
+                print("✅ Onboarding: Player and PiP controller ready")
+                
+                // Make sure video is at the beginning
+                await MainActor.run {
+                    pipVideoPlayerManager.getPlayer()?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                }
+                
+                // CRITICAL: Start playing the video BEFORE opening Shortcuts
+                // iOS requires the video to be actively playing before PiP can work
+                _ = pipVideoPlayerManager.play()
+                print("✅ Onboarding: Started video playback")
+                
+                // Wait a moment for playback to actually start (very brief)
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                
+                // Now open Shortcuts - PiP will take over when app backgrounds
+                await MainActor.run {
+                    UIApplication.shared.open(url) { success in
+                        DispatchQueue.main.async {
+                            if success {
+                                self.didOpenShortcut = true
+                                print("✅ Onboarding: Opened Shortcuts, PiP will take over automatically")
+                            } else {
+                                print("⚠️ Onboarding: Shortcut URL open failed. This may be due to:")
+                                print("   - iCloud Drive connectivity issues")
+                                print("   - Pending iCloud terms acceptance")
+                                print("   - Network connectivity problems")
+                                print("   - Shortcuts app privacy settings")
+                                self.shouldStartPiP = false
+                                // Stop playback if Shortcuts didn't open
+                                self.pipVideoPlayerManager.stop()
+                            }
+                        }
+                    }
+                }
+            } else {
+                print("❌ Onboarding: Cannot prepare PiP - Player ready: \(self.pipVideoPlayerManager.isReadyToPlay), Controller ready: \(self.pipVideoPlayerManager.isPiPControllerReady)")
+            }
+        }
+    }
+    
+    private func preparePiPVideo() {
+        guard let bundleURL = Bundle.main.url(forResource: "pip-guide-video", withExtension: "mp4") else {
+            print("⚠️ Onboarding: PiP demo video not found in bundle")
+            return
+        }
+        
+        print("🎬 Onboarding: Preparing PiP video from: \(bundleURL.path)")
+        
+        // Load the video
+        let loaded = pipVideoPlayerManager.loadVideo(url: bundleURL)
+        
+        if loaded {
+            print("✅ Onboarding: Video loaded, waiting for player to be ready")
+            
+            // Wait for player to be ready, then set up the layer
+            Task {
+                var attempts = 0
+                while !pipVideoPlayerManager.isReadyToPlay && attempts < 50 {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                    attempts += 1
+                }
+                
+                if pipVideoPlayerManager.isReadyToPlay {
+                    print("✅ Onboarding: Player is ready")
+                    
+                    // Trigger a state update to make the view add the layer
+                    await MainActor.run {
+                        // Force update by touching a @Published property
+                        _ = pipVideoPlayerManager.isReadyToPlay
+                    }
                 }
             }
         }
@@ -909,7 +1140,9 @@ struct OnboardingView: View {
         
         hasCompletedSetup = true
         completedOnboardingVersion = onboardingVersion
+        shouldShowTroubleshootingBanner = true // Show troubleshooting banner on home screen
         NotificationCenter.default.post(name: .onboardingCompleted, object: nil)
+        
         isPresented = false
     }
 
@@ -917,7 +1150,7 @@ struct OnboardingView: View {
 
     private func prepareDemoVideoPlayerIfNeeded() {
         guard demoVideoPlayer == nil else { return }
-        guard let bundleURL = Bundle.main.url(forResource: "notewall-demo-video", withExtension: "mov") else {
+        guard let bundleURL = Bundle.main.url(forResource: "pip-guide-video", withExtension: "mp4") else {
             print("⚠️ Onboarding: Demo video not found in bundle")
             return
         }
@@ -940,10 +1173,13 @@ struct OnboardingView: View {
         Group {
             if let player = notificationsVideoPlayer {
                 VideoPlayer(player: player)
-                    .aspectRatio(9/16, contentMode: .fit)
+                    .aspectRatio(contentMode: .fit)
                     .frame(maxWidth: .infinity)
-                    .frame(minHeight: minHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .mask(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .padding(.vertical, 20)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(Color.black.opacity(0.08), lineWidth: 0.5)
@@ -1027,10 +1263,10 @@ struct OnboardingView: View {
             print("❌ CRITICAL: notifications.mov not found in bundle!")
             print("📁 Bundle path: \(Bundle.main.bundlePath)")
             
-            // List ALL .mov files in bundle for debugging
+            // List ALL video files in bundle for debugging
             if let files = try? FileManager.default.contentsOfDirectory(atPath: Bundle.main.bundlePath) {
-                let movFiles = files.filter { $0.hasSuffix(".mov") }
-                print("📁 MOV files in bundle: \(movFiles)")
+                let videoFiles = files.filter { $0.hasSuffix(".mov") || $0.hasSuffix(".mp4") }
+                print("📁 Video files in bundle: \(videoFiles)")
             }
             return
         }
@@ -1081,7 +1317,7 @@ struct OnboardingView: View {
             DispatchQueue.main.async {
                 switch playerItem.status {
                 case .readyToPlay:
-                    print("✅ notifications.mov player item READY TO PLAY")
+                    print("✅ notifications.mov player item READY TO PLAY (Allow Permissions step)")
                     print("   - Duration: \(playerItem.duration.seconds) seconds")
                     if let videoTrack = playerItem.asset.tracks(withMediaType: .video).first {
                         print("   - Natural size: \(videoTrack.naturalSize)")
@@ -1613,11 +1849,11 @@ private extension OnboardingPage {
         case .addNotes:
             return "Step 2"
         case .chooseWallpapers:
-            return "Step 3"
-        case .allowPermissions:
             return "Step 4"
-        case .overview:
+        case .allowPermissions:
             return "Step 5"
+        case .overview:
+            return "Step 6"
         }
     }
 }
@@ -1807,6 +2043,69 @@ private class VideoPlayerContainerView: UIView {
     }
 }
 
+// MARK: - Animated Checkmark View
+private struct AnimatedCheckmarkView: View {
+    @State private var isAnimating = false
+    @State private var showCheckmark = false
+    @State private var scale: CGFloat = 0.5
+    @State private var rotation: Double = 0
+    
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(Color.appAccent)
+                .frame(width: 120, height: 120)
+                .scaleEffect(scale)
+                .rotationEffect(.degrees(rotation))
+                .shadow(color: Color.appAccent.opacity(0.3), radius: 20, x: 0, y: 10)
+            
+            // Checkmark
+            Image(systemName: "checkmark")
+                .font(.system(size: 50, weight: .bold))
+                .foregroundColor(.white)
+                .opacity(showCheckmark ? 1 : 0)
+                .scaleEffect(showCheckmark ? 1 : 0.3)
+        }
+        .onAppear {
+            performAnimation()
+        }
+    }
+    
+    private func performAnimation() {
+        // Play haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+        impactFeedback.prepare()
+        
+        // Play system sound (success sound)
+        AudioServicesPlaySystemSound(1519) // Success sound
+        
+        // Animate the circle
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.7, blendDuration: 0)) {
+            scale = 1.0
+            rotation = 360
+        }
+        
+        // Trigger haptic after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            impactFeedback.impactOccurred()
+        }
+        
+        // Show checkmark with delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                showCheckmark = true
+            }
+            
+            // Second haptic for checkmark appearance
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                let lightFeedback = UIImpactFeedbackGenerator(style: .light)
+                lightFeedback.impactOccurred()
+            }
+        }
+    }
+}
+
 #Preview {
     OnboardingView(isPresented: .constant(true), onboardingVersion: 2)
 }
@@ -1831,10 +2130,86 @@ private extension OnboardingView {
     }
 
     private func advanceAfterShortcutInstallIfNeeded() {
-        guard currentPage == .installShortcut, didOpenShortcut else { return }
-        // After installing shortcut, go to add notes (Step 2)
-        currentPage = .addNotes
-        didOpenShortcut = false
+        // This method is no longer needed - navigation is handled directly in onChange
+        // Keeping it for backwards compatibility but it shouldn't be called
     }
 }
+
+// MARK: - Hidden PiP Player Layer View
+
+/// A hidden UIView that contains the player layer for PiP support.
+/// PiP requires the player layer to be in the view hierarchy, even if hidden.
+private struct HiddenPiPPlayerLayerView: UIViewRepresentable {
+    @ObservedObject var playerManager: PIPVideoPlayerManager
+    
+    func makeUIView(context: Context) -> PiPContainerView {
+        let view = PiPContainerView()
+        view.backgroundColor = .clear
+        // PiP requires a reasonable frame size with proper aspect ratio
+        view.frame = CGRect(x: 0, y: 0, width: 320, height: 568)
+        view.alpha = 1.0 // Must be visible for automatic PiP
+        view.isHidden = false
+        view.clipsToBounds = true
+        
+        print("🔧 HiddenPiPPlayerLayerView: Creating view with frame: \(view.frame)")
+        
+        // Store a reference to the manager
+        view.playerManager = playerManager
+        
+        return view
+    }
+    
+    func updateUIView(_ uiView: PiPContainerView, context: Context) {
+        // When player is loaded and layer hasn't been added yet
+        if playerManager.hasLoadedVideo && uiView.layer.sublayers?.isEmpty != false {
+            print("🔧 HiddenPiPPlayerLayerView: Player loaded, adding layer")
+            if let playerLayer = playerManager.createPlayerLayer() {
+                playerLayer.frame = uiView.bounds
+                uiView.layer.addSublayer(playerLayer)
+                print("✅ HiddenPiPPlayerLayerView: Added player layer with frame: \(playerLayer.frame)")
+                print("   - View in window: \(uiView.window != nil)")
+                
+                // Set up PiP controller after a delay to ensure view is in hierarchy
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if uiView.window != nil {
+                        print("✅ HiddenPiPPlayerLayerView: View is in window, setting up PiP controller")
+                        self.playerManager.setupPictureInPictureControllerWithExistingLayer()
+                    } else {
+                        print("⚠️ HiddenPiPPlayerLayerView: View not in window, retrying...")
+                        // Retry after another delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            if uiView.window != nil {
+                                print("✅ HiddenPiPPlayerLayerView: View now in window, setting up PiP controller")
+                                self.playerManager.setupPictureInPictureControllerWithExistingLayer()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Container view for PiP player layer
+private class PiPContainerView: UIView {
+    weak var playerManager: PIPVideoPlayerManager?
+    
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        
+        if window != nil {
+            print("✅ PiPContainerView: View added to window")
+            // If we have a layer but no PiP controller, set it up
+            if layer.sublayers?.isEmpty == false,
+               let manager = playerManager,
+               !manager.isPiPControllerReady {
+                print("🔧 PiPContainerView: Setting up PiP controller now that view is in window")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    manager.setupPictureInPictureControllerWithExistingLayer()
+                }
+            }
+        }
+    }
+}
+
 
