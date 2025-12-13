@@ -14,6 +14,7 @@ final class PaywallManager: NSObject, ObservableObject {
     @AppStorage("subscriptionExpiryDate") var subscriptionExpiryTimestamp: Double = 0
     @AppStorage("hasSeenPaywall") var hasSeenPaywall: Bool = false
     @AppStorage("paywallDismissCount") var paywallDismissCount: Int = 0
+    @AppStorage("trialStartDate") var trialStartDateTimestamp: Double = 0
     
     // MARK: - Published Properties
     @Published var shouldShowPaywall: Bool = false
@@ -35,6 +36,20 @@ final class PaywallManager: NSObject, ObservableObject {
     // MARK: - Computed Properties
     var isPremium: Bool {
         return hasActiveRevenueCatEntitlement || hasLifetimeAccess || hasActiveSubscription
+    }
+    
+    var trialStartDate: Date? {
+        guard trialStartDateTimestamp > 0 else { return nil }
+        return Date(timeIntervalSince1970: trialStartDateTimestamp)
+    }
+    
+    /// Whether to show the "Trial Ending Soon" banner
+    /// Logic: Show between 24h and 72h after trial start
+    var shouldShowTrialReminder: Bool {
+        guard let start = trialStartDate else { return false }
+        let now = Date()
+        let hoursElapsed = now.timeIntervalSince(start) / 3600
+        return hoursElapsed >= 24 && hoursElapsed < 72 && isPremium // Only show if still premium (trial active)
     }
     
     var hasActiveSubscription: Bool {
@@ -122,6 +137,16 @@ final class PaywallManager: NSObject, ObservableObject {
             let result = try await Purchases.shared.purchase(package: package)
             await MainActor.run {
                 handle(customerInfo: result.customerInfo)
+                
+                // Check if this was a trial purchase
+                if package.storeProduct.introductoryDiscount != nil {
+                    #if DEBUG
+                    print("✅ Trial started! Saving date and scheduling reminder.")
+                    #endif
+                    self.trialStartDateTimestamp = Date().timeIntervalSince1970
+                    NotificationManager.shared.scheduleTrialReminder()
+                }
+                
                 isProcessingPurchase = false
                 shouldShowPaywall = false
             }
@@ -261,12 +286,41 @@ final class PaywallManager: NSObject, ObservableObject {
         hasLifetimeAccess = true
         hasPremiumAccess = true
         shouldShowPaywall = false
+        
+        // Verify integrity after setting (security check)
+        verifyAccessIntegrity()
     }
     
     func grantSubscription(expiryDate: Date) {
         subscriptionExpiryTimestamp = expiryDate.timeIntervalSince1970
         hasPremiumAccess = true
         shouldShowPaywall = false
+        
+        // Verify integrity after setting (security check)
+        verifyAccessIntegrity()
+    }
+    
+    /// Verifies integrity of access flags to detect tampering
+    private func verifyAccessIntegrity() {
+        guard let storedHash = UserDefaults.standard.string(forKey: "promo_access_integrity") else {
+            // No integrity hash stored (legacy or first-time)
+            return
+        }
+        
+        let computedHash = PromoSecurityManager.shared.createIntegrityHash(
+            hasLifetime: hasLifetimeAccess,
+            hasPremium: hasPremiumAccess,
+            expiryTimestamp: subscriptionExpiryTimestamp
+        )
+        
+        // If hash doesn't match, access may have been tampered with
+        if storedHash != computedHash {
+            #if DEBUG
+            print("⚠️ PaywallManager: Access integrity check failed - possible tampering detected")
+            #endif
+            // Reset to safe state (could be more aggressive)
+            // For now, just log - in production you might want to revoke access
+        }
     }
 
     func resetPaywallData() {
@@ -280,6 +334,9 @@ final class PaywallManager: NSObject, ObservableObject {
         paywallDismissCount = 0
         shouldShowPaywall = false
         lastErrorMessage = nil
+        
+        // NOTE: Promo codes are NOT deleted here - they persist across paywall resets
+        // This allows users to reset and test, but keeps admin-generated codes safe
     }
     
     func trackPaywallDismiss() {

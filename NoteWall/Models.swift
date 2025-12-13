@@ -21,6 +21,9 @@ extension Notification.Name {
     static let shortcutWallpaperApplied = Notification.Name("shortcutWallpaperApplied")
     static let onboardingCompleted = Notification.Name("onboardingCompleted")
     static let showGlobalLoadingOverlay = Notification.Name("showGlobalLoadingOverlay")
+    static let navigateToHomeTab = Notification.Name("navigateToHomeTab")
+    static let showDeleteNotesLoadingOverlay = Notification.Name("showDeleteNotesLoadingOverlay")
+    static let dismissPaywallAfterPromoCode = Notification.Name("dismissPaywallAfterPromoCode")
 }
 
 struct WallpaperUpdateRequest {

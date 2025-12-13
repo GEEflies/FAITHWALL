@@ -73,59 +73,63 @@ struct NoteWallApp: App {
     
     var body: some Scene {
         WindowGroup {
-            MainTabView()
-                .preferredColorScheme(.dark)
-                .fullScreenCover(isPresented: $showOnboarding) {
+            Group {
+                if showOnboarding {
+                    // Show onboarding directly for first-time users (no flash of empty homepage)
                     OnboardingView(
                         isPresented: $showOnboarding,
                         onboardingVersion: onboardingVersion
                     )
-                }
-                .onAppear {
-                    // Show onboarding only for users who haven't completed setup yet
-                    showOnboarding = !hasCompletedSetup
-                    
-                    // Handle Quick Action if app was launched via one
-                    if let triggeredAction = quickActionsManager.triggeredAction {
-                        print("🎬 NoteWallApp: App launched with Quick Action - \(triggeredAction.title)")
-                        
-                        // Post notification after a longer delay to ensure MainTabView is ready
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            print("📤 NoteWallApp: Posting quick action notification")
-                            NotificationCenter.default.post(
-                                name: .quickActionTriggered,
-                                object: triggeredAction
-                            )
+                } else {
+                    // Show main app for users who have completed setup
+                    MainTabView()
+                        .onAppear {
+                            // Handle Quick Action if app was launched via one
+                            if let triggeredAction = quickActionsManager.triggeredAction {
+                                print("🎬 NoteWallApp: App launched with Quick Action - \(triggeredAction.title)")
+                                
+                                // Post notification after a longer delay to ensure MainTabView is ready
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                    print("📤 NoteWallApp: Posting quick action notification")
+                                    NotificationCenter.default.post(
+                                        name: .quickActionTriggered,
+                                        object: triggeredAction
+                                    )
+                                }
+                            }
                         }
-                    }
-                }
-                .onChange(of: hasCompletedSetup) { newValue in
-                    showOnboarding = !newValue
-                }
-                .onChange(of: PaywallManager.shared.isPremium) { _ in
-                    // Update Quick Actions when premium status changes
-                    QuickActionsManager.shared.refreshQuickActions()
-                }
-                .onOpenURL { url in
-                    // Handle URL scheme when app is opened via notewall://
-                    // This allows the shortcut to redirect back to the app
-                    print("🔗 NoteWallApp: Opened via URL: \(url)")
-                    print("🔗 Scheme: \(url.scheme ?? "nil"), Host: \(url.host ?? "nil"), Path: \(url.path)")
-                    
-                    if url.scheme?.lowercased() == "notewall" {
-                        let lowerHost = url.host?.lowercased()
-                        let lowerPath = url.path.lowercased()
-                        if lowerHost == "wallpaper-updated" || lowerPath.contains("wallpaper-updated") {
-                            print("✅ NoteWallApp: Posting .shortcutWallpaperApplied notification")
-                            NotificationCenter.default.post(name: .shortcutWallpaperApplied, object: nil)
-                        } else {
-                            print("⚠️ NoteWallApp: URL doesn't match wallpaper-updated pattern")
+                        .onOpenURL { url in
+                            // Handle URL scheme when app is opened via notewall://
+                            // This allows the shortcut to redirect back to the app
+                            print("🔗 NoteWallApp: Opened via URL: \(url)")
+                            print("🔗 Scheme: \(url.scheme ?? "nil"), Host: \(url.host ?? "nil"), Path: \(url.path)")
+                            
+                            if url.scheme?.lowercased() == "notewall" {
+                                let lowerHost = url.host?.lowercased()
+                                let lowerPath = url.path.lowercased()
+                                if lowerHost == "wallpaper-updated" || lowerPath.contains("wallpaper-updated") {
+                                    print("✅ NoteWallApp: Posting .shortcutWallpaperApplied notification")
+                                    NotificationCenter.default.post(name: .shortcutWallpaperApplied, object: nil)
+                                } else {
+                                    print("⚠️ NoteWallApp: URL doesn't match wallpaper-updated pattern")
+                                }
+                            }
                         }
-                    }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .onboardingReplayRequested)) { _ in
-                    showOnboarding = true
-                }
+            }
+            .preferredColorScheme(.dark)
+            .onChange(of: hasCompletedSetup) { newValue in
+                // Update onboarding state when setup completion changes
+                showOnboarding = !newValue
+            }
+            .onChange(of: PaywallManager.shared.isPremium) { _ in
+                // Update Quick Actions when premium status changes
+                QuickActionsManager.shared.refreshQuickActions()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .onboardingReplayRequested)) { _ in
+                // Allow replaying onboarding from settings
+                showOnboarding = true
+            }
         }
     }
 }

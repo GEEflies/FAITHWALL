@@ -3,6 +3,7 @@ import SwiftUI
 struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var showWallpaperUpdateLoading = false
+    @State private var showDeleteNotesLoading = false
     @State private var showTroubleshooting = false
     
     // Quick Actions state
@@ -26,13 +27,18 @@ struct MainTabView: View {
                 BottomNavigationBar(selectedTab: $selectedTab)
             }
             
-            // Global loading overlay - shows on top of everything regardless of tab
+            // Global loading overlays - shows on top of everything regardless of tab
             if showWallpaperUpdateLoading {
                 WallpaperUpdateLoadingView(
                     isPresented: $showWallpaperUpdateLoading,
                     showTroubleshooting: $showTroubleshooting
                 )
                 .zIndex(1000)
+            }
+            
+            if showDeleteNotesLoading {
+                DeleteNotesLoadingView(isPresented: $showDeleteNotesLoading)
+                    .zIndex(1000)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showGlobalLoadingOverlay)) { notification in
@@ -43,6 +49,19 @@ struct MainTabView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 selectedTab = 0
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showDeleteNotesLoadingOverlay)) { notification in
+            // Show delete notes loading overlay immediately, then switch tab
+            showDeleteNotesLoading = true
+            
+            // Switch to home tab after a tiny delay (overlay is already visible)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                selectedTab = 0
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToHomeTab)) { _ in
+            // Navigate to home tab
+            selectedTab = 0
         }
         // Quick Action modals
         .sheet(isPresented: $showExitFeedback) {

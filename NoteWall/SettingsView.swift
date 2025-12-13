@@ -42,6 +42,8 @@ struct SettingsView: View {
     @State private var lockScreenBackgroundStatusColor: Color = .gray
     @State private var showLegalDocument = false
     @State private var selectedLegalDocument: LegalDocumentType = .termsOfService
+    @State private var showPromoCodeAdmin = false
+    @State private var showPromoCodeLogin = false
 
     var body: some View {
         NavigationView {
@@ -129,11 +131,21 @@ struct SettingsView: View {
                 }
             }
         }
+        .sheet(isPresented: $showPromoCodeLogin) {
+            PromoCodeLoginView(
+                isPresented: $showPromoCodeLogin,
+                onSuccess: {
+                    showPromoCodeAdmin = true
+                }
+            )
+        }
+        .sheet(isPresented: $showPromoCodeAdmin) {
+            PromoCodeTypeSelectionView(isPresented: $showPromoCodeAdmin)
+        }
         .onChange(of: shouldRestartOnboarding) { shouldRestart in
             if shouldRestart {
-                // Reset to fresh install state to force onboarding
-                hasCompletedSetup = false
-                completedOnboardingVersion = 0
+                // Reinstall shortcut only - preserve subscription and user info
+                reinstallShortcutOnly()
                 shouldRestartOnboarding = false
             }
         }
@@ -388,22 +400,92 @@ struct SettingsView: View {
         }
     }
 
+
     private func deleteAllNotes() {
-        // Medium impact haptic for destructive delete action (already triggered on button tap, but adding here for confirmation)
-        savedNotesData = Data()
-        // Switch back to Home tab after deleting notes
-        if let selectedTab = selectedTab {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                selectedTab.wrappedValue = 0
-            }
+        // Post notification to show global loading overlay (handled by MainTabView)
+        // This ensures the loading view stays visible when switching to home tab
+        NotificationCenter.default.post(name: .showDeleteNotesLoadingOverlay, object: nil)
+        
+        // Delete notes after a small delay (overlay will be visible by then)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            savedNotesData = Data()
         }
+        
+        // The loading view will automatically show success after 10 seconds and dismiss
     }
 
+    
+    /// Reinstalls shortcut only - preserves subscription, promo codes, and user info
+    /// Used when user goes through troubleshooting flow to fix shortcut issues
+    private func reinstallShortcutOnly() {
+        #if DEBUG
+        print("🔄 REINSTALLING SHORTCUT ONLY (preserving subscription & user info)")
+        #endif
+        
+        // CRITICAL: Set hasCompletedSetup to false FIRST before clearing notes
+        // This prevents the onChange handler from triggering wallpaper update
+        // when savedNotesData is cleared (which would otherwise see hasCompletedSetup = true)
+        hasCompletedSetup = false
+        completedOnboardingVersion = 0
+        
+        // Clear notes and wallpaper-related data (user needs to go through setup again)
+        savedNotesData = Data()
+        skipDeletingOldWallpaper = false
+        saveWallpapersToPhotos = false
+        autoUpdateWallpaperAfterDeletionRaw = ""
+        lockScreenBackgroundRaw = LockScreenBackgroundOption.default.rawValue
+        lockScreenBackgroundModeRaw = LockScreenBackgroundMode.default.rawValue
+        lockScreenBackgroundPhotoData = Data()
+        homeScreenUsesCustomPhoto = false
+        homeScreenPresetSelectionRaw = ""
+        
+        // Clear shortcut-related AppStorage keys
+        UserDefaults.standard.removeObject(forKey: "lastLockScreenIdentifier")
+        UserDefaults.standard.removeObject(forKey: "hasCompletedInitialWallpaperSetup")
+        UserDefaults.standard.removeObject(forKey: "hasShownAutoUpdatePrompt")
+        UserDefaults.standard.removeObject(forKey: "hasShownFirstNoteHint")
+        
+        // Reset shortcut setup completion flag (this is what we're fixing)
+        ShortcutVerificationService.resetSetupCompletion()
+        
+        // CRITICAL: DO NOT reset paywall/subscription data
+        // Subscription, promo codes, and user info are preserved
+        
+        // Delete wallpaper files (user will regenerate during onboarding)
+        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let noteWallURL = documentsURL.appendingPathComponent("NoteWall", isDirectory: true)
+            
+            if FileManager.default.fileExists(atPath: noteWallURL.path) {
+                do {
+                    try FileManager.default.removeItem(at: noteWallURL)
+                    #if DEBUG
+                    print("✅ Deleted wallpaper files")
+                    #endif
+                } catch {
+                    #if DEBUG
+                    print("❌ Error deleting files: \(error)")
+                    #endif
+                }
+            }
+        }
+        
+        #if DEBUG
+        print("✅ Shortcut reinstall complete! Subscription and user info preserved.")
+        print("   Triggering onboarding...")
+        #endif
+        
+        // Trigger onboarding
+        NotificationCenter.default.post(name: .onboardingReplayRequested, object: nil)
+    }
     
     private func resetToFreshInstall() {
         #if DEBUG
         print("🔄 RESETTING APP TO FRESH INSTALL STATE")
         #endif
+        
+        // CRITICAL: Preserve promo codes - they are admin-generated and should persist
+        // Backup codes before reset
+        PromoCodeManager.shared.performBackupIfNeeded()
         
         // 1. Clear all AppStorage values
         // CRITICAL: Set hasCompletedSetup to false FIRST before clearing notes
@@ -434,6 +516,9 @@ struct SettingsView: View {
         
         // Reset shortcut setup completion flag
         ShortcutVerificationService.resetSetupCompletion()
+        
+        // Restore promo codes after reset (they should persist)
+        PromoCodeManager.shared.restoreCodesIfNeeded()
         
         #if DEBUG
         print("✅ Cleared all AppStorage data")
@@ -826,6 +911,43 @@ struct SettingsView: View {
                                     )
                             )
                         }
+                        
+                        #if DEBUG
+                        // Developer option (only in debug builds)
+                        Button(action: {
+                            let generator = UIImpactFeedbackGenerator(style: .light)
+                            generator.impactOccurred()
+                            showLegalSelection = false
+                            // Check if already authenticated
+                            if PromoCodeAuthManager.shared.isAuthenticated() {
+                                showPromoCodeAdmin = true
+                            } else {
+                                showPromoCodeLogin = true
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "wrench.and.screwdriver")
+                                    .foregroundColor(.appAccent)
+                                    .frame(width: 24)
+                                Text("Developer")
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.white.opacity(0.4))
+                                    .font(.system(size: 12))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white.opacity(0.06))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        #endif
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 40)

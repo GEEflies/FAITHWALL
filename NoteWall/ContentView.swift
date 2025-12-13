@@ -85,40 +85,52 @@ struct ContentView: View {
     }
 
     private var lockScreenBackgroundImage: UIImage? {
+        #if DEBUG
         print("🔍 lockScreenBackgroundImage - Checking for background photo...")
         print("   Mode: \(lockScreenBackgroundMode)")
+        #endif
         
         guard lockScreenBackgroundMode == .photo else {
+            #if DEBUG
             print("   ❌ Mode is not .photo, returning nil")
+            #endif
             return nil
         }
         
         // First try to load from file system
         if let storedImage = HomeScreenImageManager.lockScreenBackgroundSourceImage() {
+            #if DEBUG
             print("   ✅ Loaded from file system")
             if let url = HomeScreenImageManager.lockScreenBackgroundSourceURL() {
                 print("      Path: \(url.path)")
             }
             print("      Size: \(storedImage.size)")
+            #endif
             return storedImage
         }
 
         // Fall back to AppStorage data
         guard !lockScreenBackgroundPhotoData.isEmpty,
               let dataImage = UIImage(data: lockScreenBackgroundPhotoData) else {
+            #if DEBUG
             print("   ❌ No photo data available in AppStorage either")
+            #endif
             return nil
         }
 
         // Save to file system for next time
         do {
             try HomeScreenImageManager.saveLockScreenBackgroundSource(dataImage)
+            #if DEBUG
             print("   ✅ Loaded from AppStorage and saved to file system")
             if let url = HomeScreenImageManager.lockScreenBackgroundSourceURL() {
                 print("      Path: \(url.path)")
             }
+            #endif
         } catch {
+            #if DEBUG
             print("   ⚠️ Failed to save to file system: \(error)")
+            #endif
         }
         
         return dataImage
@@ -212,7 +224,9 @@ struct ContentView: View {
         do {
             notes = try JSONDecoder().decode([Note].self, from: data)
         } catch {
+            #if DEBUG
             print("Failed to decode notes: \(error)")
+            #endif
             notes = []
         }
     }
@@ -221,7 +235,9 @@ struct ContentView: View {
         do {
             savedNotesData = try JSONEncoder().encode(notes)
         } catch {
+            #if DEBUG
             print("Failed to encode notes: \(error)")
+            #endif
         }
     }
 
@@ -276,7 +292,9 @@ struct ContentView: View {
         do {
             return try JSONDecoder().decode([Note].self, from: data)
         } catch {
+            #if DEBUG
             print("Failed to decode notes during initial load: \(error)")
+            #endif
             return []
         }
     }
@@ -333,7 +351,6 @@ struct ContentView: View {
 
     private func toggleCompletion(for note: Note) {
         if let index = notes.firstIndex(where: { $0.id == note.id }) {
-            let wasCompleted = notes[index].isCompleted
             notes[index].isCompleted.toggle()
             saveNotes()
             
@@ -342,10 +359,18 @@ struct ContentView: View {
             generator.impactOccurred()
             
             // Auto-update wallpaper when note completion status changes
-            // Skip deletion prompt and don't track for paywall (automatic update)
             if hasCompletedInitialWallpaperSetup {
-                let request = WallpaperUpdateRequest(skipDeletionPrompt: true, trackForPaywall: false)
-                NotificationCenter.default.post(name: .requestWallpaperUpdate, object: request)
+                // Check if user can export wallpaper (prevent free update loophole)
+                if PaywallManager.shared.canExportWallpaper() {
+                    // Track for paywall to consume credit (was false)
+                    let request = WallpaperUpdateRequest(skipDeletionPrompt: true, trackForPaywall: true)
+                    NotificationCenter.default.post(name: .requestWallpaperUpdate, object: request)
+                } else {
+                    #if DEBUG
+                    print("🚫 Auto-update blocked - free limit reached")
+                    #endif
+                    PaywallManager.shared.showPaywall(reason: .limitReached)
+                }
             }
         }
     }
@@ -386,18 +411,26 @@ struct ContentView: View {
 
     private func resolveLockBackgroundImage(using homeImage: UIImage) -> UIImage? {
         // Check the mode first to respect user's preset selection
+        #if DEBUG
         print("🎯 resolveLockBackgroundImage - mode: \(lockScreenBackgroundMode)")
+        #endif
         switch lockScreenBackgroundMode {
         case .photo:
             // Only use photo when explicitly in photo mode
+            #if DEBUG
             print("   📸 Photo mode detected")
+            #endif
             if let photo = lockScreenBackgroundImage {
+                #if DEBUG
                 print("   ✅ Returning lock screen background photo")
                 print("      Photo size: \(photo.size)")
+                #endif
                 return photo
             }
+            #if DEBUG
             print("   ⚠️ No lock screen photo found, using home screen image as fallback")
             print("      Home image size: \(homeImage.size)")
+            #endif
             return homeImage
         case .presetBlack, .presetGray:
             // Presets should have no background image (solid color only)
@@ -482,6 +515,7 @@ struct ContentView: View {
         // Credits are only tracked when explicitly updating from homepage
         isGeneratingWallpaper = true
 
+        #if DEBUG
         // Debug logging
         print("=== UPDATE WALLPAPER DEBUG ===")
         print("lockScreenBackgroundMode: \(lockScreenBackgroundMode)")
@@ -489,21 +523,28 @@ struct ContentView: View {
         print("lockScreenBackgroundOption: \(lockScreenBackgroundOption)")
         print("lockScreenBackgroundColor: \(lockScreenBackgroundColor)")
         print("lockScreenBackgroundPhotoData isEmpty: \(lockScreenBackgroundPhotoData.isEmpty)")
+        #endif
 
         let homeWallpaperImage = resolveHomeWallpaperBaseImage()
         do {
             try HomeScreenImageManager.saveHomeScreenImage(homeWallpaperImage)
+            #if DEBUG
             print("✅ Saved home screen image to file system")
             if let url = HomeScreenImageManager.homeScreenImageURL() {
                 print("   File path: \(url.path)")
                 print("   File exists: \(FileManager.default.fileExists(atPath: url.path))")
             }
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Failed to save home screen wallpaper image: \(error)")
+            #endif
         }
 
         let lockBackgroundImage = resolveLockBackgroundImage(using: homeWallpaperImage)
+        #if DEBUG
         print("lockBackgroundImage is nil: \(lockBackgroundImage == nil)")
+        #endif
 
         // Generate the wallpaper with notes
         let lockScreenImage = WallpaperRenderer.generateWallpaper(
@@ -512,11 +553,14 @@ struct ContentView: View {
             backgroundImage: lockBackgroundImage,
             hasLockScreenWidgets: hasLockScreenWidgets
         )
+        #if DEBUG
         print("Generated lock screen image size: \(lockScreenImage.size)")
+        #endif
         
         // Save to file system FIRST (this is what the shortcut reads)
         do {
             try HomeScreenImageManager.saveLockScreenWallpaper(lockScreenImage)
+            #if DEBUG
             print("✅ Saved lock screen wallpaper to file system")
             if let url = HomeScreenImageManager.lockScreenWallpaperURL() {
                 print("   File path: \(url.path)")
@@ -526,10 +570,15 @@ struct ContentView: View {
                     print("   File size: \(fileSize) bytes")
                 }
             }
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Failed to save lock screen wallpaper image: \(error)")
+            #endif
         }
+        #if DEBUG
         print("==============================")
+        #endif
         
         pendingLockScreenImage = lockScreenImage
 
@@ -573,7 +622,9 @@ struct ContentView: View {
     }
 
     private func saveNewLockScreenWallpaper(_ lockScreen: UIImage, trackForPaywall: Bool = false) {
+        #if DEBUG
         print("📸 Attempting to save wallpaper to Photos library...")
+        #endif
         
         PhotoSaver.saveImage(lockScreen) { success, identifier in
             DispatchQueue.main.async {
@@ -582,18 +633,22 @@ struct ContentView: View {
                 self.hasCompletedInitialWallpaperSetup = true
 
                 if success {
+                    #if DEBUG
                     print("✅ Saved wallpaper to Photos library")
                     if let id = identifier {
                         self.lastLockScreenIdentifier = id
                         print("   Photo ID: \(id)")
                     }
+                    #endif
                     
                     // Success notification haptic for wallpaper generation success
                     let successGenerator = UINotificationFeedbackGenerator()
                     successGenerator.notificationOccurred(.success)
                 } else {
+                    #if DEBUG
                     print("⚠️ Failed to save to Photos library (permission denied or error)")
                     print("   Wallpaper is still saved to file system and can be used by shortcut")
+                    #endif
                     
                     // Error notification haptic for wallpaper generation failure
                     let errorGenerator = UINotificationFeedbackGenerator()
@@ -602,10 +657,14 @@ struct ContentView: View {
                 
                 // Track wallpaper export for paywall ONLY if user-initiated from home page
                 if trackForPaywall {
+                    #if DEBUG
                     print("📊 Tracking wallpaper export for paywall")
+                    #endif
                     PaywallManager.shared.trackWallpaperExport()
                 } else {
+                    #if DEBUG
                     print("ℹ️ Not tracking for paywall (onboarding/settings update)")
+                    #endif
                 }
                 
                 // Post notification FIRST so UI updates
@@ -616,11 +675,15 @@ struct ContentView: View {
                 // During onboarding, the OnboardingView handles shortcut opening at the right time
                 if self.hasCompletedSetup {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        #if DEBUG
                         print("🚀 Opening shortcut to apply wallpaper...")
+                        #endif
                         self.openShortcut()
                     }
                 } else {
+                    #if DEBUG
                     print("ℹ️ Skipping auto-open shortcut (setup not completed, onboarding will handle)")
+                    #endif
                 }
             }
         }
@@ -637,8 +700,16 @@ struct ContentView: View {
         if notes.isEmpty {
             setBlankWallpaper()
         } else {
-            // Always auto-update wallpaper after deletion
-            updateWallpaper()
+            // Check if user can export wallpaper (prevent free update loophole)
+            if PaywallManager.shared.canExportWallpaper() {
+                // Mark as user-initiated to consume credit
+                isUserInitiatedUpdate = true
+                // Always auto-update wallpaper after deletion
+                updateWallpaper()
+            } else {
+                print("🚫 Deletion update blocked - free limit reached")
+                PaywallManager.shared.showPaywall(reason: .limitReached)
+            }
         }
     }
 
@@ -1010,6 +1081,11 @@ private struct NotesListView: View {
                 context.moveNotes(source, destination)
             }
 
+            // Trial reminder banner
+            if !context.isEditMode.wrappedValue {
+                TrialReminderBannerView()
+            }
+            
             // First note hint banner (shown after first note added)
             if context.showFirstNoteHint.wrappedValue && !context.isEditMode.wrappedValue {
                 FirstNoteHintBannerView(context: context)
@@ -1564,7 +1640,7 @@ private struct TroubleshootingBannerView: View {
                         )
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, 16)
                 .padding(.bottom, 8)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -1574,6 +1650,65 @@ private struct TroubleshootingBannerView: View {
                     removal: .scale.combined(with: .opacity)
                 ))
             }
+        }
+    }
+}
+
+private struct TrialReminderBannerView: View {
+    @StateObject private var paywallManager = PaywallManager.shared
+    @AppStorage("trialReminderDismissed") private var isDismissed = false
+    
+    var body: some View {
+        if paywallManager.shouldShowTrialReminder && !isDismissed {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 20))
+                    .foregroundColor(.appAccent)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Friendly Reminder")
+                        .font(.system(.headline, design: .rounded))
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("Your free trial subscription will be ending soon.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                Spacer()
+                
+                Button(action: {
+                    // Light impact haptic for dismissing banner
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    
+                    withAnimation {
+                        isDismissed = true
+                    }
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.appAccent.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.appAccent.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 16)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
     }
 }

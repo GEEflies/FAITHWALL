@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import RevenueCat
+import AudioToolbox
 #if canImport(RevenueCatUI)
 import RevenueCatUI
 #endif
@@ -33,6 +34,9 @@ struct PaywallView: View {
     @State private var lastManualSwipeTime: Date = Date()
     @State private var showRedemptionInstructions = false
     @State private var copiedPromoCode = false
+    @State private var shouldDismissAfterPromoCode = false
+    @State private var showNotificationPrePrompt = false
+    @State private var pendingPackage: Package?
 
     private let benefitSlides: [BenefitSlide] = [
         BenefitSlide(
@@ -96,6 +100,24 @@ struct PaywallView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage)
+        }
+        .alert("Enable Notifications", isPresented: $showNotificationPrePrompt) {
+            Button("Allow", role: .none) {
+                // Request permission, then purchase
+                NotificationManager.shared.requestPermission { _ in
+                    if let package = pendingPackage {
+                        purchase(package)
+                    }
+                }
+            }
+            Button("Not Now", role: .cancel) {
+                // Proceed without permission
+                if let package = pendingPackage {
+                    purchase(package)
+                }
+            }
+        } message: {
+            Text("To notify you before your trial ends, we need to send you notifications. Please allow them in the next step.")
         }
         .sheet(isPresented: $showTermsAndPrivacy) {
             NavigationView {
@@ -290,6 +312,22 @@ struct PaywallView: View {
                     showLifetimeSheet = false
                 }
             )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .dismissPaywallAfterPromoCode)) { _ in
+            // Set paywall manager flag to false
+            PaywallManager.shared.shouldShowPaywall = false
+            // Dismiss lifetime sheet if presented
+            showLifetimeSheet = false
+            // Trigger dismissal via state variable (which will be handled in onChange)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                shouldDismissAfterPromoCode = true
+            }
+        }
+        .onChange(of: shouldDismissAfterPromoCode) { newValue in
+            if newValue {
+                shouldDismissAfterPromoCode = false
+                dismiss()
+            }
         }
     }
     
@@ -1208,7 +1246,6 @@ struct PaywallView: View {
         badgeText: String? = nil
     ) -> some View {
         let isSelected = selectedProductIndex == index
-        let isMonthlyPlan = planLabel.lowercased().contains("month")
         let isYearlyPlan = planLabel.lowercased().contains("year")
         let selectionAnimation: Animation = isYearlyPlan
             ? .spring(response: 0.32, dampingFraction: 0.65)
@@ -1465,15 +1502,39 @@ struct PaywallView: View {
             return
         }
         
+        // If this is a trial package, check for notification permissions first
+        if package.storeProduct.introductoryDiscount != nil {
+            // Store package for later
+            pendingPackage = package
+            
+            // Check current status
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                DispatchQueue.main.async {
+                    if settings.authorizationStatus == .notDetermined {
+                        // Ask nicely first
+                        showNotificationPrePrompt = true
+                    } else {
+                        // Already determined (allowed or denied), proceed directly
+                        purchase(package)
+                    }
+                }
+            }
+        } else {
+            // No trial, just purchase
+            purchase(package)
+        }
+    }
+    
+    private func purchase(_ package: Package) {
         Task {
             isPurchasing = true
             do {
                 try await paywallManager.purchase(package: package)
                 await MainActor.run {
                     isPurchasing = false
-                        let generator = UINotificationFeedbackGenerator()
-                        generator.notificationOccurred(.success)
-                        dismiss()
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                    dismiss()
                 }
             } catch {
                 await MainActor.run {
@@ -2055,6 +2116,7 @@ private struct LifetimePlanSheet: View {
     @State private var pulseGlow = false
     @State private var shimmerOffset: CGFloat = -200
     @State private var floatingOffset: CGFloat = 0
+    @State private var showPromoCodeSheet = false
     
     private let lifetimeFeatures = [
         ("infinity", "Forever Access", "Your goals appear every time you pick up your phone — stay consistent effortlessly"),
@@ -2328,6 +2390,36 @@ private struct LifetimePlanSheet: View {
                             .padding(.top, 12)
                     }
                     
+                    // Promo Code Prompt
+                    Button(action: {
+                        let generator = UIImpactFeedbackGenerator(style: .light)
+                        generator.impactOccurred()
+                        showPromoCodeSheet = true
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "ticket.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Do you have a promo code?")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundColor(.appAccent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.appAccent.opacity(0.1))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.appAccent.opacity(0.3), lineWidth: 1.5)
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .opacity(animateIn ? 1 : 0)
+                    .animation(.easeIn.delay(0.75), value: animateIn)
+                    
                     // Trust badges
                     HStack(spacing: 24) {
                         trustBadge(icon: "lock.shield.fill", text: "Secure")
@@ -2350,6 +2442,22 @@ private struct LifetimePlanSheet: View {
                     .animation(.easeIn.delay(0.9), value: animateIn)
                 }
             }
+        }
+        .sheet(isPresented: $showPromoCodeSheet) {
+            PromoCodeInputView(
+                isPresented: $showPromoCodeSheet,
+                onSuccess: {
+                    // Dismiss promo code sheet first
+                    showPromoCodeSheet = false
+                    // Set paywall manager flag to false (this will help dismiss the paywall)
+                    PaywallManager.shared.shouldShowPaywall = false
+                    // Trigger paywall dismissal after a short delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        // Post notification to trigger dismissal
+                        NotificationCenter.default.post(name: .dismissPaywallAfterPromoCode, object: nil)
+                    }
+                }
+            )
         }
         .onAppear {
             withAnimation {
@@ -2509,5 +2617,544 @@ private struct FallbackPlan: Identifiable {
     let priceText: String
     let highlight: Bool
     let trialDays: Int?
+}
+
+// MARK: - Promo Code Input View
+
+private struct PromoCodeInputView: View {
+    @Binding var isPresented: Bool
+    let onSuccess: () -> Void
+    
+    @State private var promoCode: String = ""
+    @State private var isValidating = false
+    @State private var errorMessage: String?
+    @State private var showSuccess = false
+    @State private var redeemedCodeType: PromoCodeType?
+    @State private var animateIn = false
+    @State private var checkmarkScale: CGFloat = 0.5
+    @State private var checkmarkOpacity: Double = 0
+    @State private var pulseGlow = false
+    @FocusState private var isCodeFieldFocused: Bool
+    
+    var body: some View {
+        ZStack {
+            // Background
+            promoCodeBackground
+                .ignoresSafeArea()
+            
+            if showSuccess {
+                successView
+                    .transition(.asymmetric(
+                        insertion: .scale.combined(with: .opacity),
+                        removal: .opacity
+                    ))
+            } else {
+                inputView
+                    .transition(.opacity)
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                animateIn = true
+            }
+            // Auto-focus the text field
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isCodeFieldFocused = true
+            }
+        }
+    }
+    
+    private var promoCodeBackground: some View {
+        ZStack {
+            // Base dark gradient
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.05, blue: 0.08),
+                    Color(red: 0.01, green: 0.01, blue: 0.04)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // Accent glow orbs
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.15), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 180
+                    )
+                )
+                .frame(width: 360, height: 360)
+                .offset(x: -120, y: -200)
+                .blur(radius: 50)
+                .opacity(pulseGlow ? 0.8 : 0.5)
+            
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.1), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 140
+                    )
+                )
+                .frame(width: 280, height: 280)
+                .offset(x: 140, y: 350)
+                .blur(radius: 40)
+                .opacity(pulseGlow ? 0.6 : 0.4)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                pulseGlow = true
+            }
+        }
+    }
+    
+    private var inputView: some View {
+        VStack(spacing: 0) {
+            // Close button
+            HStack {
+                Spacer()
+                Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    isPresented = false
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.08))
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                )
+                        )
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            
+            Spacer()
+            
+            VStack(spacing: 24) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.appAccent.opacity(0.15))
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "ticket.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(.appAccent)
+                }
+                .opacity(animateIn ? 1 : 0)
+                .scaleEffect(animateIn ? 1 : 0.8)
+                .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: animateIn)
+                
+                // Title
+                VStack(spacing: 8) {
+                    Text("Enter Promo Code")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    Text("Unlock lifetime access with a valid code")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                }
+                .opacity(animateIn ? 1 : 0)
+                .offset(y: animateIn ? 0 : 20)
+                .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animateIn)
+                
+                // Input field
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        TextField("Enter promo code", text: $promoCode)
+                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .focused($isCodeFieldFocused)
+                            .onSubmit {
+                                validateAndRedeem()
+                            }
+                            .onChange(of: promoCode) { newValue in
+                                // Auto-format: PREFIX-XXXX-XXXX (LT- or MO-)
+                                let filtered = newValue.uppercased()
+                                    .replacingOccurrences(of: " ", with: "")
+                                
+                                // Check if it starts with LT- or MO-
+                                let prefix: String
+                                let codePart: String
+                                
+                                if filtered.hasPrefix("LT-") {
+                                    prefix = "LT-"
+                                    codePart = String(String(filtered.dropFirst(3))
+                                        .replacingOccurrences(of: "-", with: "")
+                                        .prefix(8))
+                                } else if filtered.hasPrefix("MO-") {
+                                    prefix = "MO-"
+                                    codePart = String(String(filtered.dropFirst(3))
+                                        .replacingOccurrences(of: "-", with: "")
+                                        .prefix(8))
+                                } else if filtered.hasPrefix("LT") && filtered.count > 2 {
+                                    prefix = "LT-"
+                                    codePart = String(String(filtered.dropFirst(2))
+                                        .replacingOccurrences(of: "-", with: "")
+                                        .prefix(8))
+                                } else if filtered.hasPrefix("MO") && filtered.count > 2 {
+                                    prefix = "MO-"
+                                    codePart = String(String(filtered.dropFirst(2))
+                                        .replacingOccurrences(of: "-", with: "")
+                                        .prefix(8))
+                                } else {
+                                    // No prefix yet, allow typing
+                                    promoCode = filtered
+                                    if errorMessage != nil {
+                                        errorMessage = nil
+                                    }
+                                    return
+                                }
+                                
+                                // Format code part: XXXX-XXXX
+                                let formattedCodePart: String
+                                if codePart.count > 4 {
+                                    formattedCodePart = String(codePart.prefix(4)) + "-" + String(codePart.dropFirst(4).prefix(4))
+                                } else {
+                                    formattedCodePart = String(codePart)
+                                }
+                                
+                                let formatted = prefix + formattedCodePart
+                                if formatted != newValue {
+                                    promoCode = formatted
+                                }
+                                
+                                // Clear error when user types
+                                if errorMessage != nil {
+                                    errorMessage = nil
+                                }
+                            }
+                        
+                        if isValidating {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .appAccent))
+                        } else {
+                            Button(action: validateAndRedeem) {
+                                Image(systemName: "arrow.right.circle.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(.appAccent)
+                            }
+                            .disabled(promoCode.isEmpty)
+                            .opacity(promoCode.isEmpty ? 0.5 : 1.0)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(
+                                        isCodeFieldFocused ? Color.appAccent.opacity(0.5) : Color.white.opacity(0.1),
+                                        lineWidth: isCodeFieldFocused ? 2 : 1
+                                    )
+                            )
+                    )
+                    
+                    // Error message
+                    if let error = errorMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.red.opacity(0.8))
+                            
+                            Text(error)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.red.opacity(0.8))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.red.opacity(0.1))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                                )
+                        )
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .top)),
+                            removal: .opacity
+                        ))
+                    }
+                }
+                .padding(.horizontal, 24)
+                .opacity(animateIn ? 1 : 0)
+                .offset(y: animateIn ? 0 : 20)
+                .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: animateIn)
+            }
+            .padding(.horizontal, 20)
+            
+            Spacer()
+        }
+    }
+    
+    private var successView: some View {
+        ZStack {
+            // Brand background - black with turquoise accents
+            LinearGradient(
+                colors: [
+                    Color.black,
+                    Color(red: 0.05, green: 0.1, blue: 0.15)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            
+            // Turquoise glow effects
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.3), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 200
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .offset(x: -100, y: -150)
+                .blur(radius: 60)
+            
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.appAccent.opacity(0.2), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 150
+                    )
+                )
+                .frame(width: 300, height: 300)
+                .offset(x: 150, y: 200)
+                .blur(radius: 50)
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                // Enhanced success icon with brand colors
+                ZStack {
+                    // Outer pulsing rings - turquoise
+                    ForEach(0..<4, id: \.self) { i in
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.appAccent.opacity(0.4),
+                                        Color.appAccent.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 3
+                            )
+                            .frame(width: 120 + CGFloat(i) * 35, height: 120 + CGFloat(i) * 35)
+                            .scaleEffect(animateIn ? 1.15 : 1.0)
+                            .opacity(animateIn ? 0.3 : 0.6)
+                            .animation(
+                                Animation.easeOut(duration: 1.8)
+                                    .delay(Double(i) * 0.12)
+                                    .repeatForever(autoreverses: false),
+                                value: animateIn
+                            )
+                    }
+                    
+                    // Main checkmark circle - black with turquoise border
+                    ZStack {
+                        Circle()
+                            .fill(Color.black.opacity(0.6))
+                            .frame(width: 120, height: 120)
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.appAccent,
+                                                Color.appAccent.opacity(0.7)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 4
+                                    )
+                            )
+                            .shadow(color: Color.appAccent.opacity(0.5), radius: 20, x: 0, y: 10)
+                        
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 56, weight: .bold))
+                            .foregroundColor(.appAccent)
+                            .scaleEffect(checkmarkScale)
+                            .opacity(checkmarkOpacity)
+                    }
+                    .scaleEffect(animateIn ? 1 : 0.5)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.65), value: animateIn)
+                }
+                .padding(.bottom, 40)
+                
+                // Success message with brand styling
+                VStack(spacing: 20) {
+                    Text("Success! 🎉")
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .shadow(color: Color.appAccent.opacity(0.3), radius: 10, x: 0, y: 5)
+                    
+                    if let codeType = redeemedCodeType {
+                        if codeType == .lifetime {
+                            Text("Lifetime Access Granted")
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundColor(.appAccent)
+                                .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
+                            
+                            Text("You've redeemed a lifetime promo code.\nEnjoy unlimited NoteWall+ features forever.")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(6)
+                        } else {
+                            Text("Monthly Access Granted")
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundColor(.appAccent)
+                                .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
+                            
+                            Text("You've redeemed a monthly promo code.\nEnjoy NoteWall+ features for 1 month.")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(6)
+                        }
+                    } else {
+                        Text("Access Granted")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundColor(.appAccent)
+                            .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
+                        
+                        Text("Enjoy NoteWall+ features.")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, 40)
+                .opacity(animateIn ? 1 : 0)
+                .offset(y: animateIn ? 0 : 20)
+                .animation(.easeOut(duration: 0.6).delay(0.3), value: animateIn)
+                
+                Spacer()
+            }
+        }
+        .onAppear {
+            animateSuccess()
+            // Auto-dismiss after showing success and navigate to home
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                // Post notification to navigate to home tab
+                NotificationCenter.default.post(name: .navigateToHomeTab, object: nil)
+                // Dismiss paywall
+                onSuccess()
+            }
+        }
+    }
+    
+    // MARK: - Actions
+    
+    private func validateAndRedeem() {
+        guard !promoCode.isEmpty else {
+            errorMessage = "Please enter a promo code"
+            return
+        }
+        
+        guard !isValidating else { return }
+        
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        isValidating = true
+        errorMessage = nil
+        
+        // Validate and redeem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let validation = PromoCodeManager.shared.validateCode(promoCode)
+            
+            DispatchQueue.main.async {
+                isValidating = false
+                
+                if validation.isValid {
+                    // Get the code type before redeeming
+                    let codeType = validation.codeType ?? .lifetime
+                    
+                    // Redeem the code
+                    let success = PromoCodeManager.shared.redeemCode(promoCode)
+                    
+                    if success {
+                        // Store the redeemed code type
+                        redeemedCodeType = codeType
+                        
+                        // Dismiss keyboard immediately
+                        isCodeFieldFocused = false
+                        
+                        // Small delay to ensure keyboard is dismissed before showing success
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            // Show success animation smoothly
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                showSuccess = true
+                            }
+                            
+                            // Play success sound and haptic
+                            AudioServicesPlaySystemSound(1519) // Success sound
+                            let notification = UINotificationFeedbackGenerator()
+                            notification.notificationOccurred(.success)
+                        }
+                    } else {
+                        errorMessage = "Failed to redeem code. Please try again."
+                        let errorGenerator = UINotificationFeedbackGenerator()
+                        errorGenerator.notificationOccurred(.error)
+                    }
+                } else {
+                    // Show error
+                    errorMessage = validation.message
+                    
+                    // Error haptic
+                    let errorGenerator = UINotificationFeedbackGenerator()
+                    errorGenerator.notificationOccurred(.error)
+                }
+            }
+        }
+    }
+    
+    private func animateSuccess() {
+        // Reset animation state
+        animateIn = false
+        checkmarkScale = 0.5
+        checkmarkOpacity = 0
+        
+        // Animate in
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            animateIn = true
+        }
+        
+        // Animate checkmark
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) {
+                checkmarkScale = 1.0
+                checkmarkOpacity = 1.0
+            }
+        }
+    }
 }
 

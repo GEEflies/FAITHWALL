@@ -27,6 +27,7 @@
 		B1000001000000000000001 /* HomeScreenImageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000001000000000000001 /* HomeScreenImageManager.swift */; };
 		B1000002000000000000001 /* HomeScreenPhotoPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000002000000000000001 /* HomeScreenPhotoPickerView.swift */; };
 		C1000001000000000000001 /* PaywallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000001000000000000001 /* PaywallManager.swift */; };
+		C1000002000000000000001 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000002000000000000001 /* NotificationManager.swift */; };
 		C1000003000000000000001 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000003000000000000001 /* PaywallView.swift */; };
 		D1000001000000000000001 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2000001000000000000001 /* CrashReporter.swift */; };
 		E1000001000000000000002 /* pip-slow-guide-video.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E2000001000000000000002 /* pip-slow-guide-video.mp4 */; };
@@ -37,6 +38,15 @@
 				837611352366433428582121 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 950124043593401227364632 /* AppDelegate.swift */; };
 				954208369699442397571273 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 688891131442405819145593 /* FeedbackService.swift */; };
 				887053656051426091269260 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606640631211416417165230 /* SceneDelegate.swift */; };
+				123456789012345678901234 /* PromoCodeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 234567890123456789012345 /* PromoCodeManager.swift */; };
+				345678901234567890123456 /* PromoCodeAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456789012345678901234567 /* PromoCodeAuthManager.swift */; };
+				567890123456789012345678 /* PromoCodeLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 678901234567890123456789 /* PromoCodeLoginView.swift */; };
+				789012345678901234567890 /* PromoCodeAdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 890123456789012345678901 /* PromoCodeAdminView.swift */; };
+				111111111111111111111111 /* DeleteNotesLoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222222222222222222222222 /* DeleteNotesLoadingView.swift */; };
+				333333333333333333333333 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 444444444444444444444444 /* Config.swift */; };
+				555555555555555555555555 /* PromoCodeTypeSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666666666666666666666666 /* PromoCodeTypeSelectionView.swift */; };
+				777777777777777777777777 /* PromoSecurityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888888888888888888888888 /* PromoSecurityManager.swift */; };
+				999999999999999999999999 /* PromoCodePersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101010101010101010101010 /* PromoCodePersistenceManager.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +71,7 @@
 		B2000001000000000000001 /* HomeScreenImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenImageManager.swift; sourceTree = "<group>"; };
 		B2000002000000000000001 /* HomeScreenPhotoPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenPhotoPickerView.swift; sourceTree = "<group>"; };
 		C2000001000000000000001 /* PaywallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallManager.swift; sourceTree = "<group>"; };
+		C2000002000000000000001 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		C2000003000000000000001 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		D2000001000000000000001 /* CrashReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporter.swift; sourceTree = "<group>"; };
 		D3F7D2FEBFCCE27BA8058728 /* TroubleshootingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TroubleshootingView.swift; sourceTree = "<group>"; };
@@ -72,6 +83,15 @@
 				950124043593401227364632 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppDelegate.swift"; sourceTree = "<group>"; };
 				688891131442405819145593 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FeedbackService.swift"; sourceTree = "<group>"; };
 				606640631211416417165230 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SceneDelegate.swift"; sourceTree = "<group>"; };
+				234567890123456789012345 /* PromoCodeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromoCodeManager.swift"; sourceTree = "<group>"; };
+				456789012345678901234567 /* PromoCodeAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromoCodeAuthManager.swift"; sourceTree = "<group>"; };
+				678901234567890123456789 /* PromoCodeLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromoCodeLoginView.swift"; sourceTree = "<group>"; };
+				890123456789012345678901 /* PromoCodeAdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromoCodeAdminView.swift"; sourceTree = "<group>"; };
+				222222222222222222222222 /* DeleteNotesLoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeleteNotesLoadingView.swift"; sourceTree = "<group>"; };
+				444444444444444444444444 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Config.swift"; sourceTree = "<group>"; };
+				666666666666666666666666 /* PromoCodeTypeSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromoCodeTypeSelectionView.swift"; sourceTree = "<group>"; };
+				888888888888888888888888 /* PromoSecurityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromoSecurityManager.swift"; sourceTree = "<group>"; };
+				101010101010101010101010 /* PromoCodePersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromoCodePersistenceManager.swift"; sourceTree = "<group>"; };
 		/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,6 +140,7 @@
 				B2000001000000000000001 /* HomeScreenImageManager.swift */,
 				B2000002000000000000001 /* HomeScreenPhotoPickerView.swift */,
 				C2000001000000000000001 /* PaywallManager.swift */,
+				C2000002000000000000001 /* NotificationManager.swift */,
 				C2000003000000000000001 /* PaywallView.swift */,
 				D2000001000000000000001 /* CrashReporter.swift */,
 				A2000009000000000000001 /* Assets.xcassets */,
@@ -135,7 +156,16 @@
 				434025501223443399045143 /* AutoFixWorkflowView.swift */,
 				950124043593401227364632 /* AppDelegate.swift */,
 				688891131442405819145593 /* FeedbackService.swift */,
-				606640631211416417165230 /* SceneDelegate.swift */,);
+				606640631211416417165230 /* SceneDelegate.swift */,
+				234567890123456789012345 /* PromoCodeManager.swift */,
+				456789012345678901234567 /* PromoCodeAuthManager.swift */,
+				678901234567890123456789 /* PromoCodeLoginView.swift */,
+				890123456789012345678901 /* PromoCodeAdminView.swift */,
+				222222222222222222222222 /* DeleteNotesLoadingView.swift */,
+				444444444444444444444444 /* Config.swift */,
+				666666666666666666666666 /* PromoCodeTypeSelectionView.swift */,
+				888888888888888888888888 /* PromoSecurityManager.swift */,
+				101010101010101010101010 /* PromoCodePersistenceManager.swift */,);
 			path = NoteWall;
 			sourceTree = "<group>";
 		};
@@ -234,6 +264,7 @@
 				B1000001000000000000001 /* HomeScreenImageManager.swift in Sources */,
 				B1000002000000000000001 /* HomeScreenPhotoPickerView.swift in Sources */,
 				C1000001000000000000001 /* PaywallManager.swift in Sources */,
+				C1000002000000000000001 /* NotificationManager.swift in Sources */,
 				4283B2352ED25B5E00093E2D /* ShortcutSetupView.swift in Sources */,
 				4283B2362ED25B5E00093E2D /* ShortcutSetupViewModel.swift in Sources */,
 				4283B2372ED25B5E00093E2D /* ShortcutVerificationService.swift in Sources */,
@@ -246,7 +277,16 @@
 				346345317236465393090244 /* AutoFixWorkflowView.swift in Sources */,
 				837611352366433428582121 /* AppDelegate.swift in Sources */,
 				954208369699442397571273 /* FeedbackService.swift in Sources */,
-				887053656051426091269260 /* SceneDelegate.swift in Sources */,);
+				887053656051426091269260 /* SceneDelegate.swift in Sources */,
+				123456789012345678901234 /* PromoCodeManager.swift in Sources */,
+				345678901234567890123456 /* PromoCodeAuthManager.swift in Sources */,
+				567890123456789012345678 /* PromoCodeLoginView.swift in Sources */,
+				789012345678901234567890 /* PromoCodeAdminView.swift in Sources */,
+				111111111111111111111111 /* DeleteNotesLoadingView.swift in Sources */,
+				333333333333333333333333 /* Config.swift in Sources */,
+				555555555555555555555555 /* PromoCodeTypeSelectionView.swift in Sources */,
+				777777777777777777777777 /* PromoSecurityManager.swift in Sources */,
+				999999999999999999999999 /* PromoCodePersistenceManager.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */

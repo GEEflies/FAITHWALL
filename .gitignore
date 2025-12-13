@@ -92,3 +92,7 @@ iOSInjectionProject/
 # macOS
 .DS_Store
 
+# Sensitive configuration files (like .env.local in Next.js)
+# Note: Config.swift is kept locally but gitignored for security
+DEVELOPER_CREDENTIALS.txt
+

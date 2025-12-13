@@ -443,7 +443,7 @@ final class PIPVideoPlayerManager: NSObject, ObservableObject {
             }
         } else {
             // Fallback for older iOS versions
-            if let controller = try? AVPictureInPictureController(playerLayer: layer) {
+            if let controller = AVPictureInPictureController(playerLayer: layer) {
                 self.pipController = controller
                 controller.delegate = self
                 
@@ -476,7 +476,7 @@ final class PIPVideoPlayerManager: NSObject, ObservableObject {
             return
         }
         
-        guard let playerLayer = self.playerLayer else {
+        guard self.playerLayer != nil else {
             debugPrint("⚠️ PIPVideoPlayerManager: No player layer available yet, cannot set up PiP controller")
             return
         }
@@ -617,35 +617,40 @@ extension PIPVideoPlayerManager: AVPictureInPictureControllerDelegate {
     
     func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
         Task { @MainActor [weak self] in
-            self?.isPiPActive = true
-            debugPrint("🎬 PIPVideoPlayerManager: Picture-in-Picture will start")
+            guard let self = self else { return }
+            self.isPiPActive = true
+            self.debugPrint("🎬 PIPVideoPlayerManager: Picture-in-Picture will start")
         }
     }
     
     func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
         Task { @MainActor [weak self] in
-            self?.isPiPActive = true
-            debugPrint("✅ PIPVideoPlayerManager: Picture-in-Picture started")
+            guard let self = self else { return }
+            self.isPiPActive = true
+            self.debugPrint("✅ PIPVideoPlayerManager: Picture-in-Picture started")
         }
     }
     
     func pictureInPictureControllerWillStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
         Task { @MainActor [weak self] in
-            debugPrint("⏹️ PIPVideoPlayerManager: Picture-in-Picture will stop")
+            guard let self = self else { return }
+            self.debugPrint("⏹️ PIPVideoPlayerManager: Picture-in-Picture will stop")
         }
     }
     
     func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
         Task { @MainActor [weak self] in
-            self?.isPiPActive = false
-            debugPrint("✅ PIPVideoPlayerManager: Picture-in-Picture stopped")
+            guard let self = self else { return }
+            self.isPiPActive = false
+            self.debugPrint("✅ PIPVideoPlayerManager: Picture-in-Picture stopped")
         }
     }
     
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
         Task { @MainActor [weak self] in
-            self?.isPiPActive = false
-            self?.playbackError = error
+            guard let self = self else { return }
+            self.isPiPActive = false
+            self.playbackError = error
             #if DEBUG
             print("❌ PIPVideoPlayerManager: Failed to start PiP: \(error.localizedDescription)")
             #endif
@@ -654,7 +659,8 @@ extension PIPVideoPlayerManager: AVPictureInPictureControllerDelegate {
     
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void) {
         Task { @MainActor [weak self] in
-            debugPrint("🔄 PIPVideoPlayerManager: Restoring user interface for PiP stop")
+            guard let self = self else { return }
+            self.debugPrint("🔄 PIPVideoPlayerManager: Restoring user interface for PiP stop")
             completionHandler(true)
         }
     }

@@ -230,11 +230,13 @@ struct OnboardingView: View {
                     hasCompletedSetup = true
                     completedOnboardingVersion = onboardingVersion
                     
-                    // Show review popup
+                    // Show review popup AFTER paywall is dismissed
+                    // This ensures users see the paywall first, then get asked for a review
                     requestAppReviewIfNeeded()
                     
-                    // Small delay before dismissing onboarding to let review popup appear
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    // Delay before dismissing onboarding to ensure review popup has time to appear
+                    // SKStoreReviewController shows immediately if Apple decides to display it
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         isPresented = false
                     }
                 }
@@ -1195,7 +1197,6 @@ struct OnboardingView: View {
     private func startCountdown() {
         // Heavy haptic for countdown start
         let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
-        let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
         
         // Countdown: 3
         countdownNumber = 3
@@ -2078,7 +2079,7 @@ struct OnboardingView: View {
         let item = AVPlayerItem(asset: asset)
         
         // Observe player item status with detailed logging
-        let statusObservation = item.observe(\.status, options: [.new, .initial]) { playerItem, _ in
+        _ = item.observe(\.status, options: [.new, .initial]) { playerItem, _ in
             DispatchQueue.main.async {
                 switch playerItem.status {
                 case .readyToPlay:
@@ -2104,7 +2105,7 @@ struct OnboardingView: View {
         }
         
         // Observe playback errors
-        let errorObserver = NotificationCenter.default.addObserver(
+        _ = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemFailedToPlayToEndTime,
             object: item,
             queue: .main
@@ -2149,23 +2150,53 @@ struct OnboardingView: View {
 
     private func finalizeWallpaperSetup() {
         // CRITICAL: Only allow wallpaper setup from step 4 (chooseWallpapers) when user explicitly clicks CTA
-        // This prevents shortcuts from running automatically when onboarding first appears
         guard currentPage == .chooseWallpapers, isLaunchingShortcut else {
             debugLog("⚠️ Onboarding: finalizeWallpaperSetup called but not in correct context")
-            debugLog("   - Current page: \(currentPage)")
-            debugLog("   - Is launching shortcut: \(isLaunchingShortcut)")
             return
         }
         
         debugLog("✅ Onboarding: Finalizing wallpaper setup from step 4")
         
-        // Don't track onboarding wallpaper for paywall limit
-        let request = WallpaperUpdateRequest(skipDeletionPrompt: true, trackForPaywall: false)
+        // Generate wallpaper directly instead of relying on ContentView notification
+        // This prevents race conditions where ContentView might not be active or updated yet
         
-        // Small delay to ensure ContentView has loaded the notes from savedNotesData
-        // The onChange handler needs time to trigger after saveOnboardingNotes()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            NotificationCenter.default.post(name: .requestWallpaperUpdate, object: request)
+        // 1. Resolve background color
+        let backgroundOption = LockScreenBackgroundOption(rawValue: lockScreenBackgroundRaw) ?? .default
+        let backgroundColor = backgroundOption.uiColor
+        
+        // 2. Resolve background image
+        var backgroundImage: UIImage? = nil
+        let backgroundMode = LockScreenBackgroundMode(rawValue: lockScreenBackgroundModeRaw) ?? .default
+        
+        if backgroundMode == .photo {
+            if !lockScreenBackgroundPhotoData.isEmpty, let image = UIImage(data: lockScreenBackgroundPhotoData) {
+                backgroundImage = image
+            }
+        }
+        
+        // 3. Generate wallpaper
+        debugLog("🎨 Onboarding: Generating wallpaper with \(onboardingNotes.count) notes")
+        let lockScreenImage = WallpaperRenderer.generateWallpaper(
+            from: onboardingNotes,
+            backgroundColor: backgroundColor,
+            backgroundImage: backgroundImage,
+            hasLockScreenWidgets: hasLockScreenWidgets
+        )
+        
+        // 4. Save to file system
+        do {
+            try HomeScreenImageManager.saveLockScreenWallpaper(lockScreenImage)
+            debugLog("✅ Onboarding: Saved generated wallpaper to file system")
+            
+            // 5. Trigger shortcut launch
+            // We use a small delay to ensure file system writes are flushed
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.didTriggerShortcutRun = true
+                self.openShortcutToApplyWallpaper()
+            }
+        } catch {
+            debugLog("❌ Onboarding: Failed to save generated wallpaper: \(error)")
+            handleWallpaperVerificationFailure()
         }
     }
 
@@ -2191,23 +2222,30 @@ struct OnboardingView: View {
         #else
         // In production, only request review once
         guard !hasRequestedAppReview else {
-            print("🌟 Review already requested, skipping")
             return
         }
         #endif
         
         hasRequestedAppReview = true
+        #if DEBUG
         print("🌟 Requesting app review after onboarding completion")
+        #endif
         
         // Small delay to let the onboarding dismissal complete smoothly
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            #if DEBUG
             print("🌟 Triggering SKStoreReviewController.requestReview()")
+            #endif
             if let windowScene = UIApplication.shared.connectedScenes
                 .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
                 SKStoreReviewController.requestReview(in: windowScene)
+                #if DEBUG
                 print("🌟 Review request sent to window scene")
+                #endif
             } else {
+                #if DEBUG
                 print("🌟 No active window scene found")
+                #endif
             }
         }
     }
@@ -2230,9 +2268,9 @@ struct OnboardingView: View {
             }
             
             if filesReady {
-                await launchShortcutAfterVerification()
+                launchShortcutAfterVerification()
             } else {
-                await handleWallpaperVerificationFailure()
+                handleWallpaperVerificationFailure()
             }
         }
     }
@@ -2392,9 +2430,6 @@ private extension OnboardingView {
         let circleStrokeWidth: CGFloat
         let circleFontSize: CGFloat
         let circleFontDesign: Font.Design
-        let labelFont: Font
-        let labelWeight: Font.Weight
-        let vSpacing: CGFloat
 
         switch displayMode {
         case .large:
@@ -2404,9 +2439,6 @@ private extension OnboardingView {
             circleStrokeWidth = isCurrent ? 1.5 : 1
             circleFontSize = 16
             circleFontDesign = .rounded
-            labelFont = .footnote
-            labelWeight = isCurrent ? .semibold : .regular
-            vSpacing = 8
         case .compact:
             circleSize = 40
             circleShadowOpacity = 0.0
@@ -2414,9 +2446,6 @@ private extension OnboardingView {
             circleStrokeWidth = 1
             circleFontSize = 18
             circleFontDesign = .rounded
-            labelFont = .caption2
-            labelWeight = isCurrent ? .semibold : .regular
-            vSpacing = 4
         }
 
         return ZStack {
@@ -3215,21 +3244,6 @@ struct ConfettiView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Central flash
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [.white.opacity(0.8), .clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 150
-                        )
-                    )
-                    .frame(width: 300, height: 300)
-                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                    .opacity(particles.isEmpty ? 0 : 1)
-                    .animation(.easeOut(duration: 0.3), value: particles.isEmpty)
-                
                 ForEach(particles) { particle in
                     ConfettiPiece(particle: particle, centerX: geometry.size.width / 2, centerY: geometry.size.height / 2)
                 }

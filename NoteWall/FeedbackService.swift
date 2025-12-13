@@ -68,14 +68,14 @@ final class FeedbackService {
                 } else if let error = error {
                     errorMessages.append("Email: \(error)")
                     #if DEBUG
-                    print("⚠️ FeedbackService: Failed to send email: \(error ?? "Unknown")")
+                    print("⚠️ FeedbackService: Failed to send email: \(error)")
                     #endif
                 }
                 group.leave()
             }
         }
         // 2. Fallback: Try EmailJS (usually fails from iOS, but try anyway)
-        else if let serviceID = emailJSServiceID, let templateID = emailJSTemplateID {
+        else if let _ = emailJSServiceID, let _ = emailJSTemplateID {
             group.enter()
             sendFeedbackViaEmailJS(
                 reason: reason,
@@ -90,7 +90,7 @@ final class FeedbackService {
                 } else if let error = error {
                     errorMessages.append("EmailJS: \(error)")
                     #if DEBUG
-                    print("⚠️ FeedbackService: Failed to send email via EmailJS: \(error ?? "Unknown")")
+                    print("⚠️ FeedbackService: Failed to send email via EmailJS: \(error)")
                     #endif
                 }
                 group.leave()
