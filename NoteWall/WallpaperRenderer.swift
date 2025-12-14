@@ -35,11 +35,11 @@ struct WallpaperRenderer {
     
     /// Top padding when user has NO widgets (closer to clock)
     /// ADJUST THIS VALUE to control gap between clock and first note
-    /// - 700 = very close to clock (original)
+    /// - 700 = very close to clock (matches preset spacing)
     /// - 780 = slight gap below clock
-    /// - 850 = comfortable gap below clock (recommended)
+    /// - 850 = comfortable gap below clock
     /// - 900+ = larger gap
-    private static let topPaddingNoWidgets: CGFloat = 850
+    private static let topPaddingNoWidgets: CGFloat = 780
     
     /// Bottom safe area padding (above flashlight/camera icons)
     /// Increased to ensure notes never overlap flashlight/camera

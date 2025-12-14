@@ -177,7 +177,7 @@ struct TroubleshootingView: View {
                 
                 Spacer()
                 
-                // Close button
+                // Close button - simple X icon like step 4 pop-up
                 Button(action: {
                     // Light impact haptic for close button
                     let generator = UIImpactFeedbackGenerator(style: .light)
@@ -187,15 +187,6 @@ struct TroubleshootingView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white.opacity(0.6))
-                        .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.08))
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                )
-                        )
                 }
             }
             .padding(.horizontal, 20)
@@ -498,12 +489,12 @@ struct TroubleshootingView: View {
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
                     
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        animateIn = false
-                    }
+                    // Immediately update state to prevent getting stuck
+                    animateIn = false
+                    
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        currentStep = .issue2
+                            currentStep = .issue2
                             animateIn = true
                         }
                     }
@@ -705,9 +696,9 @@ struct TroubleshootingView: View {
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
                     
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        animateIn = false
-                    }
+                    // Immediately update state to prevent getting stuck
+                    animateIn = false
+                    
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             currentStep = .support

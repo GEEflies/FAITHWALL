@@ -119,22 +119,9 @@ enum HomeScreenImageManager {
                     try ensureDirectoryExists(at: url)
                 }
             }
+            print("✅ HomeScreenImageManager: Created folder structure at: \(baseURL.path)")
         } catch {
-            print("⚠️ HomeScreenImageManager: Failed to prepare primary directories: \(error)")
-        }
-
-        if let legacyBase = legacyBaseDirectoryURL {
-            do {
-                try ensureDirectoryExists(at: legacyBase)
-                ensureLegacyMirrorMarkerExists(at: legacyBase)
-
-                try [homeScreenFolderName, lockScreenFolderName].forEach { name in
-                    let dir = legacyBase.appendingPathComponent(name, isDirectory: true)
-                    try ensureDirectoryExists(at: dir)
-                }
-            } catch {
-                print("⚠️ HomeScreenImageManager: Failed to prepare legacy directories: \(error)")
-            }
+            print("⚠️ HomeScreenImageManager: Failed to prepare directories: \(error)")
         }
     }
 
@@ -241,13 +228,6 @@ enum HomeScreenImageManager {
         try data.write(to: destinationURL, options: .atomic)
 
         removeUnderscoreFilesIfNeeded(in: directoryURL, fileNames: ["home_screen.jpg"])
-
-        mirrorFileToLegacyDirectory(
-            data,
-            subfolder: homeScreenFolderName,
-            primaryName: homeScreenFileName,
-            aliasNames: ["home_screen.jpg"]
-        )
     }
 
     static func saveLockScreenWallpaper(_ image: UIImage) throws {
@@ -273,13 +253,6 @@ enum HomeScreenImageManager {
         try data.write(to: destinationURL, options: .atomic)
 
         removeUnderscoreFilesIfNeeded(in: directoryURL, fileNames: ["lock_screen.jpg"])
-
-        mirrorFileToLegacyDirectory(
-            data,
-            subfolder: lockScreenFolderName,
-            primaryName: lockScreenFileName,
-            aliasNames: ["lock_screen.jpg"]
-        )
     }
 
     static func saveLockScreenBackgroundSource(_ image: UIImage) throws {
@@ -316,7 +289,6 @@ enum HomeScreenImageManager {
         }
 
         removeLegacyHomeScreenFiles(at: directoryURL)
-        removeFiles(inLegacyDirectory: homeScreenFolderName, names: [homeScreenFileName, "home_screen.jpg"])
     }
 
     static func homeScreenImageURL() -> URL? {
@@ -524,51 +496,7 @@ enum HomeScreenImageManager {
             context.fill(CGRect(origin: .zero, size: size))
         }
     }
-    private static func ensureLegacyMirrorMarkerExists(at baseURL: URL) {
-        let markerURL = baseURL.appendingPathComponent(legacyMirrorMarkerFileName, isDirectory: false)
-        if !FileManager.default.fileExists(atPath: markerURL.path) {
-            try? Data().write(to: markerURL)
-        }
-    }
-
-    private static func mirrorFileToLegacyDirectory(
-        _ data: Data,
-        subfolder: String,
-        primaryName: String,
-        aliasNames: [String] = []
-    ) {
-        guard let baseLegacyURL = legacyBaseDirectoryURL else { return }
-
-        let legacyDirectory = baseLegacyURL.appendingPathComponent(subfolder, isDirectory: true)
-
-        do {
-            try FileManager.default.createDirectory(at: legacyDirectory, withIntermediateDirectories: true)
-            ensureLegacyMirrorMarkerExists(at: baseLegacyURL)
-
-            let primaryURL = legacyDirectory.appendingPathComponent(primaryName)
-            try data.write(to: primaryURL, options: .atomic)
-
-            for alias in aliasNames {
-                let aliasURL = legacyDirectory.appendingPathComponent(alias)
-                try data.write(to: aliasURL, options: .atomic)
-            }
-        } catch {
-            // Compatibility mirror is best-effort; ignore failures.
-        }
-    }
-
-    private static func removeFiles(inLegacyDirectory subfolder: String, names: [String]) {
-        guard let legacyDir = legacyBaseDirectoryURL?.appendingPathComponent(subfolder, isDirectory: true) else {
-            return
-        }
-
-        names.forEach { name in
-            let url = legacyDir.appendingPathComponent(name)
-            if FileManager.default.fileExists(atPath: url.path) {
-                try? FileManager.default.removeItem(at: url)
-            }
-        }
-    }
+    // Legacy folder mirroring removed - now using only primary folder structure
 
     private static func removeUnderscoreFilesIfNeeded(in directoryURL: URL, fileNames: [String]) {
         fileNames.forEach { fileName in

@@ -1113,16 +1113,25 @@ private struct EditModeMenuButton: View {
         if context.notes.wrappedValue.isEmpty {
             EmptyView()
         } else {
-            Button(action: toggleEditMode) {
+            Button(action: {
+                toggleEditMode()
+            }) {
                 Image(systemName: context.isEditMode.wrappedValue ? "xmark" : "ellipsis")
                     .font(.system(size: 16, weight: .bold))
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(Color.white)
-                    .padding(12) // Adds extra tappable area around the button
+                    .frame(width: 28, height: 28)
             }
             .buttonStyle(EditModeChipButtonStyle(isActive: context.isEditMode.wrappedValue))
-            .contentShape(Circle())
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(context.isEditMode.wrappedValue ? "Close editing" : "Edit notes")
+            .highPriorityGesture(
+                TapGesture()
+                    .onEnded { _ in
+                        toggleEditMode()
+                    }
+            )
             .contextMenu {
                 if context.isEditMode.wrappedValue {
                     Button("Select All") {

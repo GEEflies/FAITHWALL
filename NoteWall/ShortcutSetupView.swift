@@ -120,11 +120,36 @@ struct ShortcutSetupView: View {
                         .padding(.horizontal, 24)
                     
                     // Subtitle
-                    Text("This takes 10 seconds and you only do it once.")
+                    Text("This takes 30 seconds and you only do it once.")
                         .font(.system(.title3))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
+                    
+                    // Important note
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundColor(.appAccent)
+                                .font(.system(size: 16))
+                            Text("Important:")
+                                .font(.system(.subheadline, design: .rounded))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.appAccent)
+                        }
+                        Text("When the shortcut asks for folder access, you'll need to navigate to:\nFiles → On My iPhone → NoteWall → HomeScreen\n(and LockScreen)")
+                            .font(.system(.caption))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.appAccent.opacity(0.1))
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
                 }
                 
                 // Steps list

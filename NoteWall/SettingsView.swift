@@ -28,7 +28,7 @@ struct SettingsView: View {
     @State private var supportViewFloatOffset: CGFloat = 0
     var selectedTab: Binding<Int>?
 
-    private let shortcutURL = "https://www.icloud.com/shortcuts/37aa5bd3a1274af1b502c8eeda60fbf7"
+    private let shortcutURL = "https://www.icloud.com/shortcuts/4735a1723f8a4cc28c12d07092c66a35"
     init(selectedTab: Binding<Int>? = nil) {
         self.selectedTab = selectedTab
     }
@@ -44,6 +44,7 @@ struct SettingsView: View {
     @State private var selectedLegalDocument: LegalDocumentType = .termsOfService
     @State private var showPromoCodeAdmin = false
     @State private var showPromoCodeLogin = false
+    @State private var isUpdatingWallpaperFromToggle = false
 
     var body: some View {
         NavigationView {
@@ -225,7 +226,8 @@ struct SettingsView: View {
                     // Light impact haptic for toggle switch
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
-                    // User must click "Update Wallpaper Now" to apply changes
+                    // Trigger wallpaper update with animation
+                    triggerWallpaperUpdateFromToggle()
                 }
             )) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -238,7 +240,12 @@ struct SettingsView: View {
                 }
             }
         }
-        // User must click "Update Wallpaper Now" to apply changes - no automatic shortcuts
+        .onReceive(NotificationCenter.default.publisher(for: .wallpaperGenerationFinished)) { _ in
+            isUpdatingWallpaperFromToggle = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .shortcutWallpaperApplied)) { _ in
+            isUpdatingWallpaperFromToggle = false
+        }
     }
 
     @ViewBuilder
@@ -1131,6 +1138,27 @@ private extension SettingsView {
             }
             
             rootViewController.present(activityViewController, animated: true)
+        }
+    }
+    
+    private func triggerWallpaperUpdateFromToggle() {
+        guard !isUpdatingWallpaperFromToggle else { return }
+        
+        isUpdatingWallpaperFromToggle = true
+        
+        // Show loading overlay FIRST (appears immediately on top of Settings)
+        // Then MainTabView will switch to home tab
+        NotificationCenter.default.post(name: .showGlobalLoadingOverlay, object: nil)
+        
+        // Trigger wallpaper update after a tiny delay (overlay is already visible)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Settings wallpaper changes do NOT count toward free limit
+            let request = WallpaperUpdateRequest(
+                skipDeletionPrompt: false,
+                trackForPaywall: false,
+                showLoadingOverlay: false  // Don't show again, MainTabView already showing it
+            )
+            NotificationCenter.default.post(name: .requestWallpaperUpdate, object: request)
         }
     }
     

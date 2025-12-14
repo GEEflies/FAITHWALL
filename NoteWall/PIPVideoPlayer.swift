@@ -67,6 +67,11 @@ final class PIPVideoPlayerManager: NSObject, ObservableObject {
     /// The AVPictureInPictureController for PiP functionality
     private var pipController: AVPictureInPictureController?
     
+    /// CRITICAL: 1x1 pixel hidden container for PiP (industry standard approach)
+    /// This view is added directly to the window (not through SwiftUI) and stays persistent
+    /// Positioned at (-1, -1) to be off-screen but valid for iOS
+    private var hiddenContainerView: UIView?
+    
     /// The player item observer for tracking playback status
     private var playerItemObserver: NSKeyValueObservation?
     
@@ -183,8 +188,13 @@ final class PIPVideoPlayerManager: NSObject, ObservableObject {
         // Set up player item observers
         setupPlayerItemObservers(playerItem: playerItem)
         
-        // Don't set up PiP controller yet - wait for layer to be added to view hierarchy
-        // setupPictureInPictureController() will be called from setupPictureInPictureControllerWithExistingLayer()
+        // CRITICAL: Create 1x1 pixel hidden container IMMEDIATELY
+        // This ensures the player layer is in the view hierarchy before PiP is needed
+        // This is the industry-standard approach for hidden PiP
+        setupHiddenContainer()
+        
+        // Set up PiP controller now that layer is in view hierarchy
+        setupPictureInPictureController()
         
         // Mark as loaded to trigger view updates
         hasLoadedVideo = true
@@ -354,23 +364,61 @@ final class PIPVideoPlayerManager: NSObject, ObservableObject {
         return pipController?.isPictureInPicturePossible ?? false
     }
     
-    /// Creates a player layer for use in UIKit views.
-    /// - Returns: An AVPlayerLayer configured for this player, or nil if player is not ready
-    func createPlayerLayer() -> AVPlayerLayer? {
+    // MARK: - Private Methods
+    
+    /// Creates a 1x1 pixel hidden container for PiP (industry standard approach).
+    /// This is the KEY to making PiP work without showing video in the app:
+    /// - 1x1 pixel is imperceptible to users (0.000033% of screen)
+    /// - Positioned at (-1, -1) to be off-screen
+    /// - Added to UIWindow (persistent, unlike SwiftUI views)
+    /// - PiP controller recognizes it as valid (not optimized away like 0x0)
+    private func setupHiddenContainer() {
         guard let player = player else {
-            return nil
+            debugPrint("❌ PIPVideoPlayerManager: No player available for hidden container")
+            return
         }
         
+        // Clean up any existing container
+        hiddenContainerView?.removeFromSuperview()
+        
+        // Create player layer first
         let layer = AVPlayerLayer(player: player)
         layer.videoGravity = .resizeAspect
-        
-        // Store reference for cleanup
         self.playerLayer = layer
         
-        return layer
+        // Create 1x1 pixel container
+        // Why 1x1? It's valid for iOS but imperceptible to users
+        // (You'd need a microscope to see a 1x1 pixel!)
+        let containerView = UIView(frame: CGRect(x: -1, y: -1, width: 1, height: 1))
+        containerView.backgroundColor = .clear
+        containerView.alpha = 1.0 // Must NOT be 0 for PiP
+        containerView.isHidden = false // Must NOT be hidden for PiP
+        
+        // Set layer to match 1x1 size
+        layer.frame = containerView.bounds
+        
+        // Add layer to container
+        containerView.layer.addSublayer(layer)
+        
+        // CRITICAL: Add to window (not through SwiftUI)
+        // Windows are persistent, unlike SwiftUI views
+        if let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })?
+            .windows
+            .first(where: { $0.isKeyWindow }) {
+            
+            window.addSubview(containerView)
+            self.hiddenContainerView = containerView
+            
+            debugPrint("✅ PIPVideoPlayerManager: Created 1x1 pixel hidden container at (-1, -1)")
+            debugPrint("   - Size: 1x1 pixel (0.000033% of screen - imperceptible)")
+            debugPrint("   - Position: Off-screen but valid for iOS")
+            debugPrint("   - Layer in hierarchy: ✓")
+        } else {
+            debugPrint("❌ PIPVideoPlayerManager: No key window available for hidden container")
+        }
     }
-    
-    // MARK: - Private Methods
     
     /// Checks if Picture-in-Picture is available on this device.
     private func checkPiPAvailability() {
@@ -466,23 +514,6 @@ final class PIPVideoPlayerManager: NSObject, ObservableObject {
             #endif
             playbackError = error
         }
-    }
-    
-    /// Sets up the PiP controller using an existing player layer from the view hierarchy.
-    /// This should be called after the layer is added to a view.
-    func setupPictureInPictureControllerWithExistingLayer() {
-        guard pipController == nil else {
-            debugPrint("⚠️ PIPVideoPlayerManager: PiP controller already exists, skipping setup")
-            return
-        }
-        
-        guard self.playerLayer != nil else {
-            debugPrint("⚠️ PIPVideoPlayerManager: No player layer available yet, cannot set up PiP controller")
-            return
-        }
-        
-        debugPrint("🔧 PIPVideoPlayerManager: Setting up PiP controller with existing layer")
-        setupPictureInPictureController()
     }
     
     /// Sets up observers for player item status changes.
@@ -587,6 +618,14 @@ final class PIPVideoPlayerManager: NSObject, ObservableObject {
         // Stop PiP
         pipController?.stopPictureInPicture()
         pipController = nil
+        
+        // CRITICAL: Remove hidden container from window
+        hiddenContainerView?.removeFromSuperview()
+        hiddenContainerView = nil
+        
+        // Remove player layer
+        playerLayer?.removeFromSuperlayer()
+        playerLayer = nil
         
         // Stop and release player
         player?.pause()
