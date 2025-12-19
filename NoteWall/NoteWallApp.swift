@@ -1,5 +1,6 @@
 import SwiftUI
 import RevenueCat
+import TelemetryDeck
 
 @main
 struct NoteWallApp: App {
@@ -19,6 +20,10 @@ struct NoteWallApp: App {
         setupCrashReporting()
         HomeScreenImageManager.prepareStorageStructure()
         configureRevenueCat()
+        
+        // Initialize TelemetryDeck for analytics
+        let telemetryConfig = TelemetryDeck.Config(appID: "F406962D-0C75-41A0-82DB-01AC06B8E21A")
+        TelemetryDeck.initialize(config: telemetryConfig)
         
         // Check onboarding status on init (only show for first launch)
         let shouldShow = !hasCompletedSetup

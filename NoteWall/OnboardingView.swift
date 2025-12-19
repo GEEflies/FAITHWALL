@@ -961,9 +961,13 @@ struct OnboardingView: View {
         // Calculate mockup dimensions - made bigger since button is now positioned higher
         let availableHeight = geometry.size.height * 0.75 // Increased from 0.7 to 0.75
         let availableWidth = geometry.size.width
-        let mockupAspectRatio: CGFloat = 1 / 2.16
+        // Actual aspect ratio of step0_mockup.png: 1892 x 4300 = 0.44 (1/2.27)
+        let mockupAspectRatio: CGFloat = 1892.0 / 4300.0
         let maxMockupHeight = availableHeight
-        let mockupWidth = min(maxMockupHeight * mockupAspectRatio, availableWidth * 0.9) // Increased from 0.85 to 0.9
+        let maxMockupWidth = availableWidth * 0.9 // Increased from 0.85 to 0.9
+        
+        // Calculate dimensions that preserve aspect ratio without cropping
+        let mockupWidth = min(maxMockupHeight * mockupAspectRatio, maxMockupWidth)
         let mockupHeight = mockupWidth / mockupAspectRatio
         
         // Screen insets within the mockup frame (must match transparent screen window in mockup PNG)
@@ -980,9 +984,11 @@ struct OnboardingView: View {
         
         ZStack {
             // iPhone mockup overlay (transparent screen window) - positioned behind notes
+            // Use aspectRatio modifier to preserve the full image without cropping
+            // Remove frame constraints to allow natural sizing based on aspect ratio
             Image("step0_mockup")
                 .resizable()
-                .scaledToFit()
+                .aspectRatio(mockupAspectRatio, contentMode: .fit)
                 .frame(width: mockupWidth, height: mockupHeight)
                 .opacity(mockupOpacity)
                 .scaleEffect(mockupScale)
@@ -1016,7 +1022,7 @@ struct OnboardingView: View {
             )
             .zIndex(2) // Notes above mockup
         }
-        .frame(width: mockupWidth, height: mockupHeight)
+        .frame(width: mockupWidth, height: mockupHeight, alignment: .center)
     }
     
     @ViewBuilder
@@ -4101,8 +4107,9 @@ struct OnboardingView: View {
             let availableWidth = geometry.size.width
             
             // ⚙️ MOCKUP SIZE CONTROLS ⚙️
-            // iPhone mockup aspect ratio is approximately 1:2.16 (width:height)
-            let mockupAspectRatio: CGFloat = 1 / 2.16
+            // Actual aspect ratio of mockup_light.png and mockup_dark.png (1x export): 946 x 2150 = 0.44 (1/2.27)
+            // This matches the actual image dimensions to prevent cropping
+            let mockupAspectRatio: CGFloat = 946.0 / 2150.0
             
             // 📏 HEIGHT MULTIPLIER: Controls mockup size (1.3 = 130% of screen height)
             //    - Increase (e.g., 1.5) = LARGER mockup (more zoom effect)
@@ -4131,11 +4138,11 @@ struct OnboardingView: View {
             
             // ⚙️ WALLPAPER DISPLAY - 1:1 TRUE REPRESENTATION ⚙️
             // The wallpaper is shown exactly as it appears on real lock screen
-            // 🔧 ADJUST ZOOM: Change .scaleEffect(0.85) on line ~1352
-            //    - 0.85 = Current (85% size - zoomed out to show all content)
+            // 🔧 ADJUST ZOOM: Change .scaleEffect(0.77) on line ~4155
+            //    - 0.77 = Current (77% size - zoomed in slightly to eliminate black edges)
             //    - 1.0 = No zoom (100% - may crop edges)
-            //    - 0.75 = More zoom out (75% - shows more but smaller)
-            //    - 0.9 = Less zoom out (90% - closer to edges)
+            //    - 0.75 = More zoom out (75% - shows more but smaller, may show black edges)
+            //    - 0.9 = Less zoom (90% - closer to edges)
             
             ZStack {
                 // Wallpaper layer (behind the mockup) - TRUE 1:1 size, no cropping
@@ -4145,7 +4152,7 @@ struct OnboardingView: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit) // ✅ Maintains aspect ratio, shows full image
                             .frame(maxWidth: screenWidth, maxHeight: screenHeight)
-                            .scaleEffect(0.75) // 🔍 Zoom out to 85% to show all content without cropping
+                            .scaleEffect(0.77) // 🔍 Zoomed in slightly to eliminate black edges and make it smoother
                     } else {
                         // Fallback gradient if wallpaper not loaded
                         RoundedRectangle(cornerRadius: screenCornerRadius, style: .continuous)
@@ -4166,10 +4173,11 @@ struct OnboardingView: View {
                 )
                 
                 // iPhone mockup overlay (transparent screen window)
+                // Use aspectRatio modifier to preserve the full image without cropping
                 Image(useLightMockup ? "mockup_light" : "mockup_dark")
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: mockupWidth, height: mockupHeight)
+                    .aspectRatio(mockupAspectRatio, contentMode: .fit)
+                    .frame(maxWidth: mockupWidth, maxHeight: mockupHeight)
             }
             .frame(width: availableWidth, height: availableHeight)
             .shadow(color: Color.black.opacity(0.35), radius: 25, x: 0, y: 12)
