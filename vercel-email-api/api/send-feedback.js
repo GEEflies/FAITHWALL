@@ -1,5 +1,5 @@
 /**
- * Vercel Serverless Function for NoteWall Feedback Emails
+ * Vercel Serverless Function for FaithWall Feedback Emails
  * 
  * Deploy: vercel
  * Set env vars: GMAIL_USER, GMAIL_APP_PASSWORD
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
 
     // Send email
     const info = await transporter.sendMail({
-      from: `"NoteWall Feedback" <${process.env.GMAIL_USER}>`,
+      from: `"FaithWall Feedback" <${process.env.GMAIL_USER}>`,
       to: to,
       subject: subject,
       text: body,

@@ -1,7 +1,7 @@
 {
-  "name": "notewall-email-api",
+  "name": "faithwall-email-api",
   "version": "1.0.0",
-  "description": "Serverless function to send NoteWall feedback emails automatically",
+  "description": "Serverless function to send FaithWall feedback emails automatically",
   "main": "api/send-feedback.js",
   "scripts": {
     "dev": "vercel dev",

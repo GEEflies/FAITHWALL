@@ -1,4 +1,4 @@
-# NoteWall Email API - Quick Deploy
+# FaithWall Email API - Quick Deploy
 
 This sends feedback emails automatically in the background (users never see email composer).
 
@@ -25,7 +25,7 @@ Follow the prompts. It will give you a URL like: `https://your-project.vercel.ap
 2. Select your project
 3. Go to **Settings → Environment Variables**
 4. Add:
-   - `GMAIL_USER`: `iosnotewall@gmail.com` (your email)
+   - `GMAIL_USER`: `iosfaithwall@gmail.com` (your email)
    - `GMAIL_APP_PASSWORD`: Your Gmail App Password (see below)
 
 ### Get Gmail App Password:
@@ -33,7 +33,7 @@ Follow the prompts. It will give you a URL like: `https://your-project.vercel.ap
 1. Go to: https://myaccount.google.com/security
 2. Enable **2-Step Verification** (if not already)
 3. Go to **"App passwords"**
-4. Create new → Select "Mail" → Select "Other" → Name it "NoteWall"
+4. Create new → Select "Mail" → Select "Other" → Name it "FaithWall"
 5. Copy the 16-character password
 6. Paste into Vercel environment variable
 
@@ -57,9 +57,9 @@ Now feedback emails are sent automatically - users never see anything!
 curl -X POST https://your-project.vercel.app/api/send-feedback \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "iosnotewall@gmail.com",
+    "to": "iosfaithwall@gmail.com",
     "subject": "Test",
-    "body": "Test email from NoteWall"
+    "body": "Test email from FaithWall"
   }'
 ```
 
