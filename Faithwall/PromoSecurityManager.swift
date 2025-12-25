@@ -94,7 +94,7 @@ final class PromoSecurityManager {
 final class KeychainHelper {
     static let shared = KeychainHelper()
     
-    private let service = "com.faithwall.promo"
+    private let service = "com.notewall.promo"
     
     private init() {}
     

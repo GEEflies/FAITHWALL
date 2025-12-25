@@ -21,16 +21,15 @@ final class PaywallManager: NSObject, ObservableObject {
     @Published var paywallTriggerReason: PaywallTriggerReason = .limitReached
     @Published var offerings: Offerings?
     @Published var availablePackages: [Package] = []
-    @Published var customerInfo: CustomerInfo?
+    @Published var customerInfo: RevenueCat.CustomerInfo?
     @Published var isLoadingOfferings: Bool = false
     @Published var isProcessingPurchase: Bool = false
     @Published var lastErrorMessage: String?
     
     // MARK: - Constants
     private let freeExportLimit = 3
-    private let entitlementID = "Faithwall Unlimited" // Updated entitlement name
+    private let entitlementID = "Notewall+"
     private let lifetimeProductID = "lifetime"
-    private let monthlyProductID = "monthly"
     private var paywallDelayWorkItem: DispatchWorkItem?
     private var hasConnectedToRevenueCat = false
     
@@ -180,7 +179,7 @@ final class PaywallManager: NSObject, ObservableObject {
         }
     }
 
-    func handle(customerInfo: CustomerInfo) {
+    func handle(customerInfo: RevenueCat.CustomerInfo) {
         self.customerInfo = customerInfo
         hasPremiumAccess = customerInfo.entitlements[entitlementID]?.isActive == true
         if let entitlement = customerInfo.entitlements[entitlementID] {
@@ -248,6 +247,7 @@ final class PaywallManager: NSObject, ObservableObject {
         guard !isPremium else { return }
         
         wallpaperExportCount += 1
+        
         if hasReachedFreeLimit {
             showPaywallAfterDelay()
         }
@@ -353,84 +353,11 @@ final class PaywallManager: NSObject, ObservableObject {
     func resetForFreshInstall() {
         resetPaywallData()
     }
-    
-    // MARK: - Customer Center Support
-    
-    /// Presents the RevenueCat Customer Center for managing subscriptions
-    @MainActor
-    func presentCustomerCenter() {
-        #if canImport(RevenueCatUI)
-        if #available(iOS 15.0, *) {
-            Purchases.shared.presentCustomerCenter()
-        }
-        #endif
-    }
-    
-    /// Checks if Customer Center is available
-    var canPresentCustomerCenter: Bool {
-        #if canImport(RevenueCatUI)
-        if #available(iOS 15.0, *) {
-            return true
-        }
-        #endif
-        return false
-    }
-    
-    // MARK: - Product Helpers
-    
-    /// Gets the monthly package from available packages
-    var monthlyPackage: Package? {
-        availablePackages.first { package in
-            package.storeProduct.productIdentifier == monthlyProductID ||
-            package.packageType == .monthly
-        }
-    }
-    
-    /// Gets the lifetime package from available packages
-    var lifetimePackage: Package? {
-        availablePackages.first { package in
-            package.storeProduct.productIdentifier == lifetimeProductID ||
-            package.packageType == .lifetime
-        }
-    }
-    
-    /// Gets active subscription period info
-    var activeSubscriptionPeriod: String? {
-        guard let entitlement = customerInfo?.entitlements[entitlementID],
-              entitlement.isActive else { return nil }
-        
-        switch entitlement.periodType {
-        case .intro:
-            return "Trial"
-        case .normal:
-            if entitlement.willRenew {
-                return "Active"
-            } else {
-                return "Expires soon"
-            }
-        @unknown default:
-            return "Active"
-        }
-    }
-    
-    /// Gets subscription expiration date
-    var subscriptionExpirationDate: Date? {
-        guard let entitlement = customerInfo?.entitlements[entitlementID],
-              entitlement.isActive else { return nil }
-        return entitlement.expirationDate
-    }
-    
-    /// Checks if user has an active trial
-    var hasActiveTrial: Bool {
-        guard let entitlement = customerInfo?.entitlements[entitlementID],
-              entitlement.isActive else { return false }
-        return entitlement.periodType == .intro
-    }
 }
 
 // MARK: - PurchasesDelegate
 extension PaywallManager: PurchasesDelegate {
-    func purchases(_ purchases: Purchases, receivedUpdated customerInfo: CustomerInfo) {
+    func purchases(_ purchases: Purchases, receivedUpdated customerInfo: RevenueCat.CustomerInfo) {
         DispatchQueue.main.async {
             self.handle(customerInfo: customerInfo)
         }
@@ -452,7 +379,7 @@ enum PaywallTriggerReason: String {
         case .limitReached:
             return "Free Limit Reached"
         case .manual, .settings:
-            return "Upgrade to Faithwall Unlimited"
+            return "Upgrade to FaithWall+"
         case .exitIntercept:
             return "Special Offer - 30% Off!"
         }

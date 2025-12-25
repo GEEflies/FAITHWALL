@@ -10,10 +10,10 @@
 		111111111111111111111111 /* DeleteNotesLoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222222222222222222222222 /* DeleteNotesLoadingView.swift */; };
 		123456789012345678901234 /* PromoCodeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 234567890123456789012345 /* PromoCodeManager.swift */; };
 		333333333333333333333333 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 444444444444444444444444 /* Config.swift */; };
-		345678901234567890123456 /* PromoCodeAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456789012345678901234567 /* PromoCodeAuthManager.swift */; };
 		346345317236465393090244 /* AutoFixWorkflowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434025501223443399045143 /* AutoFixWorkflowView.swift */; };
 		420E5C412EF55E43003293FD /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = 420E5C402EF55E43003293FD /* TelemetryClient */; };
 		420E5C432EF55E43003293FD /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = 420E5C422EF55E43003293FD /* TelemetryDeck */; };
+		42501EE22EFAF40500BCBC2A /* OnboardingEnhanced.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */; };
 		425035A42ED5ADB20064014E /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 425035A32ED5ADB20064014E /* RevenueCat */; };
 		4283B2352ED25B5E00093E2D /* ShortcutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */; };
 		4283B2362ED25B5E00093E2D /* ShortcutSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */; };
@@ -21,11 +21,8 @@
 		4283B2382ED25B5E00093E2D /* PIPVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2312ED25B5E00093E2D /* PIPVideoPlayer.swift */; };
 		42DB5DEB2EC32ADB00F21F88 /* FaithWall.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 42DB5DEA2EC32ADB00F21F88 /* FaithWall.storekit */; };
 		486563549087408615731241 /* ExitFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571205128022447414641365 /* ExitFeedbackView.swift */; };
-		555555555555555555555555 /* PromoCodeTypeSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666666666666666666666666 /* PromoCodeTypeSelectionView.swift */; };
-		567890123456789012345678 /* PromoCodeLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 678901234567890123456789 /* PromoCodeLoginView.swift */; };
 		652485545120494283652512 /* QuickActionsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179742655116427522430919 /* QuickActionsManager.swift */; };
 		777777777777777777777777 /* PromoSecurityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888888888888888888888888 /* PromoSecurityManager.swift */; };
-		789012345678901234567890 /* PromoCodeAdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 890123456789012345678901 /* PromoCodeAdminView.swift */; };
 		837611352366433428582121 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 950124043593401227364632 /* AppDelegate.swift */; };
 		874E701C5A960D9C43D2B335 /* TroubleshootingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F7D2FEBFCCE27BA8058728 /* TroubleshootingView.swift */; };
 		887053656051426091269260 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606640631211416417165230 /* SceneDelegate.swift */; };
@@ -49,6 +46,8 @@
 		C1000004000000000000001 /* RevenueCatPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000004000000000000001 /* RevenueCatPaywallView.swift */; };
 		D1000001000000000000001 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2000001000000000000001 /* CrashReporter.swift */; };
 		I1000001000000000000000001 /* AppIconAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I2000001000000000000001 /* AppIconAnimationView.swift */; };
+		C27AC36D27974B5DAD505389 /* UserCountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC13CA5FCB3C472D93509B1F /* UserCountService.swift */; };
+		D32DE5152005413895870245 /* DeviceAdaptive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +56,7 @@
 		222222222222222222222222 /* DeleteNotesLoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteNotesLoadingView.swift; sourceTree = "<group>"; };
 		234567890123456789012345 /* PromoCodeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoCodeManager.swift; sourceTree = "<group>"; };
 		424B745B2EBF88C1009F134B /* FaithWall.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FaithWall.entitlements; sourceTree = "<group>"; };
+		42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingEnhanced.swift; sourceTree = "<group>"; };
 		4283B2312ED25B5E00093E2D /* PIPVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIPVideoPlayer.swift; sourceTree = "<group>"; };
 		4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupView.swift; sourceTree = "<group>"; };
 		4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupViewModel.swift; sourceTree = "<group>"; };
@@ -64,14 +64,10 @@
 		42DB5DEA2EC32ADB00F21F88 /* FaithWall.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = FaithWall.storekit; sourceTree = "<group>"; };
 		434025501223443399045143 /* AutoFixWorkflowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoFixWorkflowView.swift; sourceTree = "<group>"; };
 		444444444444444444444444 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
-		456789012345678901234567 /* PromoCodeAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoCodeAuthManager.swift; sourceTree = "<group>"; };
 		571205128022447414641365 /* ExitFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExitFeedbackView.swift; sourceTree = "<group>"; };
 		606640631211416417165230 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		666666666666666666666666 /* PromoCodeTypeSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoCodeTypeSelectionView.swift; sourceTree = "<group>"; };
-		678901234567890123456789 /* PromoCodeLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoCodeLoginView.swift; sourceTree = "<group>"; };
 		688891131442405819145593 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		888888888888888888888888 /* PromoSecurityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoSecurityManager.swift; sourceTree = "<group>"; };
-		890123456789012345678901 /* PromoCodeAdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoCodeAdminView.swift; sourceTree = "<group>"; };
 		950124043593401227364632 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A2000001000000000000001 /* FaithWallApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaithWallApp.swift; sourceTree = "<group>"; };
 		A2000002000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -94,6 +90,8 @@
 		D2000001000000000000001 /* CrashReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporter.swift; sourceTree = "<group>"; };
 		D3F7D2FEBFCCE27BA8058728 /* TroubleshootingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TroubleshootingView.swift; sourceTree = "<group>"; };
 		I2000001000000000000001 /* AppIconAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconAnimationView.swift; sourceTree = "<group>"; };
+		BC13CA5FCB3C472D93509B1F /* UserCountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserCountService.swift; sourceTree = "<group>"; };
+		6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAdaptive.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,15 +118,16 @@
 		A5000001000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				A5000002000000000000001 /* FaithWall */,
+				A5000002000000000000001 /* Faithwall */,
 				A5000003000000000000001 /* Products */,
 				425035A22ED5ADB20064014E /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
-		A5000002000000000000001 /* FaithWall */ = {
+		A5000002000000000000001 /* Faithwall */ = {
 			isa = PBXGroup;
 			children = (
+				42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */,
 				424B745B2EBF88C1009F134B /* FaithWall.entitlements */,
 				A2000001000000000000001 /* FaithWallApp.swift */,
 				A2000002000000000000001 /* ContentView.swift */,
@@ -161,15 +160,13 @@
 				688891131442405819145593 /* FeedbackService.swift */,
 				606640631211416417165230 /* SceneDelegate.swift */,
 				234567890123456789012345 /* PromoCodeManager.swift */,
-				456789012345678901234567 /* PromoCodeAuthManager.swift */,
-				678901234567890123456789 /* PromoCodeLoginView.swift */,
-				890123456789012345678901 /* PromoCodeAdminView.swift */,
 				222222222222222222222222 /* DeleteNotesLoadingView.swift */,
 				444444444444444444444444 /* Config.swift */,
-				666666666666666666666666 /* PromoCodeTypeSelectionView.swift */,
 				888888888888888888888888 /* PromoSecurityManager.swift */,
 				101010101010101010101010 /* PromoCodePersistenceManager.swift */,
 				I2000001000000000000001 /* AppIconAnimationView.swift */,
+							BC13CA5FCB3C472D93509B1F /* UserCountService.swift */,
+							6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */,
 			);
 			path = Faithwall;
 			sourceTree = "<group>";
@@ -261,6 +258,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				42501EE22EFAF40500BCBC2A /* OnboardingEnhanced.swift in Sources */,
 				A1000001000000000000001 /* FaithWallApp.swift in Sources */,
 				A1000002000000000000001 /* ContentView.swift in Sources */,
 				A1000003000000000000001 /* Models.swift in Sources */,
@@ -289,15 +287,13 @@
 				954208369699442397571273 /* FeedbackService.swift in Sources */,
 				887053656051426091269260 /* SceneDelegate.swift in Sources */,
 				123456789012345678901234 /* PromoCodeManager.swift in Sources */,
-				345678901234567890123456 /* PromoCodeAuthManager.swift in Sources */,
-				567890123456789012345678 /* PromoCodeLoginView.swift in Sources */,
-				789012345678901234567890 /* PromoCodeAdminView.swift in Sources */,
 				111111111111111111111111 /* DeleteNotesLoadingView.swift in Sources */,
 				333333333333333333333333 /* Config.swift in Sources */,
-				555555555555555555555555 /* PromoCodeTypeSelectionView.swift in Sources */,
 				777777777777777777777777 /* PromoSecurityManager.swift in Sources */,
 				999999999999999999999999 /* PromoCodePersistenceManager.swift in Sources */,
 				I1000001000000000000000001 /* AppIconAnimationView.swift in Sources */,
+							C27AC36D27974B5DAD505389 /* UserCountService.swift in Sources */,
+							D32DE5152005413895870245 /* DeviceAdaptive.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

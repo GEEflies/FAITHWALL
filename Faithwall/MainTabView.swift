@@ -5,6 +5,7 @@ struct MainTabView: View {
     @State private var showWallpaperUpdateLoading = false
     @State private var showDeleteNotesLoading = false
     @State private var showTroubleshooting = false
+    @StateObject private var paywallManager = PaywallManager.shared
     
     // Quick Actions state
     @State private var showExitFeedback = false

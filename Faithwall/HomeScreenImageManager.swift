@@ -19,7 +19,7 @@ enum HomeScreenImageManagerError: LocalizedError {
 }
 
 enum HomeScreenImageManager {
-    private static let faithWallFolderName = "FaithWall"
+    private static let noteWallFolderName = "FaithWall"
     private static let editorFolderName = "TextEditor"
     private static let legacyShortcutsFolderName = "Shortcuts"
     private static let homeScreenFolderName = "HomeScreen"
@@ -34,7 +34,7 @@ enum HomeScreenImageManager {
     private static let legacyMirrorMarkerFileName = ".faithwall_legacy_mirror"
 
     static var displayFolderPath: String {
-        "Files → On My iPhone → \(faithWallFolderName) → (HomeScreen or LockScreen)"
+        "Files → On My iPhone → \(noteWallFolderName) → (HomeScreen or LockScreen)"
     }
 
     private static var documentsDirectoryURL: URL? {
@@ -47,7 +47,7 @@ enum HomeScreenImageManager {
         }
 
         let newBaseURL = documentsURL
-            .appendingPathComponent(faithWallFolderName, isDirectory: true)
+            .appendingPathComponent(noteWallFolderName, isDirectory: true)
 
         migrateLegacyDirectoryIfNeeded(documentsDirectory: documentsURL, newBaseURL: newBaseURL)
 
@@ -57,7 +57,7 @@ enum HomeScreenImageManager {
     private static var legacyBaseDirectoryURL: URL? {
         documentsDirectoryURL?
             .appendingPathComponent(legacyShortcutsFolderName, isDirectory: true)
-            .appendingPathComponent(faithWallFolderName, isDirectory: true)
+            .appendingPathComponent(noteWallFolderName, isDirectory: true)
     }
 
     private static var homeScreenDirectoryURL: URL? {
@@ -132,7 +132,7 @@ enum HomeScreenImageManager {
     private static func migrateLegacyDirectoryIfNeeded(documentsDirectory: URL, newBaseURL: URL) {
         let legacyBaseURL = documentsDirectory
             .appendingPathComponent(legacyShortcutsFolderName, isDirectory: true)
-            .appendingPathComponent(faithWallFolderName, isDirectory: true)
+            .appendingPathComponent(noteWallFolderName, isDirectory: true)
 
         let markerURL = legacyBaseURL.appendingPathComponent(legacyMirrorMarkerFileName, isDirectory: false)
 

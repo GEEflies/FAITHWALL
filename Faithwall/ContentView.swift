@@ -71,15 +71,15 @@ struct ContentView: View {
         // Determine background color based on the current mode
         switch lockScreenBackgroundMode {
         case .photo:
-            // When using a photo background, use white as the base color
+            // When using a photo background, use black as the base color
             // This ensures proper text color calculation and fallback behavior
-            return UIColor(red: 255 / 255, green: 255 / 255, blue: 255 / 255, alpha: 1)
+            return UIColor(red: 2 / 255, green: 2 / 255, blue: 2 / 255, alpha: 1)
         case .presetBlack:
             return LockScreenBackgroundOption.black.uiColor
         case .presetGray:
             return LockScreenBackgroundOption.gray.uiColor
         case .notSelected:
-            // Default to white if nothing is selected
+            // Default to black if nothing is selected
             return LockScreenBackgroundOption.black.uiColor
         }
     }

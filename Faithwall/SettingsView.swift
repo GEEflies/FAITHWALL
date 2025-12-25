@@ -25,7 +25,6 @@ struct SettingsView: View {
     @State private var showExitFeedback = false
     @State private var showSupportView = false
     @State private var showLegalSelection = false
-    @State private var showCustomerCenter = false
     @State private var supportViewAnimateIn = false
     @State private var supportViewFloatOffset: CGFloat = 0
     var selectedTab: Binding<Int>?
@@ -47,8 +46,6 @@ struct SettingsView: View {
     @State private var lockScreenBackgroundStatusColor: Color = .gray
     @State private var showLegalDocument = false
     @State private var selectedLegalDocument: LegalDocumentType = .termsOfService
-    @State private var showPromoCodeAdmin = false
-    @State private var showPromoCodeLogin = false
     @State private var isUpdatingWallpaperFromToggle = false
 
     var body: some View {
@@ -137,22 +134,6 @@ struct SettingsView: View {
                 }
             }
         }
-        .sheet(isPresented: $showPromoCodeLogin) {
-            PromoCodeLoginView(
-                isPresented: $showPromoCodeLogin,
-                onSuccess: {
-                    showPromoCodeAdmin = true
-                }
-            )
-        }
-        .sheet(isPresented: $showPromoCodeAdmin) {
-            PromoCodeTypeSelectionView(isPresented: $showPromoCodeAdmin)
-        }
-        .sheet(isPresented: $showCustomerCenter) {
-            if #available(iOS 15.0, *) {
-                RevenueCatCustomerCenterView()
-            }
-        }
         .onChange(of: shouldRestartOnboarding) { shouldRestart in
             if shouldRestart {
                 // Reinstall shortcut only - preserve subscription and user info
@@ -172,7 +153,7 @@ struct SettingsView: View {
                             .foregroundColor(.appAccent)
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Faithwall Unlimited Active")
+                            Text("FaithWall+ Active")
                                 .font(.headline)
                                 .foregroundColor(.primary)
                             
@@ -203,7 +184,7 @@ struct SettingsView: View {
                             .foregroundColor(.appAccent)
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Upgrade to Faithwall Unlimited")
+                            Text("Upgrade to FaithWall+")
                                 .font(.headline)
                                 .foregroundColor(.primary)
                             
@@ -353,28 +334,29 @@ struct SettingsView: View {
                         .foregroundColor(.red)
                 }
             }
+            
+            Button(action: {
+                // Light impact haptic for review button
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+                openAppStoreReview()
+            }) {
+                HStack {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.white)
+                    Text("Write a Review")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 12))
+                }
+            }
         }
     }
 
     private var supportSection: some View {
             Section(header: Text("Help & Support")) {
-                Button(action: {
-                    // Light impact haptic for review button
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
-                    openAppStoreReview()
-                }) {
-                    HStack {
-                        Image(systemName: "star.fill")
-                            .foregroundColor(.appAccent)
-                        Text("Write a Review")
-                            .foregroundColor(.primary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.secondary)
-                            .font(.system(size: 12))
-                    }
-                }
                 
                 Button(action: {
                     showExitFeedback = true
@@ -488,11 +470,11 @@ struct SettingsView: View {
         
         // Delete wallpaper files (user will regenerate during onboarding)
         if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let faithWallURL = documentsURL.appendingPathComponent("FaithWall", isDirectory: true)
+            let noteWallURL = documentsURL.appendingPathComponent("FaithWall", isDirectory: true)
             
-            if FileManager.default.fileExists(atPath: faithWallURL.path) {
+            if FileManager.default.fileExists(atPath: noteWallURL.path) {
                 do {
-                    try FileManager.default.removeItem(at: faithWallURL)
+                    try FileManager.default.removeItem(at: noteWallURL)
                     #if DEBUG
                     print("✅ Deleted wallpaper files")
                     #endif
@@ -561,11 +543,11 @@ struct SettingsView: View {
         
         // 2. Delete all files from Documents/FaithWall directory
         if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let faithWallURL = documentsURL.appendingPathComponent("FaithWall", isDirectory: true)
+            let noteWallURL = documentsURL.appendingPathComponent("FaithWall", isDirectory: true)
             
-            if FileManager.default.fileExists(atPath: faithWallURL.path) {
+            if FileManager.default.fileExists(atPath: noteWallURL.path) {
                 do {
-                    try FileManager.default.removeItem(at: faithWallURL)
+                    try FileManager.default.removeItem(at: noteWallURL)
                     #if DEBUG
                     print("✅ Deleted all wallpaper files")
                     #endif
@@ -995,42 +977,7 @@ struct SettingsView: View {
                             )
                         }
                         
-                        #if DEBUG
-                        // Developer option (only in debug builds)
-                        Button(action: {
-                            let generator = UIImpactFeedbackGenerator(style: .light)
-                            generator.impactOccurred()
-                            showLegalSelection = false
-                            // Check if already authenticated
-                            if PromoCodeAuthManager.shared.isAuthenticated() {
-                                showPromoCodeAdmin = true
-                            } else {
-                                showPromoCodeLogin = true
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: "wrench.and.screwdriver")
-                                    .foregroundColor(.appAccent)
-                                    .frame(width: 24)
-                                Text("Developer")
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.white.opacity(0.4))
-                                    .font(.system(size: 12))
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.white.opacity(0.06))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                    )
-                            )
-                        }
-                        #endif
+                        // Developer option removed
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 40)
@@ -1181,22 +1128,24 @@ private extension SettingsView {
     }
     
     private func openSubscriptionManagement() {
-        // Use RevenueCat Customer Center if available, otherwise fallback to App Store
-        if paywallManager.canPresentCustomerCenter {
-            showCustomerCenter = true
-        } else {
-            // Fallback to App Store subscription management
-            if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                UIApplication.shared.open(url)
-            }
+        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+            UIApplication.shared.open(url)
         }
     }
     
     private func openAppStoreReview() {
-        // Request native Apple review popup
-        if let windowScene = UIApplication.shared.connectedScenes
-            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-            SKStoreReviewController.requestReview(in: windowScene)
+        // Open the App Store write-review page directly (more reliable than in-app popup)
+        let appID = "6755601996"
+        let appStoreURLString = "itms-apps://itunes.apple.com/app/id\(appID)?action=write-review"
+
+        if let url = URL(string: appStoreURLString), UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+            return
+        }
+
+        // Fallback to HTTPS if itms-apps cannot be opened
+        if let webURL = URL(string: "https://apps.apple.com/app/id\(appID)?action=write-review") {
+            UIApplication.shared.open(webURL)
         }
     }
     

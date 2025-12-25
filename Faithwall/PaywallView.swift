@@ -971,7 +971,7 @@ struct PaywallView: View {
                 })
             }
             Button("Copy Code", action: {
-                UIPasteboard.general.string = "FAITHWALL30"
+                UIPasteboard.general.string = "NOTEWALL30"
                 copiedPromoCode = true
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
@@ -3071,18 +3071,18 @@ private struct PromoCodeInputView: View {
     
     private var successView: some View {
         ZStack {
-            // Brand background - white with orange accents
+            // Brand background - black with turquoise accents
             LinearGradient(
                 colors: [
-                    Color.white,
-                    Color(red: 0.98, green: 0.95, blue: 0.92)
+                    Color.black,
+                    Color(red: 0.05, green: 0.1, blue: 0.15)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
             
-            // Orange glow effects
+            // Turquoise glow effects
             Circle()
                 .fill(
                     RadialGradient(
@@ -3114,7 +3114,7 @@ private struct PromoCodeInputView: View {
                 
                 // Enhanced success icon with brand colors
                 ZStack {
-                    // Outer pulsing rings - orange
+                    // Outer pulsing rings - turquoise
                     ForEach(0..<4, id: \.self) { i in
                         Circle()
                             .stroke(
@@ -3139,10 +3139,10 @@ private struct PromoCodeInputView: View {
                             )
                     }
                     
-                    // Main checkmark circle - white with orange border
+                    // Main checkmark circle - black with turquoise border
                     ZStack {
                         Circle()
-                            .fill(Color.white.opacity(0.9))
+                            .fill(Color.black.opacity(0.6))
                             .frame(width: 120, height: 120)
                             .overlay(
                                 Circle()
