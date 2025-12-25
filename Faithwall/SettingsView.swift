@@ -86,6 +86,7 @@ struct SettingsView: View {
     private var settingsList: some View {
         List {
             premiumSection
+            bibleLanguageSection
             homeScreenSection
             wallpaperSettingsSection
             actionsSection
@@ -204,6 +205,14 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 
             }
+        }
+    }
+    
+    // MARK: - Bible Language Section
+    private var bibleLanguageSection: some View {
+        Section(header: Text("Bible")) {
+            CompactBibleLanguagePicker()
+                .padding(.vertical, 4)
         }
     }
 

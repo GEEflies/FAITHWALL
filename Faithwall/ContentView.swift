@@ -971,6 +971,7 @@ private struct RootConfiguredModifier: ViewModifier {
 
 private struct MainContentView: View {
     let context: ContentViewContext
+    @State private var showBibleExplorer = false
 
     var body: some View {
         NavigationView {
@@ -980,6 +981,11 @@ private struct MainContentView: View {
 
                     if !context.isEditMode.wrappedValue {
                         AddNoteSectionView(context: context)
+                    }
+                    
+                    // Explore Bible Button
+                    if !context.isEditMode.wrappedValue {
+                        ExploreBibleButtonView(showBibleExplorer: $showBibleExplorer, context: context)
                     }
 
                     UpdateWallpaperButtonView(context: context)
@@ -1003,6 +1009,93 @@ private struct MainContentView: View {
                 shouldRestartOnboarding: context.shouldRestartOnboarding
             )
         }
+        .sheet(isPresented: $showBibleExplorer) {
+            BibleExplorerView { verse in
+                // Add the selected verse as a note
+                addVerseAsNote(verse)
+                showBibleExplorer = false
+            }
+        }
+    }
+    
+    /// Adds a Bible verse as a new note
+    private func addVerseAsNote(_ verse: BibleVerse) {
+        // Format the verse for lock screen display
+        let noteText = verse.lockScreenFormat
+        
+        // Create a new note
+        let newNote = Note(text: noteText)
+        
+        // Add to notes array
+        var currentNotes = context.notes.wrappedValue
+        currentNotes.insert(newNote, at: 0)
+        context.notes.wrappedValue = currentNotes
+        
+        // Save notes
+        if let encoded = try? JSONEncoder().encode(currentNotes) {
+            context.savedNotesData.wrappedValue = encoded
+        }
+        
+        // Haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        
+        #if DEBUG
+        print("📖 Added verse as note: \(verse.reference)")
+        #endif
+    }
+}
+
+// MARK: - Explore Bible Button
+private struct ExploreBibleButtonView: View {
+    @Binding var showBibleExplorer: Bool
+    let context: ContentViewContext
+    @StateObject private var languageManager = BibleLanguageManager.shared
+    
+    var body: some View {
+        Button(action: {
+            // Light impact haptic
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            
+            showBibleExplorer = true
+        }) {
+            HStack(spacing: 8) {
+                Image(systemName: "book.fill")
+                    .font(.system(size: 16))
+                
+                Text("Explore Bible")
+                    .fontWeight(.medium)
+                
+                Spacer()
+                
+                // Show current language
+                HStack(spacing: 4) {
+                    Text(languageManager.selectedTranslation.flagEmoji)
+                    Text(languageManager.selectedTranslation.shortName)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                LinearGradient(
+                    colors: [Color.blue, Color.blue.opacity(0.8)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .foregroundColor(.white)
+            .cornerRadius(12)
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
     }
 }
 

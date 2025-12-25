@@ -5,7 +5,9 @@ import TelemetryDeck
 @main
 struct FaithWallApp: App {
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
+    @AppStorage("hasCompletedBibleLanguageSetup") private var hasCompletedBibleSetup = false
     @State private var showOnboarding = false
+    @State private var showBibleSetup = false
     
     private let onboardingVersion = 3
     
@@ -26,8 +28,12 @@ struct FaithWallApp: App {
         TelemetryDeck.initialize(config: telemetryConfig)
         
         // Check onboarding status on init (only show for first launch)
-        let shouldShow = !hasCompletedSetup
-        _showOnboarding = State(initialValue: shouldShow)
+        let shouldShowOnboarding = !hasCompletedSetup
+        _showOnboarding = State(initialValue: shouldShowOnboarding)
+        
+        // Check if Bible setup needs to be shown (after onboarding)
+        let shouldShowBible = hasCompletedSetup && !hasCompletedBibleSetup
+        _showBibleSetup = State(initialValue: shouldShowBible)
         
         // Reset paywall data if this is a fresh install
         if !hasCompletedSetup {
@@ -90,6 +96,9 @@ struct FaithWallApp: App {
                         isPresented: $showOnboarding,
                         onboardingVersion: onboardingVersion
                     )
+                } else if showBibleSetup {
+                    // Show Bible language selection after onboarding
+                    FirstLaunchBibleSetupView(hasCompletedBibleSetup: $hasCompletedBibleSetup)
                 } else {
                     // Show main app for users who have completed setup
                     MainTabView()
@@ -142,7 +151,21 @@ struct FaithWallApp: App {
             }
             .onChange(of: hasCompletedSetup) { newValue in
                 // Update onboarding state when setup completion changes
-                showOnboarding = !newValue
+                if newValue {
+                    showOnboarding = false
+                    // After onboarding, show Bible setup if not done
+                    if !hasCompletedBibleSetup {
+                        showBibleSetup = true
+                    }
+                } else {
+                    showOnboarding = true
+                }
+            }
+            .onChange(of: hasCompletedBibleSetup) { newValue in
+                // Hide Bible setup when completed
+                if newValue {
+                    showBibleSetup = false
+                }
             }
             .onChange(of: PaywallManager.shared.isPremium) { _ in
                 // Update Quick Actions when premium status changes
