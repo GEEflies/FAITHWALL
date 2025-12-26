@@ -405,7 +405,7 @@ struct VersionPickerSheet: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .foregroundColor(.blue)
-                        .fontWeight(.semibold)
+                        .font(.body.weight(.semibold))
                 }
             }
             .contentShape(Rectangle())
@@ -566,7 +566,7 @@ struct SettingsLanguageSheet: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .foregroundColor(.blue)
-                        .fontWeight(.semibold)
+                        .font(.body.weight(.semibold))
                 }
             }
             .contentShape(Rectangle())
