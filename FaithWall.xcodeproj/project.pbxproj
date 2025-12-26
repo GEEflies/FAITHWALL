@@ -19,6 +19,7 @@
 		426047C72EFDC214001BB43B /* BibleLanguageSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */; };
 		426047C82EFDC214001BB43B /* FirstLaunchBibleSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */; };
 		426047C92EFDC214001BB43B /* BibleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C42EFDC214001BB43B /* BibleModels.swift */; };
+		426047CC2EFDC999001BB43B /* BibleLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047CF2EFDC999001BB43B /* BibleLocalization.swift */; };
 		426047CA2EFDC214001BB43B /* BibleLanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C22EFDC214001BB43B /* BibleLanguageManager.swift */; };
 		426047CB2EFDC214001BB43B /* BibleDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C02EFDC214001BB43B /* BibleDatabaseService.swift */; };
 		4283B2352ED25B5E00093E2D /* ShortcutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */; };
@@ -68,6 +69,7 @@
 		426047C22EFDC214001BB43B /* BibleLanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLanguageManager.swift; sourceTree = "<group>"; };
 		426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLanguageSelectionView.swift; sourceTree = "<group>"; };
 		426047C42EFDC214001BB43B /* BibleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleModels.swift; sourceTree = "<group>"; };
+		426047CF2EFDC999001BB43B /* BibleLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLocalization.swift; sourceTree = "<group>"; };
 		426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstLaunchBibleSetupView.swift; sourceTree = "<group>"; };
 		4283B2312ED25B5E00093E2D /* PIPVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIPVideoPlayer.swift; sourceTree = "<group>"; };
 		4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupView.swift; sourceTree = "<group>"; };
@@ -143,6 +145,7 @@
 				426047C12EFDC214001BB43B /* BibleExplorerView.swift */,
 				426047C22EFDC214001BB43B /* BibleLanguageManager.swift */,
 				426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */,
+				426047CF2EFDC999001BB43B /* BibleLocalization.swift */,
 				426047C42EFDC214001BB43B /* BibleModels.swift */,
 				426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */,
 				42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */,
@@ -302,6 +305,7 @@
 				426047C72EFDC214001BB43B /* BibleLanguageSelectionView.swift in Sources */,
 				426047C82EFDC214001BB43B /* FirstLaunchBibleSetupView.swift in Sources */,
 				426047C92EFDC214001BB43B /* BibleModels.swift in Sources */,
+				426047CC2EFDC999001BB43B /* BibleLocalization.swift in Sources */,
 				426047CA2EFDC214001BB43B /* BibleLanguageManager.swift in Sources */,
 				426047CB2EFDC214001BB43B /* BibleDatabaseService.swift in Sources */,
 				652485545120494283652512 /* QuickActionsManager.swift in Sources */,
