@@ -15,6 +15,12 @@
 		420E5C432EF55E43003293FD /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = 420E5C422EF55E43003293FD /* TelemetryDeck */; };
 		42501EE22EFAF40500BCBC2A /* OnboardingEnhanced.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */; };
 		425035A42ED5ADB20064014E /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 425035A32ED5ADB20064014E /* RevenueCat */; };
+		426047C62EFDC214001BB43B /* BibleExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C12EFDC214001BB43B /* BibleExplorerView.swift */; };
+		426047C72EFDC214001BB43B /* BibleLanguageSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */; };
+		426047C82EFDC214001BB43B /* FirstLaunchBibleSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */; };
+		426047C92EFDC214001BB43B /* BibleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C42EFDC214001BB43B /* BibleModels.swift */; };
+		426047CA2EFDC214001BB43B /* BibleLanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C22EFDC214001BB43B /* BibleLanguageManager.swift */; };
+		426047CB2EFDC214001BB43B /* BibleDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C02EFDC214001BB43B /* BibleDatabaseService.swift */; };
 		4283B2352ED25B5E00093E2D /* ShortcutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */; };
 		4283B2362ED25B5E00093E2D /* ShortcutSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */; };
 		4283B2372ED25B5E00093E2D /* ShortcutVerificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2342ED25B5E00093E2D /* ShortcutVerificationService.swift */; };
@@ -44,10 +50,10 @@
 		C1000002000000000000001 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000002000000000000001 /* NotificationManager.swift */; };
 		C1000003000000000000001 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000003000000000000001 /* PaywallView.swift */; };
 		C1000004000000000000001 /* RevenueCatPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000004000000000000001 /* RevenueCatPaywallView.swift */; };
-		D1000001000000000000001 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2000001000000000000001 /* CrashReporter.swift */; };
-		I1000001000000000000000001 /* AppIconAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I2000001000000000000001 /* AppIconAnimationView.swift */; };
 		C27AC36D27974B5DAD505389 /* UserCountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC13CA5FCB3C472D93509B1F /* UserCountService.swift */; };
+		D1000001000000000000001 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2000001000000000000001 /* CrashReporter.swift */; };
 		D32DE5152005413895870245 /* DeviceAdaptive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */; };
+		I1000001000000000000000001 /* AppIconAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I2000001000000000000001 /* AppIconAnimationView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +63,12 @@
 		234567890123456789012345 /* PromoCodeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoCodeManager.swift; sourceTree = "<group>"; };
 		424B745B2EBF88C1009F134B /* FaithWall.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FaithWall.entitlements; sourceTree = "<group>"; };
 		42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingEnhanced.swift; sourceTree = "<group>"; };
+		426047C02EFDC214001BB43B /* BibleDatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleDatabaseService.swift; sourceTree = "<group>"; };
+		426047C12EFDC214001BB43B /* BibleExplorerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleExplorerView.swift; sourceTree = "<group>"; };
+		426047C22EFDC214001BB43B /* BibleLanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLanguageManager.swift; sourceTree = "<group>"; };
+		426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLanguageSelectionView.swift; sourceTree = "<group>"; };
+		426047C42EFDC214001BB43B /* BibleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleModels.swift; sourceTree = "<group>"; };
+		426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstLaunchBibleSetupView.swift; sourceTree = "<group>"; };
 		4283B2312ED25B5E00093E2D /* PIPVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIPVideoPlayer.swift; sourceTree = "<group>"; };
 		4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupView.swift; sourceTree = "<group>"; };
 		4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupViewModel.swift; sourceTree = "<group>"; };
@@ -67,6 +79,7 @@
 		571205128022447414641365 /* ExitFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExitFeedbackView.swift; sourceTree = "<group>"; };
 		606640631211416417165230 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		688891131442405819145593 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
+		6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAdaptive.swift; sourceTree = "<group>"; };
 		888888888888888888888888 /* PromoSecurityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoSecurityManager.swift; sourceTree = "<group>"; };
 		950124043593401227364632 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A2000001000000000000001 /* FaithWallApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaithWallApp.swift; sourceTree = "<group>"; };
@@ -83,6 +96,7 @@
 		A3000001000000000000001 /* FaithWall.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FaithWall.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B2000001000000000000001 /* HomeScreenImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenImageManager.swift; sourceTree = "<group>"; };
 		B2000002000000000000001 /* HomeScreenPhotoPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenPhotoPickerView.swift; sourceTree = "<group>"; };
+		BC13CA5FCB3C472D93509B1F /* UserCountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserCountService.swift; sourceTree = "<group>"; };
 		C2000001000000000000001 /* PaywallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallManager.swift; sourceTree = "<group>"; };
 		C2000002000000000000001 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		C2000003000000000000001 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
@@ -90,8 +104,6 @@
 		D2000001000000000000001 /* CrashReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporter.swift; sourceTree = "<group>"; };
 		D3F7D2FEBFCCE27BA8058728 /* TroubleshootingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TroubleshootingView.swift; sourceTree = "<group>"; };
 		I2000001000000000000001 /* AppIconAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconAnimationView.swift; sourceTree = "<group>"; };
-		BC13CA5FCB3C472D93509B1F /* UserCountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserCountService.swift; sourceTree = "<group>"; };
-		6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAdaptive.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +139,12 @@
 		A5000002000000000000001 /* Faithwall */ = {
 			isa = PBXGroup;
 			children = (
+				426047C02EFDC214001BB43B /* BibleDatabaseService.swift */,
+				426047C12EFDC214001BB43B /* BibleExplorerView.swift */,
+				426047C22EFDC214001BB43B /* BibleLanguageManager.swift */,
+				426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */,
+				426047C42EFDC214001BB43B /* BibleModels.swift */,
+				426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */,
 				42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */,
 				424B745B2EBF88C1009F134B /* FaithWall.entitlements */,
 				A2000001000000000000001 /* FaithWallApp.swift */,
@@ -165,8 +183,8 @@
 				888888888888888888888888 /* PromoSecurityManager.swift */,
 				101010101010101010101010 /* PromoCodePersistenceManager.swift */,
 				I2000001000000000000001 /* AppIconAnimationView.swift */,
-							BC13CA5FCB3C472D93509B1F /* UserCountService.swift */,
-							6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */,
+				BC13CA5FCB3C472D93509B1F /* UserCountService.swift */,
+				6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */,
 			);
 			path = Faithwall;
 			sourceTree = "<group>";
@@ -280,6 +298,12 @@
 				C1000004000000000000001 /* RevenueCatPaywallView.swift in Sources */,
 				D1000001000000000000001 /* CrashReporter.swift in Sources */,
 				874E701C5A960D9C43D2B335 /* TroubleshootingView.swift in Sources */,
+				426047C62EFDC214001BB43B /* BibleExplorerView.swift in Sources */,
+				426047C72EFDC214001BB43B /* BibleLanguageSelectionView.swift in Sources */,
+				426047C82EFDC214001BB43B /* FirstLaunchBibleSetupView.swift in Sources */,
+				426047C92EFDC214001BB43B /* BibleModels.swift in Sources */,
+				426047CA2EFDC214001BB43B /* BibleLanguageManager.swift in Sources */,
+				426047CB2EFDC214001BB43B /* BibleDatabaseService.swift in Sources */,
 				652485545120494283652512 /* QuickActionsManager.swift in Sources */,
 				486563549087408615731241 /* ExitFeedbackView.swift in Sources */,
 				346345317236465393090244 /* AutoFixWorkflowView.swift in Sources */,
@@ -292,8 +316,8 @@
 				777777777777777777777777 /* PromoSecurityManager.swift in Sources */,
 				999999999999999999999999 /* PromoCodePersistenceManager.swift in Sources */,
 				I1000001000000000000000001 /* AppIconAnimationView.swift in Sources */,
-							C27AC36D27974B5DAD505389 /* UserCountService.swift in Sources */,
-							D32DE5152005413895870245 /* DeviceAdaptive.swift in Sources */,
+				C27AC36D27974B5DAD505389 /* UserCountService.swift in Sources */,
+				D32DE5152005413895870245 /* DeviceAdaptive.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

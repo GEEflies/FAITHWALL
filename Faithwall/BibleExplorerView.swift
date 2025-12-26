@@ -120,29 +120,52 @@ struct BibleExplorerView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
-            if !languageManager.isSelectedTranslationReady {
+            VStack(spacing: 12) {
+                // Download button
                 Button(action: {
                     downloadSelectedTranslation()
                 }) {
                     HStack {
                         Image(systemName: "arrow.down.circle.fill")
-                        Text("Download \(languageManager.selectedTranslation.displayName)")
+                        Text("Download \(languageManager.selectedTranslation.shortName)")
                     }
+                    .frame(minWidth: 200)
                     .padding()
                     .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(10)
                 }
-            } else {
-                Button("Retry") {
-                    loadBooks()
+                
+                // Reset button (for troubleshooting)
+                Button(action: {
+                    resetAndRedownload()
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Reset & Redownload")
+                    }
+                    .frame(minWidth: 200)
+                    .padding()
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
                 }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+                
+                // Change language button
+                Button(action: {
+                    showLanguagePicker = true
+                }) {
+                    HStack {
+                        Image(systemName: "globe")
+                        Text("Change Language")
+                    }
+                    .frame(minWidth: 200)
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .foregroundColor(.primary)
+                    .cornerRadius(10)
+                }
             }
-        }
     }
     
     // MARK: - Book List View
@@ -200,10 +223,18 @@ struct BibleExplorerView: View {
         isLoading = true
         errorMessage = nil
         
-        // Check if translation is downloaded
+        #if DEBUG
+        print("📖 Loading books for: \(languageManager.selectedTranslation.rawValue)")
+        print("📖 Is ready: \(languageManager.isSelectedTranslationReady)")
+        print("📖 Database path: \(BibleDatabaseService.shared.databasePath(for: languageManager.selectedTranslation).path)")
+        #endif
+        
+        // Check if translation is downloaded - if not, auto-download
         guard languageManager.isSelectedTranslationReady else {
-            isLoading = false
-            errorMessage = "Bible translation not downloaded yet."
+            #if DEBUG
+            print("📖 Translation not ready, attempting download...")
+            #endif
+            downloadSelectedTranslation()
             return
         }
         
@@ -211,11 +242,19 @@ struct BibleExplorerView: View {
             do {
                 let loadedBooks = try BibleDatabaseService.shared.getBooks(for: languageManager.selectedTranslation)
                 
+                #if DEBUG
+                print("📖 Loaded \(loadedBooks.count) books")
+                #endif
+                
                 DispatchQueue.main.async {
                     self.books = loadedBooks
                     self.isLoading = false
                 }
             } catch {
+                #if DEBUG
+                print("📖 Error loading books: \(error)")
+                #endif
+                
                 DispatchQueue.main.async {
                     self.errorMessage = error.localizedDescription
                     self.isLoading = false
@@ -228,13 +267,50 @@ struct BibleExplorerView: View {
         isLoading = true
         errorMessage = nil
         
+        #if DEBUG
+        print("📥 Starting download for: \(languageManager.selectedTranslation.rawValue)")
+        print("📥 Download URL: \(languageManager.selectedTranslation.downloadURL?.absoluteString ?? "nil")")
+        #endif
+        
         languageManager.ensureSelectedTranslationDownloaded { result in
             switch result {
             case .success:
+                #if DEBUG
+                print("📥 Download completed successfully!")
+                #endif
                 loadBooks()
             case .failure(let error):
+                #if DEBUG
+                print("📥 Download failed: \(error)")
+                #endif
                 isLoading = false
-                errorMessage = error.localizedDescription
+                errorMessage = "Download failed: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    private func resetAndRedownload() {
+        isLoading = true
+        errorMessage = nil
+        
+        #if DEBUG
+        print("🔄 Resetting and redownloading...")
+        #endif
+        
+        // Force redownload the selected translation
+        languageManager.forceRedownloadSelected { result in
+            switch result {
+            case .success:
+                #if DEBUG
+                print("🔄 Reset and redownload successful!")
+                #endif
+                loadBooks()
+            case .failure(let error):
+                #if DEBUG
+                print("🔄 Reset failed: \(error)")
+                #endif
+                isLoading = false
+                errorMessage = "Reset failed: \(error.localizedDescription)"
             }
         }
     }

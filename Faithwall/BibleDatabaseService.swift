@@ -68,6 +68,9 @@ final class BibleDatabaseService {
     func openDatabase(for translation: BibleTranslation) throws {
         // If already connected to this translation, return
         if currentTranslation == translation && db != nil {
+            #if DEBUG
+            print("📖 Database already open for \(translation.rawValue)")
+            #endif
             return
         }
         
@@ -75,6 +78,11 @@ final class BibleDatabaseService {
         closeDatabase()
         
         let dbPath = databasePath(for: translation)
+        
+        #if DEBUG
+        print("📖 Attempting to open database at: \(dbPath.path)")
+        print("📖 File exists: \(fileManager.fileExists(atPath: dbPath.path))")
+        #endif
         
         // Check if database exists
         guard fileManager.fileExists(atPath: dbPath.path) else {
@@ -207,6 +215,23 @@ final class BibleDatabaseService {
             
             #if DEBUG
             print("🗑️ Deleted \(translation.rawValue) database")
+            #endif
+        }
+    }
+    
+    /// Clears all databases and old files (for migration/reset)
+    func clearAllDatabases() {
+        closeDatabase()
+        
+        // Delete the entire BibleDatabases directory
+        if fileManager.fileExists(atPath: databaseDirectory.path) {
+            try? fileManager.removeItem(at: databaseDirectory)
+            
+            // Recreate empty directory
+            try? fileManager.createDirectory(at: databaseDirectory, withIntermediateDirectories: true)
+            
+            #if DEBUG
+            print("🗑️ Cleared all Bible databases")
             #endif
         }
     }

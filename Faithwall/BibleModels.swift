@@ -78,12 +78,14 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
     /// SQLite table prefix (same as rawValue)
     var tablePrefix: String { rawValue }
     
-    /// SQLite database filename
-    var databaseFileName: String { "\(rawValue).sqlite" }
+    /// SQLite database filename (.db format from scrollmapper repo)
+    var databaseFileName: String { "\(rawValue).db" }
     
     /// Remote URL to download the SQLite database
+    /// Uses GitHub raw URL - files are ~4MB each
     var downloadURL: URL? {
-        URL(string: "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/\(databaseFileName)")
+        // GitHub raw URL for .db files in scrollmapper/bible_databases
+        URL(string: "https://github.com/scrollmapper/bible_databases/raw/master/formats/sqlite/\(rawValue).db")
     }
     
     /// Estimated file size in MB (approximate)

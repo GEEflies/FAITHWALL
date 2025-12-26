@@ -168,6 +168,26 @@ final class BibleLanguageManager: ObservableObject {
         return formatter.string(fromByteCount: bytes)
     }
     
+    /// Clears all downloaded databases and resets states (for troubleshooting)
+    func resetAllDatabases() {
+        databaseService.clearAllDatabases()
+        refreshDownloadStates()
+        
+        #if DEBUG
+        print("🔄 Reset all Bible databases")
+        #endif
+    }
+    
+    /// Force re-downloads the selected translation
+    func forceRedownloadSelected(completion: ((Result<Void, Error>) -> Void)? = nil) {
+        // Delete existing
+        try? databaseService.deleteTranslation(selectedTranslation)
+        downloadStates[selectedTranslation] = .notDownloaded
+        
+        // Re-download
+        downloadTranslation(selectedTranslation, completion: completion)
+    }
+    
     /// Checks if user has completed language selection (for onboarding)
     var hasCompletedLanguageSelection: Bool {
         get { UserDefaults.standard.bool(forKey: "hasCompletedBibleLanguageSelection") }
