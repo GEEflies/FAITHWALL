@@ -26,11 +26,11 @@ struct BibleExplorerView: View {
                     bookListView
                 }
             }
-            .navigationTitle("Explore Bible")
+            .navigationTitle(BL(.exploreBible))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
+                    Button(BL(.closeBible)) {
                         dismiss()
                     }
                 }
@@ -39,7 +39,7 @@ struct BibleExplorerView: View {
                     languageButton
                 }
             }
-            .searchable(text: $searchText, prompt: "Search books...")
+            .searchable(text: $searchText, prompt: BL(.searchBooks))
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
@@ -97,7 +97,7 @@ struct BibleExplorerView: View {
             ProgressView()
                 .scaleEffect(1.5)
             
-            Text("Loading Bible...")
+            Text(BL(.loadingBible))
                 .font(.headline)
                 .foregroundColor(.secondary)
         }
@@ -111,7 +111,7 @@ struct BibleExplorerView: View {
                 .font(.system(size: 50))
                 .foregroundColor(.orange)
             
-            Text("Unable to Load Bible")
+            Text(BL(.unableToLoadBible))
                 .font(.headline)
             
             Text(message)
@@ -127,7 +127,7 @@ struct BibleExplorerView: View {
                 }) {
                     HStack {
                         Image(systemName: "arrow.down.circle.fill")
-                        Text("Download \(languageManager.selectedTranslation.shortName)")
+                        Text("\(BL(.downloadBible)) \(languageManager.selectedTranslation.shortName)")
                     }
                     .frame(minWidth: 200)
                     .padding()
@@ -142,7 +142,7 @@ struct BibleExplorerView: View {
                 }) {
                     HStack {
                         Image(systemName: "arrow.clockwise")
-                        Text("Reset & Redownload")
+                        Text(BL(.resetAndRedownload))
                     }
                     .frame(minWidth: 200)
                     .padding()
@@ -157,7 +157,7 @@ struct BibleExplorerView: View {
                 }) {
                     HStack {
                         Image(systemName: "globe")
-                        Text("Change Language")
+                        Text(BL(.changeLanguage))
                     }
                     .frame(minWidth: 200)
                     .padding()
@@ -174,7 +174,7 @@ struct BibleExplorerView: View {
     private var bookListView: some View {
         List {
             // Old Testament Section
-            Section(header: Text("Old Testament")) {
+            Section(header: Text(BL(.oldTestament))) {
                 ForEach(filteredBooks.filter { $0.testament == .old }) { book in
                     NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
                         bookRow(book)
@@ -183,7 +183,7 @@ struct BibleExplorerView: View {
             }
             
             // New Testament Section
-            Section(header: Text("New Testament")) {
+            Section(header: Text(BL(.newTestament))) {
                 ForEach(filteredBooks.filter { $0.testament == .new }) { book in
                     NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
                         bookRow(book)
@@ -426,11 +426,11 @@ struct VerseListView: View {
         .onAppear {
             loadVerses()
         }
-        .alert("Add to Lock Screen?", isPresented: $showAddConfirmation) {
-            Button("Cancel", role: .cancel) {
+        .alert(BL(.addToLockScreen), isPresented: $showAddConfirmation) {
+            Button(BL(.cancel), role: .cancel) {
                 selectedVerse = nil
             }
-            Button("Add") {
+            Button(BL(.add)) {
                 if let verse = selectedVerse {
                     onVerseSelected?(verse)
                     

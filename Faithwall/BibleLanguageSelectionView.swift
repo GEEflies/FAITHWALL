@@ -44,7 +44,7 @@ struct BibleLanguageSelectionView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     if isOnboarding {
-                        Text("Choose your preferred Bible language")
+                        Text(BL(.chooseBibleLanguage))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .padding(.top, 8)
@@ -58,7 +58,7 @@ struct BibleLanguageSelectionView: View {
                     }
                     
                     // Size info
-                    Text("Bible databases are downloaded for offline use (~4MB each)")
+                    Text(BL(.offlineAvailable))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -108,7 +108,7 @@ struct BibleLanguageSelectionView: View {
                 .foregroundColor(.blue)
                 .padding(.top, 40)
             
-            Text("Select Bible Language")
+            Text(BL(.bibleLanguage))
                 .font(.title)
                 .fontWeight(.bold)
         }
@@ -163,7 +163,7 @@ struct BibleLanguageSelectionView: View {
                 
                 // Show version count or translation name
                 if hasMultipleVersions {
-                    Text("\(group.translations.count) versions")
+                    Text("\(group.translations.count) \(BL(.versions))")
                         .font(.caption)
                         .foregroundColor(isSelected ? .white.opacity(0.8) : .blue)
                 } else {
@@ -196,7 +196,7 @@ struct BibleLanguageSelectionView: View {
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.caption)
-                Text("Ready")
+                Text(BL(.ready))
                     .font(.caption2)
             }
             .foregroundColor(isSelected ? .white.opacity(0.8) : .green)
@@ -215,7 +215,7 @@ struct BibleLanguageSelectionView: View {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.down.circle")
                     .font(.caption)
-                Text("Tap to download")
+                Text(BL(.tapToDownload))
                     .font(.caption2)
             }
             .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
@@ -224,7 +224,7 @@ struct BibleLanguageSelectionView: View {
             HStack(spacing: 4) {
                 Image(systemName: "exclamationmark.circle")
                     .font(.caption)
-                Text("Tap to retry")
+                Text(BL(.tapToRetry))
                     .font(.caption2)
             }
             .foregroundColor(isSelected ? .white.opacity(0.8) : .red)
@@ -238,7 +238,7 @@ struct BibleLanguageSelectionView: View {
             ProgressView(value: downloadProgress)
                 .progressViewStyle(LinearProgressViewStyle())
             
-            Text("Downloading \(selectedTranslation.displayName)...")
+            Text("\(BL(.downloading)) \(selectedTranslation.displayName)...")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -334,13 +334,13 @@ struct VersionPickerSheet: View {
     var body: some View {
         NavigationView {
             List {
-                Section(header: Text("Choose \(languageGroup.language) Version")) {
+                Section(header: Text("\(BL(.chooseVersion)) - \(languageGroup.language)")) {
                     ForEach(languageGroup.translations) { translation in
                         versionRow(for: translation)
                     }
                 }
                 
-                Section(footer: Text("Downloaded versions are available offline. Each version is approximately 4MB.")) {
+                Section(footer: Text(BL(.downloadedVersions))) {
                     EmptyView()
                 }
             }
@@ -497,11 +497,11 @@ struct SettingsLanguageSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Bible Language")
+            .navigationTitle(BL(.bibleLanguage))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button(BL(.done)) {
                         onDismiss()
                     }
                 }
