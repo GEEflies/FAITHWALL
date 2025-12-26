@@ -7,6 +7,14 @@ final class PaywallManager: NSObject, ObservableObject {
     // MARK: - Singleton
     static let shared = PaywallManager()
     
+    // MARK: - Debug Mode
+    /// Set to true to enable testing mode with lifetime access
+    #if DEBUG
+    private let debugModeEnabled = true
+    #else
+    private let debugModeEnabled = false
+    #endif
+    
     // MARK: - AppStorage Keys
     @AppStorage("wallpaperExportCount") var wallpaperExportCount: Int = 0
     @AppStorage("hasPremiumAccess") var hasPremiumAccess: Bool = false
@@ -35,6 +43,10 @@ final class PaywallManager: NSObject, ObservableObject {
     
     // MARK: - Computed Properties
     var isPremium: Bool {
+        // DEBUG: Always return true in debug mode for testing
+        if debugModeEnabled {
+            return true
+        }
         return hasActiveRevenueCatEntitlement || hasLifetimeAccess || hasActiveSubscription
     }
     

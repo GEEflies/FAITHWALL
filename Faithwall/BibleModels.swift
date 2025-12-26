@@ -5,8 +5,14 @@ import SwiftUI
 /// Represents available Bible translations with their metadata
 /// Maps to SQLite database files from scrollmapper/bible_databases
 enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
+    // English versions
     case kjv = "KJV"           // English - King James Version
     case bsb = "BSB"           // English - Berean Standard Bible
+    case asv = "ASV"           // English - American Standard Version
+    case web = "NHEB"          // English - New Heart English Bible
+    case bbe = "BBE"           // English - Bible in Basic English
+    
+    // Other languages
     case ukrOgienko = "UkrOgienko"  // Ukrainian - Ohienko translation
     case rusSynodal = "RusSynodal"  // Russian - Synodal translation
     case spaRV = "SpaRV"       // Spanish - Reina-Valera
@@ -22,6 +28,9 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .kjv: return "King James Version"
         case .bsb: return "Berean Standard Bible"
+        case .asv: return "American Standard Version"
+        case .web: return "New Heart English Bible"
+        case .bbe: return "Bible in Basic English"
         case .ukrOgienko: return "Українська Біблія (Огієнко)"
         case .rusSynodal: return "Синодальный перевод"
         case .spaRV: return "Reina-Valera 1909"
@@ -37,6 +46,9 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .kjv: return "KJV"
         case .bsb: return "BSB"
+        case .asv: return "ASV"
+        case .web: return "NHEB"
+        case .bbe: return "BBE"
         case .ukrOgienko: return "УКР"
         case .rusSynodal: return "РУС"
         case .spaRV: return "ESP"
@@ -50,7 +62,7 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
     /// Language name for display
     var languageName: String {
         switch self {
-        case .kjv, .bsb: return "English"
+        case .kjv, .bsb, .asv, .web, .bbe: return "English"
         case .ukrOgienko: return "Українська"
         case .rusSynodal: return "Русский"
         case .spaRV: return "Español"
@@ -64,7 +76,7 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
     /// Flag emoji for visual identification
     var flagEmoji: String {
         switch self {
-        case .kjv, .bsb: return "🇬🇧"
+        case .kjv, .bsb, .asv, .web, .bbe: return "🇬🇧"
         case .ukrOgienko: return "🇺🇦"
         case .rusSynodal: return "🇷🇺"
         case .spaRV: return "🇪🇸"
@@ -93,6 +105,9 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .kjv: return 4.5
         case .bsb: return 4.2
+        case .asv: return 4.1
+        case .web: return 4.3
+        case .bbe: return 3.9
         case .ukrOgienko: return 3.8
         case .rusSynodal: return 4.0
         case .spaRV: return 3.9
@@ -103,23 +118,38 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
         }
     }
     
-    /// Group translations by language for picker UI
-    static var groupedByLanguage: [(language: String, translations: [BibleTranslation])] {
+    /// Group translations by language for picker UI (with multiple versions per language)
+    static var groupedByLanguage: [(language: String, flag: String, translations: [BibleTranslation])] {
         [
-            ("English", [.kjv, .bsb]),
-            ("Українська", [.ukrOgienko]),
-            ("Русский", [.rusSynodal]),
-            ("Español", [.spaRV]),
-            ("Français", [.freJND]),
-            ("Deutsch", [.gerSch]),
-            ("Português", [.porBLivre]),
-            ("中文", [.chiUn])
+            ("English", "🇬🇧", [.kjv, .bsb, .asv, .web, .bbe]),
+            ("Українська", "🇺🇦", [.ukrOgienko]),
+            ("Русский", "🇷🇺", [.rusSynodal]),
+            ("Español", "🇪🇸", [.spaRV]),
+            ("Français", "🇫🇷", [.freJND]),
+            ("Deutsch", "🇩🇪", [.gerSch]),
+            ("Português", "🇧🇷", [.porBLivre]),
+            ("中文", "🇨🇳", [.chiUn])
         ]
     }
     
     /// Primary translations (one per language) for initial selection
     static var primaryTranslations: [BibleTranslation] {
         [.kjv, .ukrOgienko, .rusSynodal, .spaRV, .freJND, .gerSch, .porBLivre, .chiUn]
+    }
+    
+    /// Returns all translations for the same language as this translation
+    var relatedTranslations: [BibleTranslation] {
+        for group in Self.groupedByLanguage {
+            if group.translations.contains(self) {
+                return group.translations
+            }
+        }
+        return [self]
+    }
+    
+    /// Whether this language has multiple version options
+    var hasMultipleVersions: Bool {
+        relatedTranslations.count > 1
     }
 }
 
