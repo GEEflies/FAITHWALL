@@ -166,6 +166,7 @@ struct BibleExplorerView: View {
                     .cornerRadius(10)
                 }
             }
+        }
     }
     
     // MARK: - Book List View
