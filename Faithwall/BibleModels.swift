@@ -171,8 +171,8 @@ struct BibleBook: Identifiable, Codable, Equatable {
         
         var localizedName: String {
             switch self {
-            case .old: return BL(.oldTestament)
-            case .new: return BL(.newTestament)
+            case .old: return BibleLocalizationManager.shared.localizedString(.oldTestament)
+            case .new: return BibleLocalizationManager.shared.localizedString(.newTestament)
             }
         }
     }
