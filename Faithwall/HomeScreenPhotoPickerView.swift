@@ -376,7 +376,7 @@ struct LockScreenBackgroundPickerView: View {
     }
 
     private var selectedPreset: PresetOption? {
-        guard let option = backgroundMode.presetOption else { return nil }
+        guard backgroundMode.presetOption != nil else { return nil }
         // Try to match the preset based on stored value
         return PresetOption.allCases.first
     }
@@ -636,8 +636,10 @@ struct LockScreenBackgroundPickerView: View {
     }
 
     private func syncLockIconState() {
-        let shouldActivate = backgroundMode == .photo && !backgroundPhotoData.isEmpty
-        print("🔄 LockScreenBackgroundPickerView: syncLockIconState -> mode=\(backgroundMode), photoDataEmpty=\(backgroundPhotoData.isEmpty)")
+        // Check if we have a photo in memory OR a saved background file (from preset or photo)
+        let hasBackgroundFile = HomeScreenImageManager.lockScreenBackgroundSourceURL().map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+        let shouldActivate = backgroundMode == .photo && (!backgroundPhotoData.isEmpty || hasBackgroundFile)
+        print("🔄 LockScreenBackgroundPickerView: syncLockIconState -> mode=\(backgroundMode), photoDataEmpty=\(backgroundPhotoData.isEmpty), hasFile=\(hasBackgroundFile)")
         if shouldActivate {
             isLockIconActive = true
             hasActivatedLockThisSession = true

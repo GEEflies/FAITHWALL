@@ -706,9 +706,9 @@ struct PhoneUsageSliderQuestionView: View {
     
     var body: some View {
         ZStack {
-            // Orange gradient background
+            // Reddish gradient background (Claude.ai inspired)
             LinearGradient(
-                colors: [Color.appAccent, Color.appAccent.opacity(0.85)],
+                colors: [Color(red: 0.82, green: 0.35, blue: 0.25), Color(red: 0.75, green: 0.32, blue: 0.22)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

@@ -731,7 +731,7 @@ struct WidgetIntroView: View {
             }
             
             // Continue button
-            VStack(spacing: 0) {
+            VStack(spacing: isCompact ? 8 : 12) {
                 Button(action: {
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
@@ -743,6 +743,30 @@ struct WidgetIntroView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(OnboardingPrimaryButtonStyle(isEnabled: true))
+                
+                // Switch to shortcuts button
+                Button(action: {
+                    // This will be handled by the parent OnboardingView
+                    NotificationCenter.default.post(name: NSNotification.Name("SwitchToShortcutsPipeline"), object: nil)
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "lock.rectangle")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Choose Lock Screen Wallpaper")
+                            .font(.system(size: isCompact ? 14 : 15, weight: .semibold))
+                    }
+                    .foregroundColor(.appAccent)
+                    .frame(height: (isCompact ? 48 : 56) - 8)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: isCompact ? 14 : 20, style: .continuous)
+                            .fill(Color.appAccent.opacity(0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: isCompact ? 14 : 20, style: .continuous)
+                            .strokeBorder(Color.appAccent.opacity(0.3), lineWidth: 1.5)
+                    )
+                }
             }
             .padding(.horizontal, isCompact ? 16 : 24)
             .padding(.bottom, isCompact ? 16 : 22)
@@ -1100,7 +1124,7 @@ struct WidgetStepRow: View {
                     if isActive {
                         Image(systemName: icon)
                             .font(.system(size: isCompact ? 14 : 16, weight: .semibold))
-                            .foregroundColor(.primary)
+                            .foregroundColor(.white)
                     } else {
                         Text("\(stepNumber)")
                             .font(.system(size: isCompact ? 14 : 16, weight: .bold))
@@ -1120,11 +1144,11 @@ struct WidgetStepRow: View {
             VStack(alignment: .leading, spacing: isCompact ? 4 : 6) {
                 Text(title)
                     .font(.system(size: isCompact ? 15 : 17, weight: .semibold))
-                    .foregroundColor(isActive ? .white : .white.opacity(0.5))
+                    .foregroundColor(isActive ? .primary : .secondary)
                 
                 Text(description)
                     .font(.system(size: isCompact ? 13 : 15))
-                    .foregroundColor(isActive ? .white.opacity(0.7) : .white.opacity(0.4))
+                    .foregroundColor(isActive ? .secondary : Color.secondary.opacity(0.7))
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }

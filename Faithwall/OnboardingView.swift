@@ -425,6 +425,11 @@ struct OnboardingView: View {
         .onReceive(NotificationCenter.default.publisher(for: .wallpaperGenerationFinished)) { _ in
             handleWallpaperGenerationFinished()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToShortcutsPipeline"))) { _ in
+            // Switch from widget to shortcuts pipeline
+            selectedOnboardingPipeline = "fullscreen"
+            currentPage = .videoIntroduction
+        }
         .onChange(of: scenePhase) { newPhase in
             handleScenePhaseChange(newPhase)
         }
@@ -1016,6 +1021,33 @@ struct OnboardingView: View {
             .buttonStyle(OnboardingPrimaryButtonStyle(isEnabled: primaryButtonEnabled))
             .disabled(!primaryButtonEnabled)
             }
+            
+            // Switch pipeline button for video introduction step
+            if currentPage == .videoIntroduction {
+                Button(action: {
+                    // Switch to widget pipeline
+                    selectedOnboardingPipeline = "widget"
+                    currentPage = .widgetOnboarding
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "app.badge")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Choose Widget Instead")
+                            .font(.system(size: isCompact ? 14 : 15, weight: .semibold))
+                    }
+                    .foregroundColor(.appAccent)
+                    .frame(height: buttonHeight - 8)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: isCompact ? 14 : 20, style: .continuous)
+                            .fill(Color.appAccent.opacity(0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: isCompact ? 14 : 20, style: .continuous)
+                            .strokeBorder(Color.appAccent.opacity(0.3), lineWidth: 1.5)
+                    )
+                }
+            }
         }
         .padding(.horizontal, horizontalPadding)
         .padding(.top, topPadding)
@@ -1041,27 +1073,49 @@ struct OnboardingView: View {
                 // Phase 1: Typewriter on orange background (stays visible during transition)
                 VStack(spacing: 0) {
                     Spacer()
-                        .frame(height: geometry.size.height * 0.25 + textOffsetY)
+                        .frame(height: geometry.size.height * 0.25)
                     
                     VStack(alignment: .leading, spacing: 12) {
-                        // Verse text
-                        Text(typewriterText)
-                            .font(.system(size: 22, weight: .semibold, design: .serif))
-                            .foregroundColor(.white)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.leading)
-                            .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
-                        
-                        // Reference text (smaller)
-                        if !typewriterReference.isEmpty {
-                            Text(typewriterReference)
-                                .font(.system(size: 16, weight: .medium, design: .serif))
-                                .foregroundColor(.white.opacity(0.9))
+                        // Verse text with invisible characters to prevent word jumping
+                        ZStack(alignment: .topLeading) {
+                            // Invisible full text for layout
+                            Text(bibleVerse)
+                                .font(.system(size: 22, weight: .semibold, design: .serif))
+                                .foregroundColor(.clear)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.leading)
+                            
+                            // Visible typed text
+                            Text(typewriterText)
+                                .font(.system(size: 22, weight: .semibold, design: .serif))
+                                .foregroundColor(.white)
                                 .lineLimit(nil)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .multilineTextAlignment(.leading)
                                 .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                        }
+                        
+                        // Reference text (smaller)
+                        if !typewriterReference.isEmpty || typewriterIndex >= bibleVerse.count {
+                            ZStack(alignment: .topLeading) {
+                                // Invisible full text for layout
+                                Text(bibleReference)
+                                    .font(.system(size: 16, weight: .medium, design: .serif))
+                                    .foregroundColor(.clear)
+                                    .lineLimit(nil)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .multilineTextAlignment(.leading)
+                                
+                                // Visible typed text
+                                Text(typewriterReference)
+                                    .font(.system(size: 16, weight: .medium, design: .serif))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .lineLimit(nil)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .multilineTextAlignment(.leading)
+                                    .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                            }
                         }
                     }
                     .frame(maxWidth: geometry.size.width * 0.55, alignment: .leading)
@@ -1092,13 +1146,14 @@ struct OnboardingView: View {
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundColor(.black)
                         .opacity(taglineOpacity)
+                         .padding(.bottom, 2)
                     
                     // Subtitle
                     Text("Your Daily Spiritual Companion")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(.secondary)
                         .opacity(taglineOpacity)
-                        .padding(.top, 2)
+                        .padding(.top, 0)
                         .padding(.bottom, 20)
                     
                     Button(action: {
@@ -1191,17 +1246,17 @@ struct OnboardingView: View {
     
     @ViewBuilder
     private func preOnboardingNotesView(screenWidth: CGFloat, screenHeight: CGFloat) -> some View {
-        let topSpacing: CGFloat = screenHeight * 0.23
+        let topSpacing: CGFloat = screenHeight * 0.23 + 64
         let availableWidthForNotes = screenWidth - 64
         
         VStack(spacing: 0) {
             Spacer()
                 .frame(height: topSpacing)
             
-            VStack(alignment: .leading, spacing: 12) {
-                // Verse text - match typewriter styling
+            VStack(alignment: .leading, spacing: 8) {
+                // Verse text - smaller to fit on mockup
                 Text(bibleVerse)
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .font(.system(size: 18, weight: .semibold, design: .serif))
                     .foregroundColor(Color.white)
                     .opacity(verseOpacity)
                     .lineLimit(nil)
@@ -1209,9 +1264,9 @@ struct OnboardingView: View {
                     .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
                     .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 2)
                 
-                // Reference text - match typewriter styling
+                // Reference text - smaller to match
                 Text(bibleReference)
-                    .font(.system(size: 16, weight: .medium, design: .serif))
+                    .font(.system(size: 15, weight: .medium, design: .serif))
                     .foregroundColor(Color.white.opacity(0.95))
                     .opacity(verseOpacity)
                     .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
@@ -1362,7 +1417,9 @@ struct OnboardingView: View {
                 return
             }
             
-            typewriterText += String(verseCharacters[typewriterIndex])
+            withAnimation(.easeIn(duration: 0.08)) {
+                typewriterText += String(verseCharacters[typewriterIndex])
+            }
             typewriterIndex += 1
             
             if typewriterIndex < verseCharacters.count {
@@ -1384,7 +1441,9 @@ struct OnboardingView: View {
                 return
             }
             
-            typewriterReference += String(refCharacters[typewriterRefIndex])
+            withAnimation(.easeIn(duration: 0.08)) {
+                typewriterReference += String(refCharacters[typewriterRefIndex])
+            }
             typewriterRefIndex += 1
             
             if typewriterRefIndex < refCharacters.count {
@@ -1401,28 +1460,23 @@ struct OnboardingView: View {
     }
     
     private func transitionToMockup() {
-        // Step 1: Pause briefly, then slide text down to mockup position
+        // Step 1: Fade out typewriter text
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.easeInOut(duration: 0.8)) {
-                // Calculate how much to move down (from 25% to where mockup will be)
-                textOffsetY = UIScreen.main.bounds.height * 0.15
+            withAnimation(.easeOut(duration: 0.4)) {
+                containerOpacity = 0
             }
         }
         
-        // Step 2: Transition background to white (starts during slide)
+        // Step 2: Transition background to white
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.easeInOut(duration: 1.0)) {
+            withAnimation(.easeInOut(duration: 0.8)) {
                 backgroundColorStart = .white
                 backgroundColorEnd = .white
             }
         }
         
-        // Step 3: Fade out typewriter text and show mockup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
-            withAnimation(.easeOut(duration: 0.3)) {
-                containerOpacity = 0
-            }
-            
+        // Step 3: Show mockup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             showVerseOnMockup = true
             
             withAnimation(.easeOut(duration: 0.8)) {
@@ -1437,7 +1491,7 @@ struct OnboardingView: View {
         }
         
         // Step 4: Show button (0.5s after mockup)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             withAnimation(.easeIn(duration: 0.5)) {
                 continueButtonOpacity = 1.0
             }
@@ -4965,7 +5019,9 @@ struct OnboardingView: View {
             let hasLockSelection: Bool
             if let mode = LockScreenBackgroundMode(rawValue: lockScreenBackgroundModeRaw) {
                 if mode == .photo {
-                    hasLockSelection = !lockScreenBackgroundPhotoData.isEmpty
+                    // Check if we have photo data in memory OR a saved background file (from preset or photo)
+                    let hasBackgroundFile = HomeScreenImageManager.lockScreenBackgroundSourceURL().map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+                    hasLockSelection = !lockScreenBackgroundPhotoData.isEmpty || hasBackgroundFile
                 } else if mode == .notSelected {
                     hasLockSelection = false
                 } else {
