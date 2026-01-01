@@ -47,18 +47,18 @@ struct PaywallView: View {
     private let benefitSlides: [BenefitSlide] = [
         BenefitSlide(
             icon: "sparkles",
-            title: "Lock Screen Focus",
-            subtitle: "Keep your goals in front of you every single time you pickup your phone to stay locked in."
+            title: "Spiritual Focus",
+            subtitle: "Turn every phone unlock into a moment of prayer"
         ),
         BenefitSlide(
-            icon: "checkmark.seal",
-            title: "Stay Accountable",
-            subtitle: "See your notes, reminders or to-do list up to 498x times a day and never forget things."
+            icon: "book.fill",
+            title: "Stay in the Word",
+            subtitle: "Keep Bible verses at the center of your daily life"
         ),
         BenefitSlide(
             icon: "wand.and.rays",
-            title: "Instant Exports",
-            subtitle: "Create gorgeous FaithWall wallpapers in seconds with unlimited exports."
+            title: "Beautiful Wallpapers",
+            subtitle: "Custom Bible verse designs for your lock screen"
         )
     ]
 
@@ -90,182 +90,30 @@ struct PaywallView: View {
     }
     
     var body: some View {
-        ZStack {
-            // Enhanced background with subtle accent glows and floating particles
-            paywallBackground
-                .ignoresSafeArea()
-                .drawingGroup() // Optimize background rendering
-            
-            // Floating particles (dots) - same as lifetime sheet
-            floatingParticles
-            
-            step1PlanSelection
-        }
-        .ignoresSafeArea(.all) // Extend background to all edges including bottom
-        // Note: Don't use drawingGroup on entire body - it breaks scrolling and interactivity
-        .alert("Error", isPresented: $showError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(errorMessage)
-        }
-        .alert("Enable Notifications", isPresented: $showNotificationPrePrompt) {
-            Button("Allow", role: .none) {
-                // Request permission, then purchase
-                NotificationManager.shared.requestPermission { _ in
-                    if let package = pendingPackage {
-                        purchase(package)
-                    }
-                }
+        mainContent
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
             }
-            Button("Not Now", role: .cancel) {
-                // Proceed without permission
-                if let package = pendingPackage {
-                    purchase(package)
-                }
+            .modifier(NotificationAlertModifier(
+                isPresented: $showNotificationPrePrompt,
+                pendingPackage: $pendingPackage,
+                purchase: purchase
+            ))
+            .sheet(isPresented: $showTermsAndPrivacy) {
+                termsAndPrivacySheet
             }
-        } message: {
-            Text("To notify you before your trial ends, we need to send you notifications. Please allow them in the next step.")
-        }
-        .sheet(isPresented: $showTermsAndPrivacy) {
-            NavigationView {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        if selectedLegalDocument == .termsAndPrivacy {
-                            // Show EULA and Privacy Policy buttons
-                            VStack(spacing: 16) {
-                                Text("Legal Documents")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .padding(.top, 20)
-                                
-                                // EULA Button
-                                Button(action: {
-                                    if let url = URL(string: "https://peat-appendix-c3c.notion.site/END-USER-LICENSE-AGREEMENT-2b7f6a63758f80a58aebf0207e51f7fb?source=copy_link") {
-                                        UIApplication.shared.open(url)
-                                    }
-                                }) {
-                                    HStack {
-                                        Text("End-User License Agreement (EULA)")
-                                            .fontWeight(.semibold)
-                                        Spacer()
-                                        Image(systemName: "arrow.up.right.square")
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.appAccent)
-                                    .cornerRadius(12)
-                                }
-                                
-                                // Privacy Policy Button
-                                Button(action: {
-                                    if let url = URL(string: "https://peat-appendix-c3c.notion.site/PRIVACY-POLICY-2b7f6a63758f804cab16f58998d7787e?source=copy_link") {
-                                        UIApplication.shared.open(url)
-                                    }
-                                }) {
-                                    HStack {
-                                        Text("Privacy Policy")
-                                            .fontWeight(.semibold)
-                                        Spacer()
-                                        Image(systemName: "arrow.up.right.square")
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.appAccent)
-                                    .cornerRadius(12)
-                                }
-                                
-                                // Terms of Use Button
-                                Button(action: {
-                                    if let url = URL(string: "https://peat-appendix-c3c.notion.site/TERMS-OF-USE-2b7f6a63758f8067a318e16486b16f47?source=copy_link") {
-                                        UIApplication.shared.open(url)
-                                    }
-                                }) {
-                                    HStack {
-                                        Text("Terms of Use")
-                                            .fontWeight(.semibold)
-                                        Spacer()
-                                        Image(systemName: "arrow.up.right.square")
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.appAccent)
-                                    .cornerRadius(12)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        
-                            // Code input field at the bottom
-                            VStack(spacing: 12) {
-                                Divider()
-                                    .padding(.vertical, 8)
-                                
-                                Text("Have a promo code?")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                
-                                HStack(spacing: 12) {
-                                    TextField("Enter code", text: $promoCode)
-                                        .textFieldStyle(.roundedBorder)
-                                        .textInputAutocapitalization(.characters)
-                                        .autocorrectionDisabled()
-                                        .focused($isCodeFieldFocused)
-                                        .submitLabel(.done)
-                                        .onSubmit {
-                                            validateAndApplyCode()
-                                        }
-                                    
-                                    Button(action: validateAndApplyCode) {
-                                        Text("Apply")
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 20)
-                                            .padding(.vertical, 10)
-                                            .background(Color.appAccent)
-                                            .cornerRadius(8)
-                                    }
-                                    .disabled(promoCode.isEmpty)
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                            .padding(.bottom, 20)
-                        } else {
-                            // For other document types, show the content
-                            Text(getLegalDocumentContent())
-                                .font(.system(.body, design: .default))
-                                .foregroundColor(.primary)
-                                .multilineTextAlignment(.leading)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 16)
-                        }
-                    }
-                }
-                .navigationTitle(selectedLegalDocument.title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Done") {
-                            showTermsAndPrivacy = false
-                        }
-                    }
-                }
+            .modifier(CodeSuccessAlertModifier(
+                showCodeSuccess: $showCodeSuccess,
+                showTermsAndPrivacy: $showTermsAndPrivacy,
+                dismiss: { dismiss() }
+            ))
+            .alert("Invalid Code", isPresented: $showCodeError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("This code is not valid or has expired.")
             }
-        }
-        .alert("Code Applied!", isPresented: $showCodeSuccess) {
-            Button("OK") {
-                showTermsAndPrivacy = false
-                dismiss()
-            }
-        } message: {
-            Text("Lifetime access has been granted. Enjoy FaithWall+!")
-        }
-        .alert("Invalid Code", isPresented: $showCodeError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("The code you entered is not valid. Please check and try again.")
-        }
         .onAppear {
             paywallManager.trackPaywallView()
             
@@ -360,6 +208,129 @@ struct PaywallView: View {
         }
     }
     
+    // MARK: - Terms and Privacy Sheet
+    
+    private var termsAndPrivacySheet: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if selectedLegalDocument == .termsAndPrivacy {
+                        legalDocumentButtons
+                        promoCodeInputSection
+                    } else {
+                        legalDocumentContent
+                    }
+                }
+            }
+            .navigationTitle(selectedLegalDocument.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        showTermsAndPrivacy = false
+                    }
+                }
+            }
+        }
+    }
+    
+    private var legalDocumentButtons: some View {
+        VStack(spacing: 16) {
+            Text("Legal Documents")
+                .font(.title2)
+                .fontWeight(.bold)
+                .padding(.top, 20)
+            
+            legalButton(title: "End User License Agreement", url: "https://peat-appendix-c3c.notion.site/END-USER-LICENSE-AGREEMENT-2b7f6a63758f80a58aebf0207e51f7fb?source=copy_link")
+            legalButton(title: "Privacy Policy", url: "https://peat-appendix-c3c.notion.site/PRIVACY-POLICY-2b7f6a63758f804cab16f58998d7787e?source=copy_link")
+            legalButton(title: "Terms of Use", url: "https://peat-appendix-c3c.notion.site/TERMS-OF-USE-2b7f6a63758f8067a318e16486b16f47?source=copy_link")
+        }
+        .padding(.horizontal, DS.Spacing.l)
+    }
+    
+    private func legalButton(title: String, url: String) -> some View {
+        Button(action: {
+            if let legalURL = URL(string: url) {
+                UIApplication.shared.open(legalURL)
+            }
+        }) {
+            HStack {
+                Text(title)
+                    .fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "arrow.up.right.square")
+            }
+            .foregroundColor(.primary)
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.appAccent)
+            .cornerRadius(12)
+        }
+    }
+    
+    private var promoCodeInputSection: some View {
+        VStack(spacing: 12) {
+            Divider()
+                .padding(.vertical, DS.Spacing.xs)
+            
+            Text("Have a promo code?")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            HStack(spacing: 12) {
+                TextField("Enter code", text: $promoCode)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .focused($isCodeFieldFocused)
+                    .submitLabel(.done)
+                    .onSubmit {
+                        validateAndApplyCode()
+                    }
+                
+                Button(action: validateAndApplyCode) {
+                    Text("Apply")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, DS.Spacing.l)
+                        .padding(.vertical, 10)
+                        .background(Color.appAccent)
+                        .cornerRadius(8)
+                }
+                .disabled(promoCode.isEmpty)
+            }
+            .padding(.horizontal, DS.Spacing.l)
+        }
+        .padding(.bottom, 20)
+    }
+    
+    private var legalDocumentContent: some View {
+        Text(getLegalDocumentContent())
+            .font(.system(.body, design: .default))
+            .foregroundColor(.primary)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, DS.Spacing.l)
+            .padding(.vertical, DS.Spacing.m)
+    }
+    
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
+        ZStack {
+            // Enhanced background with subtle accent glows and floating particles
+            paywallBackground
+                .ignoresSafeArea()
+                .drawingGroup() // Optimize background rendering
+            
+            // Floating particles (dots) - same as lifetime sheet
+            floatingParticles
+            
+            step1PlanSelection
+        }
+        .ignoresSafeArea(.all) // Extend background to all edges including bottom
+        // Note: Don't use drawingGroup on entire body - it breaks scrolling and interactivity
+    }
+    
     // MARK: - Background
     
     private var paywallBackground: some View {
@@ -367,8 +338,8 @@ struct PaywallView: View {
             // Base dark gradient - matching lifetime sheet
             LinearGradient(
                 colors: [
-                    Color(red: 0.06, green: 0.06, blue: 0.12),
-                    Color(red: 0.02, green: 0.02, blue: 0.06)
+                    Color(red: 0.99, green: 0.98, blue: 0.97),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -474,7 +445,7 @@ struct PaywallView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .padding(.top, 20)
                 
                 logoHeader
@@ -498,13 +469,13 @@ struct PaywallView: View {
                 
                 // Pricing options
                 pricingSection
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DS.Spacing.xl)
                     .opacity(animateIn ? 1 : 0)
                     .offset(y: animateIn ? 0 : 30)
                     .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animateIn)
                 
                 lifetimePrompt
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DS.Spacing.xl)
                     .padding(.bottom, -8)
                     .opacity(animateIn ? 1 : 0)
                     .offset(y: animateIn ? 0 : 20)
@@ -531,11 +502,11 @@ struct PaywallView: View {
                     .frame(height: 60)
                     .frame(maxWidth: .infinity)
                     .background(Color.appAccent)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .cornerRadius(12)
                     .shadow(color: Color.appAccent.opacity(0.4), radius: 12, x: 0, y: 6)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .disabled(isPurchasing || paywallManager.isLoadingOfferings)
                 .opacity(animateIn ? 1 : 0)
                 .scaleEffect(animateIn ? 1 : 0.9)
@@ -580,7 +551,7 @@ struct PaywallView: View {
                     .frame(minWidth: 44, minHeight: 44)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .padding(.top, -8)
                 .opacity(animateIn ? 1 : 0)
                 .animation(.easeIn.delay(0.7), value: animateIn)
@@ -610,25 +581,25 @@ struct PaywallView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .padding(.top, 20)
                 // Header
                 VStack(spacing: 8) {
-                    Text("How your free trial works")
+                    Text("How the Free Trial Works")
                         .font(.system(.largeTitle, design: .rounded))
                         .fontWeight(.bold)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineLimit(nil)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .opacity(animateIn ? 1 : 0)
                 .offset(y: animateIn ? 0 : 20)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animateIn)
                 
                 // Timeline
                 trialTimeline
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DS.Spacing.xl)
                     .opacity(animateIn ? 1 : 0)
                     .offset(y: animateIn ? 0 : 30)
                     .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animateIn)
@@ -642,10 +613,10 @@ struct PaywallView: View {
                             .foregroundColor(.appAccent)
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("100% Risk-Free")
+                            Text("100% risk-free")
                                 .font(.headline)
                                 .fontWeight(.bold)
-                            Text("Cancel anytime during trial.")
+                            Text("Cancel anytime before trial ends")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -656,7 +627,7 @@ struct PaywallView: View {
                     .cornerRadius(12)
                     
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .opacity(animateIn ? 1 : 0)
                 .animation(.easeIn.delay(0.4), value: animateIn)
                 
@@ -686,14 +657,14 @@ struct PaywallView: View {
                                 endPoint: .trailing
                             )
                         )
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .cornerRadius(16)
                         .shadow(color: Color.appAccent.opacity(0.5), radius: 16, x: 0, y: 8)
                     }
                     .disabled(isPurchasing || paywallManager.isLoadingOfferings)
                     
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .opacity(animateIn ? 1 : 0)
                 .scaleEffect(animateIn ? 1 : 0.9)
                 .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.5), value: animateIn)
@@ -711,11 +682,11 @@ struct PaywallView: View {
                         }
                     }
                 }) {
-                    Text("Show all plans")
+                    Text("Show All Plans")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .padding(.top, 8)
                 .opacity(animateIn ? 1 : 0)
                 .animation(.easeIn.delay(0.6), value: animateIn)
@@ -743,14 +714,14 @@ struct PaywallView: View {
                 
                 Text("SPECIAL OFFER")
                     .font(.system(size: 14, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Image(systemName: "star.fill")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.yellow)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, DS.Spacing.xs)
             .background(
                 Capsule()
                     .fill(
@@ -767,9 +738,9 @@ struct PaywallView: View {
                     .shadow(color: Color.appAccent.opacity(0.5), radius: 12, x: 0, y: 4)
             )
             
-            Text("30% OFF Lifetime Offer")
+            Text("🎉 Limited Time: 30% OFF Lifetime Access")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.primary.opacity(0.8))
                 .padding(.horizontal, 16)
         }
     }
@@ -889,18 +860,18 @@ struct PaywallView: View {
                 
                 Text(slide.title)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .lineLimit(3)
                     .minimumScaleFactor(0.9)
             }
             
             Text(slide.subtitle)
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.primary.opacity(0.8))
                 .lineLimit(3)
         }
         .padding(.vertical, 6)
-        .padding(.horizontal, 24)
+        .padding(.horizontal, DS.Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -920,7 +891,7 @@ struct PaywallView: View {
             Button(action: {
                 showPromoCodeSheet = true
             }) {
-                Text("Redeem your code here →")
+                Text("Redeem Code Here")
                     .font(.footnote)
                     .fontWeight(.semibold)
                     .foregroundColor(.appAccent)
@@ -939,14 +910,14 @@ struct PaywallView: View {
                 Image(systemName: "questionmark.circle.fill")
                     .font(.system(size: 22, weight: .semibold))
                 
-                Text("How to use this code?")
+                Text("How to use your code")
                     .font(.system(size: 18, weight: .semibold))
                     .multilineTextAlignment(.center)
             }
-            .foregroundColor(.white)
+            .foregroundColor(.primary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .padding(.horizontal, 20)
+            .padding(.vertical, DS.Spacing.m)
+            .padding(.horizontal, DS.Spacing.l)
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(
@@ -964,14 +935,14 @@ struct PaywallView: View {
             )
         }
         .buttonStyle(.plain)
-        .alert("How to Redeem Your 30% Discount", isPresented: $showRedemptionInstructions) {
+        .alert("How to Redeem Your Discount", isPresented: $showRedemptionInstructions) {
             if #available(iOS 16.3, *) {
-                Button("Redeem in App", action: {
+                Button("Redeem in App Store", action: {
                     showOfferCodeRedemption = true
                 })
             }
             Button("Copy Code", action: {
-                UIPasteboard.general.string = "NOTEWALL30"
+                UIPasteboard.general.string = "FAITHWALL30"
                 copiedPromoCode = true
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
@@ -983,21 +954,21 @@ struct PaywallView: View {
         } message: {
             if #available(iOS 16.3, *) {
                 Text("""
-                Redeem your code "FaithWall 30" to get 30% off the Lifetime plan.
+                \("1. Copy the code below")
                 
-                You can redeem it directly in the app (recommended) or through the App Store.
+                \("2. Open App Store and tap your profile")
                 
-                The discount applies to the lifetime plan only.
+                \("3. Tap 'Redeem Gift Card or Code' and paste")
                 """)
             } else {
                 Text("""
-                Redeem your code "FaithWall 30" to get 30% off the Lifetime plan.
+                \("1. Copy the code below")
                 
-                1. Copy the code: FaithWall 30
-                2. Open App Store → Profile → Redeem
-                3. Paste the code to get 30% off!
+                \("Tap 'Copy Code' below")
+                \("Tap 'Open App Store' to go directly to redemption")
+                \("Paste the code and redeem your discount")
                 
-                The discount applies to the lifetime plan only.
+                \("3. Tap 'Redeem Gift Card or Code' and paste")
                 """)
             }
         }
@@ -1129,7 +1100,7 @@ struct PaywallView: View {
         FallbackPlan(
             kind: .lifetime,
             label: "Lifetime",
-            subtitle: "One-time purchase, own FaithWall+ forever",
+            subtitle: "One-time purchase",
             priceText: "€24.99",
             highlight: false,
             trialDays: nil
@@ -1141,7 +1112,7 @@ struct PaywallView: View {
     }
     
     private var lifetimeSubtitleText: String {
-        "Own FaithWall+ forever • No renewals"
+        "No subscriptions, no renewals"
     }
     
     @discardableResult
@@ -1173,7 +1144,7 @@ struct PaywallView: View {
             FallbackPlan(
                 kind: .lifetime,
                 label: "Lifetime",
-                subtitle: "One-time purchase, own FaithWall+ forever",
+                subtitle: "One-time purchase",
                 priceText: "€24.99",
                 highlight: true,
                 trialDays: nil
@@ -1353,7 +1324,7 @@ struct PaywallView: View {
                                 .overlay(
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 9, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 )
                                 .transition(.scale.combined(with: .opacity))
                         }
@@ -1395,7 +1366,7 @@ struct PaywallView: View {
                 }
             }
             .padding(.vertical, isLifetimePlan ? 18 : 16)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DS.Spacing.l)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(Color.appAccent.opacity(0.12))
@@ -1421,11 +1392,11 @@ struct PaywallView: View {
     private func packageSubtitle(for package: Package) -> String {
         if let discount = package.storeProduct.introductoryDiscount {
             let period = trialDescription(from: discount.subscriptionPeriod)
-            return period.isEmpty ? "Includes trial" : "\(period) free trial"
+            return period.isEmpty ? "Includes free trial" : "\(period) \("free trial")"
         }
 
         if package.packageType == .lifetime {
-            return "Own FaithWall+ forever"
+            return "Own forever"
         }
 
         return ""
@@ -1451,13 +1422,13 @@ struct PaywallView: View {
         
         // Determine period description based on unit
         if unitString.contains("day") || unitString.contains(".day") {
-            return value == 1 ? "1-day" : "\(value)-day"
+            return value == 1 ? "1 day" : "\(value)\(" days")"
         } else if unitString.contains("week") || unitString.contains(".week") {
-            return value == 1 ? "1-week" : "\(value)-week"
+            return value == 1 ? "1 week" : "\(value)\(" weeks")"
         } else if unitString.contains("month") || unitString.contains(".month") {
-            return value == 1 ? "1-month" : "\(value)-month"
+            return value == 1 ? "1 month" : "\(value)\(" months")"
         } else if unitString.contains("year") || unitString.contains(".year") {
-            return value == 1 ? "1-year" : "\(value)-year"
+            return value == 1 ? "1 year" : "\(value)\(" years")"
         }
         
         return ""
@@ -1539,9 +1510,9 @@ struct PaywallView: View {
         if let package {
             switch planKind(for: package) {
             case .monthly:
-                return "\(package.localizedPriceString)/month"
+                return "\(package.localizedPriceString)\("/mo")"
             case .yearly:
-                return "\(package.localizedPriceString)/year"
+                return "\(package.localizedPriceString)\("/yr")"
             case .lifetime:
                 return package.localizedPriceString
             case .unknown:
@@ -1568,11 +1539,11 @@ struct PaywallView: View {
     private func ctaTitle(for plan: PlanKind, trialDays: Int?) -> String {
         switch plan {
         case .yearly:
-            return "Get yearly access"
+            return "Get Yearly Access"
         case .monthly:
-            return "Get monthly access"
+            return "Get Monthly Access"
         case .lifetime:
-            return "Get lifetime access"
+            return "Get Lifetime Access"
         case .unknown:
             return "Continue"
         }
@@ -1622,8 +1593,8 @@ struct PaywallView: View {
     private func handlePurchase() {
         guard let package = selectedPackage else {
             errorMessage = availablePackages.isEmpty
-            ? "Products are still loading. Please try again in a moment."
-            : "Please select a pricing option."
+            ? "Loading pricing..."
+            : "Select a pricing option to continue"
             showError = true
             return
         }
@@ -1746,7 +1717,7 @@ struct PaywallView: View {
                 iconName: "crown.fill",
                 iconColor: .appAccent,
                 title: "Today",
-                subtitle: "Start staying locked in and focused on what matters."
+                subtitle: "Start your free trial"
             )
         ]
 
@@ -1759,8 +1730,8 @@ struct PaywallView: View {
                 TimelineEvent(
                     iconName: "bell.fill",
                     iconColor: .appAccent,
-                    title: reminderDay == 1 ? "Tomorrow" : "In \(reminderDay) days",
-                    subtitle: "We'll remind you so you only keep FaithWall+ if you love it."
+                    title: reminderDay == 1 ? "Tomorrow" : "\("In") \(reminderDay) \("days")",
+                    subtitle: "We'll remind you before charging"
                 )
             )
 
@@ -1768,10 +1739,10 @@ struct PaywallView: View {
             TimelineEvent(
                 iconName: "checkmark.circle.fill",
                 iconColor: .appAccent,
-                    title: planKind == .yearly ? "Day \(trialDays)" : "In \(trialDays) days",
+                    title: planKind == .yearly ? "\("Day") \(trialDays)" : "\("In") \(trialDays) \("days")",
                     subtitle: planKind == .lifetime
-                        ? "Your lifetime access will begin and you'll be charged \(priceText)."
-                        : "Your subscription will begin and you'll be charged \(priceText)."
+                        ? "\("You'll be charged a one-time payment of") \(priceText)."
+                        : "\("Your subscription begins at") \(priceText)."
                 )
             )
         } else {
@@ -1781,8 +1752,8 @@ struct PaywallView: View {
                     iconColor: .appAccent,
                     title: "After confirmation",
                     subtitle: planKind == .lifetime
-                        ? "Lifetime access unlocks immediately for \(priceText)."
-                        : "Your subscription will begin immediately for \(priceText)."
+                        ? "\("You'll be charged immediately:") \(priceText)."
+                        : "\("Your subscription begins at") \(priceText)."
                 )
             )
         }
@@ -1874,7 +1845,7 @@ struct PaywallView: View {
         // For monthly, show price/mo
         if kind == .monthly {
             let price = applyDiscount ? getDiscountedPriceString(for: package) : package.localizedPriceString
-            return "\(price)/mo"
+            return "\(price)\("/mo")"
         }
         
         // For yearly, calculate and show per month
@@ -1888,10 +1859,10 @@ struct PaywallView: View {
                 let discountedYearlyPrice: Decimal = currencyCode == "EUR" ? 9.99 : 9.99
                 let perMonthValue = discountedYearlyPrice / 12
                 let formatted = formatter.string(from: NSDecimalNumber(decimal: perMonthValue))
-                return formatted.map { "\($0)/mo" }
+                return formatted.map { "\($0)\("/mo")" }
             } else if let value = perMonthPrice(for: package) {
                 let formatted = formatter.string(from: NSDecimalNumber(decimal: value))
-                return formatted.map { "\($0)/mo" }
+                return formatted.map { "\($0)\("/mo")" }
             }
         }
         
@@ -1970,7 +1941,7 @@ struct PaywallView: View {
         let discount = (annualIfMonthly - yearlyPrice) / annualIfMonthly
         let percent = Int((discount * 100).rounded())
         
-        return percent >= 5 ? "\(percent)% OFF" : nil
+        return percent >= 5 ? "\(percent)\("% OFF")" : nil
     }
     
     private func currencyFormatter(for package: Package) -> NumberFormatter {
@@ -1988,7 +1959,7 @@ struct PaywallView: View {
     private func badgeLabel(text: String) -> some View {
         Text(text)
             .font(.system(size: 12, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundColor(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 5)
             .background(Capsule().fill(Color.appAccent))
@@ -2009,9 +1980,9 @@ struct PaywallView: View {
                 }
             }
             return """
-            Opening Terms of Use...
+            \("Terms of Use")
             
-            Your browser will open with the Terms of Use.
+            \("By using FaithWall, you agree to our terms")
             """
         case .privacyPolicy:
             // Privacy Policy is hosted on Notion - open URL
@@ -2021,214 +1992,262 @@ struct PaywallView: View {
                 }
             }
             return """
-            Opening Privacy Policy...
+            \("Privacy Policy")
             
-            Your browser will open with the Privacy Policy.
+            \("We respect your privacy and protect your data")
             """
         case .termsAndPrivacy:
             return """
-            TERMS OF SERVICE & PRIVACY POLICY
+            \("Terms & Privacy")
             
-            Last Updated: November 13, 2025
+            \("Last updated: January 2024")
             
-            PART I: END-USER LICENSE AGREEMENT (EULA)
+            \("PART 1: END USER LICENSE AGREEMENT")
             
-            The End-User License Agreement (EULA) is hosted online. Please review the complete EULA at the link below.
+            \("This End User License Agreement governs your use of FaithWall.")
             
-            [EULA Link will be displayed as a button]
-            
-
-            PART II: SUBSCRIPTION TERMS
-
-
-            11. AUTO-RENEWABLE SUBSCRIPTIONS
-            
-            • Payment will be charged to your iTunes Account at confirmation of purchase
-            • Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period
-            • Account will be charged for renewal within 24-hours prior to the end of the current period, and identify the cost of the renewal
-            • Subscriptions may be managed by the user and auto-renewal may be turned off by going to the user's Account Settings after purchase
-            • Any unused portion of a free trial period, if offered, will be forfeited when the user purchases a subscription to that publication, where applicable
-            
-            12. FREE TRIAL TERMS
-            
-            • New users receive 3 free wallpaper exports to try the app
-            • Premium subscriptions may include a free trial period (typically 3 days)
-            • You will be charged at the end of the trial period unless you cancel before it ends
-            • To cancel: Settings app → [Your Name] → Subscriptions → FaithWall → Cancel Subscription
-            • Free trials are available to new subscribers only
-            
-            13. REFUND POLICY
-            
-            • All refund requests must be made through Apple's App Store
-            • Contact Apple Support directly for refund assistance
-            • Refunds are subject to Apple's refund policy
-            • We cannot process refunds directly as all payments are handled by Apple
-            
-            14. PRICING AND AVAILABILITY
-            
-            • Prices are subject to change without notice
-            • Subscription prices may vary by region and currency
-            • Features and availability may vary by device and iOS version
-            • We reserve the right to modify or discontinue features at any time
+            \("[Full EULA available at faithwall.app/eula]")
             
 
-            PART III: PRIVACY POLICY
-
-            
-            15. INFORMATION WE COLLECT
-            
-            15.1 Personal Information You Provide:
-            • Notes and Text: All notes you create are stored locally on your device only
-            • Photos: Any photos you select for wallpaper backgrounds are processed locally on your device
-            • No personal content is transmitted to our servers or third parties
-            
-            15.2 Automatically Collected Information:
-            • Device Information: iOS version, device model (for app compatibility and optimization)
-            • App Performance Data: Anonymous crash reports and performance metrics to improve the app
-            • Purchase Information: Subscription status and transaction records (processed by Apple)
-            • Usage Analytics: Anonymous data about app features used (no personal content)
-            
-            15.3 Information We Do NOT Collect:
-            • We do not collect your name, email address, or contact information unless you contact us
-            • We do not access your contacts, location, camera roll, or other personal data
-            • We do not track your browsing habits or app usage patterns across other apps
-            • We do not use cookies or similar tracking technologies
-            
-            16. HOW WE USE YOUR INFORMATION
-            
-            We use collected information to:
-            • Provide the core wallpaper generation functionality
-            • Process in-app purchases through Apple's App Store
-            • Improve app performance and fix technical issues
-            • Provide customer support when you contact us directly
-            • Ensure app compatibility across different iOS versions and devices
-            • Analyze app usage patterns to improve user experience (anonymized data only)
-            
-            17. DATA STORAGE AND SECURITY
-            
-            17.1 Local Storage:
-            • All your notes and photos are stored exclusively on your device using iOS secure storage
-            • We do not upload, sync, or backup your personal content to external servers
-            • Your data remains completely private and under your control
-            • Data is protected by iOS built-in security features including device encryption
-            • When you delete the app, all your data is permanently removed
-            
-            17.2 Data Transmission:
-            • No personal content (notes, photos) is transmitted over the internet
-            • Only anonymous technical data may be sent for app improvement purposes
-            • All purchase transactions are handled securely by Apple using industry-standard encryption
-            • Any data transmission uses secure HTTPS protocols
-            
-            18. DATA SHARING AND DISCLOSURE
-            
-            We do not sell, trade, rent, or share your personal information with third parties, except in the following limited circumstances:
-            
-            18.1 Apple Inc.:
-            • Purchase and subscription information is shared with Apple for payment processing
-            • Anonymous crash reports may be shared through Apple's developer tools
-            • App Store analytics data is processed by Apple according to their privacy policy
-            
-            18.2 Legal Requirements:
-            • We may disclose information if required by law, court order, or government request
-            • We may disclose information to protect our rights, property, or safety
-            • We may disclose information to prevent fraud or illegal activities
-            
-            18.3 Business Transfers:
-            • In the event of a merger, acquisition, or sale of assets, user information may be transferred
-            • Users will be notified of any such transfer and their rights regarding their data
-            
-            19. YOUR PRIVACY RIGHTS
-            
-            19.1 European Union (GDPR) Rights:
-            If you are located in the EU, you have the following rights:
-            • Right of Access: Request information about data we process about you
-            • Right of Rectification: Correct inaccurate personal data
-            • Right of Erasure: Request deletion of your personal data
-            • Right of Portability: Export your data in a readable format
-            • Right to Object: Object to processing of your personal data
-            • Right to Restrict Processing: Limit how we process your data
-            • Right to Lodge a Complaint: File a complaint with your local data protection authority
-            
-            19.2 California Privacy Rights (CCPA):
-            If you are a California resident, you have the right to:
-            • Know what personal information is collected about you
-            • Delete personal information we have collected
-            • Opt-out of the sale of personal information (we do not sell personal information)
-            • Non-discrimination for exercising your privacy rights
-            
-            19.3 Exercising Your Rights:
-            To exercise any of these rights, contact us at: iosfaithwall@gmail.com
-            We will respond to your request within 30 days.
-            
-            20. DATA RETENTION
-            
-            • Notes: Stored locally on your device until you delete them or uninstall the app
-            • App Settings: Stored locally until app is uninstalled
-            • Purchase Records: Maintained by Apple according to their retention policies
-            • Technical Data: Anonymous performance data may be retained for up to 2 years for app improvement
-            • Support Communications: Retained for up to 3 years for customer service purposes
-            
-            21. CHILDREN'S PRIVACY
-            
-            FaithWall is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If we become aware that we have collected personal information from a child under 13, we will take steps to delete such information immediately. Parents who believe their child has provided us with personal information should contact us at iosfaithwall@gmail.com.
-            
-            22. INTERNATIONAL DATA TRANSFERS
-            
-            Since all personal data is processed locally on your device, there are no international data transfers of your personal content. Any anonymous technical data shared with us is processed in accordance with applicable data protection laws and may be transferred to countries with different data protection standards.
-            
-            23. CHANGES TO THIS PRIVACY POLICY
-            
-            We may update this Privacy Policy from time to time to reflect changes in our practices, technology, or applicable laws. We will notify you of any material changes by:
-            • Posting the updated policy in the app
-            • Updating the "Last Updated" date at the top of this policy
-            • Sending a notification through the app if changes are significant
-            
-            Your continued use of the app after any changes constitutes acceptance of the updated policy.
-            
-            24. CONTACT INFORMATION
-            
-            If you have questions, concerns, or requests regarding this Privacy Policy or our privacy practices, please contact us:
-            
-            Email: iosfaithwall@gmail.com
-            Developer: FaithWall Team
-            
-            For EU residents: You also have the right to lodge a complaint with your local data protection authority.
-            
-            
-            PART IV: GENERAL TERMS
-
-            
-            25. DISCLAIMER OF WARRANTIES
-            
-            THE LICENSED APPLICATION IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE APP WILL BE UNINTERRUPTED OR ERROR-FREE.
-            
-            26. LIMITATION OF LIABILITY
-            
-            TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE DEVELOPER SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES.
-            
-            27. TERMINATION
-            
-            This EULA is effective until terminated by you or the Developer. Your rights under this EULA will terminate automatically without notice if you fail to comply with any term(s) of this EULA. Upon termination, you must cease all use of the Licensed Application and delete all copies.
-            
-            28. GOVERNING LAW
-            
-            This EULA and Privacy Policy are governed by the laws of Slovakia, without regard to conflict of law principles. Any disputes will be resolved in the courts of Slovakia.
-            
-            29. SEVERABILITY
-            
-            If any provision of this EULA is held to be unenforceable or invalid, such provision will be changed and interpreted to accomplish the objectives of such provision to the greatest extent possible under applicable law, and the remaining provisions will continue in full force and effect.
-            
-            30. ENTIRE AGREEMENT
-            
-            This EULA, together with this Privacy Policy, constitutes the entire agreement between you and the Developer regarding the Licensed Application and supersedes all prior or contemporaneous understandings regarding such subject matter. No amendment to or modification of this EULA will be binding unless in writing and signed by the Developer.
+            \("PART 2: SUBSCRIPTION TERMS")
 
 
+            \("1.1 Subscription Plans")
             
-            By using FaithWall, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service and Privacy Policy.
+            \("• Monthly subscription: Auto-renews monthly")
+            \("• Yearly subscription: Auto-renews annually")
+            \("• Lifetime purchase: One-time payment, no renewals")
+            \("• Free trials: Available for new subscribers only")
+            \("• Pricing: As displayed in the app at time of purchase")
             
-            Thank you for using FaithWall!
+            \("1.2 Payment & Renewal")
+            
+            \("• Payment charged to iTunes Account at confirmation")
+            \("• Auto-renewal can be turned off in Account Settings")
+            \("• Subscriptions auto-renew unless canceled 24 hours before period ends")
+            \("• You'll be charged within 24 hours before current period ends")
+            \("• Manage or cancel subscriptions in App Store settings")
+            
+            \("1.3 Free Trials")
+            
+            \("• Duration specified at signup")
+            \("• Available only for new subscribers")
+            \("• Cancel anytime during trial to avoid charges")
+            \("• Converts to paid subscription if not canceled")
+            
+            \("1.4 Refunds & Cancellation")
+            
+            \("• Manage through App Store settings")
+            \("• No refunds for partial subscription periods")
+            \("• Lifetime purchases are non-refundable after 14 days")
+            \("• Contact Apple Support for refund requests")
+            
+
+            \("PART 3: PRIVACY POLICY")
+
+            
+            \("2.1 Data We Collect")
+            
+            \("2.1.1 Automatically Collected")
+            \("• Device information (model, OS version)")
+            \("• App usage statistics and analytics")
+            \("• Crash reports and performance data")
+            
+            \("2.1.2 User-Provided Data")
+            \("• Notes and reminders you create")
+            \("• Photos you choose for wallpapers")
+            \("• Email address (if provided for support)")
+            \("• Feedback and suggestions")
+            
+            \("2.1.3 Data We DON'T Collect")
+            \("• We don't read your notes")
+            \("• We don't access your photos library")
+            \("• We don't track your location")
+            \("• We don't sell your data to third parties")
+            
+            \("2.2 How We Use Data")
+            
+            \("We use collected data to:")
+            \("• Provide and improve FaithWall features")
+            \("• Personalize your experience")
+            \("• Respond to support requests")
+            \("• Prevent fraud and abuse")
+            \("• Comply with legal obligations")
+            \("• Send important service updates")
+            
+            \("2.3 Data Storage & Security")
+            
+            \("2.3.1 Storage")
+            \("• Notes stored locally on your device")
+            \("• iCloud backup optional (controlled by you)")
+            \("• Analytics stored on secure servers")
+            \("• Data encrypted in transit and at rest")
+            \("• We retain data only as long as necessary")
+            
+            \("2.3.2 Security Measures")
+            \("• Industry-standard encryption")
+            \("• Regular security audits")
+            \("• Secure authentication protocols")
+            \("• Limited employee access to data")
+            
+            \("2.4 Third-Party Services")
+            
+            \("We use the following trusted services:")
+            
+            \("2.4.1 RevenueCat")
+            \("• Manages subscriptions and purchases")
+            \("• Collects purchase data only")
+            \("• See RevenueCat privacy policy for details")
+            
+            \("2.4.2 Analytics")
+            \("• Tracks app usage and performance")
+            \("• Data anonymized and aggregated")
+            \("• Used to improve features")
+            
+            \("2.4.3 Cloud Storage")
+            \("• Apple iCloud (optional, user-controlled)")
+            \("• Follows Apple's privacy standards")
+            
+            \("2.5 Your Rights")
+            
+            \("2.5.1 Access & Control")
+            \("You have the right to:")
+            \("• Access your personal data")
+            \("• Request data deletion")
+            \("• Export your notes")
+            \("• Opt out of analytics")
+            \("• Update your information")
+            \("• Withdraw consent anytime")
+            \("• File a complaint with authorities")
+            
+            \("2.5.2 California Residents (CCPA)")
+            \("Additional rights under California law:")
+            \("• Right to know what data we collect")
+            \("• Right to delete personal information")
+            \("• Right to opt-out of data sales (we don't sell data)")
+            \("• Right to non-discrimination")
+            
+            \("2.5.3 European Residents (GDPR)")
+            \("Under GDPR, you have enhanced data rights.")
+            \("Contact us at privacy@faithwall.app for requests.")
+            
+            \("2.6 Contact Us")
+            
+            \("• Email: support@faithwall.app")
+            \("• Privacy: privacy@faithwall.app")
+            \("• Website: faithwall.app")
+            \("• We respond within 48 hours")
+            \("• All correspondence treated confidentially")
+            
+            \("2.7 Children's Privacy")
+            
+            \("FaithWall is not directed to children under 13. We do not knowingly collect data from children.")
+            
+            \("2.8 International Users")
+            
+            \("Data may be transferred to and processed in countries outside your residence.")
+            
+            \("2.9 Changes to Privacy Policy")
+            
+            \("We may update this policy from time to time. We will notify you of significant changes.")
+            \("• Updates posted in app and on website")
+            \("• Significant changes: email notification")
+            \("• Continued use after changes = acceptance")
+            
+            \("Last Updated: January 2024")
+            
+            \("2.10 Data Controller Information")
+            
+            \("For data protection purposes, the data controller is:")
+            
+            \("Email: privacy@faithwall.app")
+            \("Developer: FaithWall Team")
+            
+            \("EU Representative: [If applicable, add contact]")
+            
+            
+            \("PART 4: GENERAL TERMS")
+
+            
+            \("3.1 Acceptable Use")
+            
+            \("You agree to use FaithWall only for lawful purposes.")
+            
+            \("3.2 Intellectual Property")
+            
+            \("All app content is protected by copyright and trademark laws.")
+            
+            \("3.3 Disclaimers")
+            
+            \("FaithWall is provided \"as is\" without warranties.")
+            
+            \("3.4 Limitation of Liability")
+            
+            \("Our liability is limited to the amount you paid for the app.")
+            
+            \("3.5 Indemnification")
+            
+            \("You agree to indemnify us against claims arising from your use.")
+            
+            \("3.6 Governing Law")
+            
+            \("These terms are governed by the laws of [Your Jurisdiction].")
+
+
+            
+            \("By continuing, you agree to our Terms of Use and Privacy Policy")
+            
+            \("Thank you for using FaithWall!")
             """
         }
+    }
+}
+
+// MARK: - View Modifiers
+
+struct NotificationAlertModifier: ViewModifier {
+    @Binding var isPresented: Bool
+    @Binding var pendingPackage: Package?
+    let purchase: (Package) -> Void
+    
+    func body(content: Content) -> some View {
+        content
+            .alert("Enable Notifications", isPresented: $isPresented) {
+                Button("Allow", role: .none) {
+                    // Request permission, then purchase
+                    NotificationManager.shared.requestPermission { _ in
+                        if let package = pendingPackage {
+                            purchase(package)
+                        }
+                    }
+                }
+                Button("Not Now", role: .cancel) {
+                    // Proceed without permission
+                    if let package = pendingPackage {
+                        purchase(package)
+                    }
+                }
+            } message: {
+                Text("Get reminders to update your wallpaper and stay focused on what matters")
+            }
+    }
+}
+
+struct CodeSuccessAlertModifier: ViewModifier {
+    @Binding var showCodeSuccess: Bool
+    @Binding var showTermsAndPrivacy: Bool
+    let dismiss: () -> Void
+    
+    func body(content: Content) -> some View {
+        content
+            .alert("Code Applied!", isPresented: $showCodeSuccess) {
+                Button("OK") {
+                    showTermsAndPrivacy = false
+                    dismiss()
+                }
+            } message: {
+                Text("Lifetime Access Granted!")
+            }
     }
 }
 
@@ -2239,7 +2258,7 @@ struct PaywallView_Previews: PreviewProvider {
         PaywallView(triggerReason: .firstWallpaperCreated)
         
         PaywallView(triggerReason: .limitReached, allowDismiss: false)
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(.light)
     }
 }
 
@@ -2289,11 +2308,11 @@ private struct LifetimePlanSheet: View {
     @State private var showPromoCodeSheet = false
     
     private let lifetimeFeatures = [
-        ("infinity", "Forever Access", "Your goals appear every time you pick up your phone — stay consistent effortlessly"),
-        ("arrow.triangle.2.circlepath", "Habit Builder", "Micro-reminders on each pickup help you follow through without thinking"),
-        ("sparkles", "Daily Motivation", "Turn your phone into a focus anchor instead of a distraction magnet"),
-        ("paintbrush.fill", "Unlimited Personalization", "Create unlimited FaithWalls with full customization"),
-        ("crown.fill", "Lifetime Ownership", "Pay once. Use forever. No subscriptions or future charges")
+        ("infinity", "Forever Access", "Pay once, access all features forever"),
+        ("arrow.triangle.2.circlepath", "Habit Builder", "Build lasting spiritual habits effortlessly"),
+        ("sparkles", "Daily Motivation", "Get inspired every time you check your phone"),
+        ("paintbrush.fill", "Unlimited Personalization", "Customize everything to match your style"),
+        ("crown.fill", "Lifetime Ownership", "Pay once, own forever - no subscriptions")
     ]
 
     var body: some View {
@@ -2313,11 +2332,11 @@ private struct LifetimePlanSheet: View {
                         Button(action: onDismiss) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.secondary)
                                 .frame(width: 32, height: 32)
                                 .background(
                                     Circle()
-                                        .fill(Color.white.opacity(0.1))
+                                        .fill(Color.black.opacity(0.05))
                                         .overlay(
                                             Circle()
                                                 .stroke(Color.white.opacity(0.2), lineWidth: 1)
@@ -2325,7 +2344,7 @@ private struct LifetimePlanSheet: View {
                                 )
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, DS.Spacing.l)
                     .padding(.top, 16)
                     
                     Spacer().frame(height: 20)
@@ -2360,7 +2379,7 @@ private struct LifetimePlanSheet: View {
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .stroke(
                                         LinearGradient(
-                                            colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
+                                            colors: [Color.white.opacity(0.5), Color.black.opacity(0.05)],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         ),
@@ -2389,7 +2408,7 @@ private struct LifetimePlanSheet: View {
                                     
                                     Image(systemName: "crown.fill")
                                         .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                                 .offset(x: 8, y: 8)
                             }
@@ -2407,8 +2426,8 @@ private struct LifetimePlanSheet: View {
                         Text("LIFETIME")
                             .font(.system(size: 14, weight: .black, design: .rounded))
                             .foregroundColor(.appAccent)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, DS.Spacing.l)
+                            .padding(.vertical, DS.Spacing.xs)
                             .background(
                                 Capsule()
                                     .fill(Color.appAccent.opacity(0.15))
@@ -2434,8 +2453,8 @@ private struct LifetimePlanSheet: View {
                                     .offset(x: shimmerOffset)
                                     .mask(
                                         Capsule()
-                                            .padding(.horizontal, 20)
-                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, DS.Spacing.l)
+                                            .padding(.vertical, DS.Spacing.xs)
                                     )
                             )
                     }
@@ -2445,9 +2464,9 @@ private struct LifetimePlanSheet: View {
                     
                     // Main headline
                     VStack(spacing: 12) {
-                        Text("Own FaithWall+")
+                        Text("Own FaithWall Forever")
                             .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                         
                         Text("Forever")
                             .font(.system(size: 44, weight: .black, design: .rounded))
@@ -2469,11 +2488,11 @@ private struct LifetimePlanSheet: View {
                     VStack(spacing: 6) {
                         Text(priceText)
                             .font(.system(size: 56, weight: .black, design: .rounded))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                         
-                        Text("one-time payment")
+                        Text("One-Time Payment")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.secondary)
                             .textCase(.uppercase)
                     }
                     .padding(.top, 20)
@@ -2494,7 +2513,7 @@ private struct LifetimePlanSheet: View {
                                 )
                         }
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DS.Spacing.xl)
                     .padding(.top, 32)
                     
                     Spacer().frame(height: 32)
@@ -2542,15 +2561,15 @@ private struct LifetimePlanSheet: View {
                 }
                 .disabled(!isAvailable)
                     .opacity(isAvailable ? 1 : 0.5)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DS.Spacing.xl)
                     .opacity(animateIn ? 1 : 0)
                     .scaleEffect(animateIn ? 1 : 0.9)
                     .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.7), value: animateIn)
                 
                 if !isAvailable {
-                        Text("Lifetime option is currently unavailable")
+                        Text("Lifetime access temporarily unavailable")
                         .font(.footnote)
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.secondary)
                             .padding(.top, 12)
                     }
                     
@@ -2563,7 +2582,7 @@ private struct LifetimePlanSheet: View {
                         HStack(spacing: 8) {
                             Image(systemName: "ticket.fill")
                                 .font(.system(size: 16, weight: .semibold))
-                            Text("Do you have a promo code?")
+                            Text("Have a promo code?")
                                 .font(.system(size: 16, weight: .semibold))
                         }
                         .foregroundColor(.appAccent)
@@ -2579,7 +2598,7 @@ private struct LifetimePlanSheet: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, DS.Spacing.l)
                     .padding(.top, 20)
                     .opacity(animateIn ? 1 : 0)
                     .animation(.easeIn.delay(0.75), value: animateIn)
@@ -2596,9 +2615,9 @@ private struct LifetimePlanSheet: View {
                     
                     // Skip button
                     Button(action: onDismiss) {
-                        Text("Maybe later")
+                        Text("Maybe Later")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.secondary)
                     }
                     .padding(.top, 20)
                     .padding(.bottom, 32)
@@ -2650,8 +2669,8 @@ private struct LifetimePlanSheet: View {
             // Base dark gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.06, green: 0.06, blue: 0.12),
-                    Color(red: 0.02, green: 0.02, blue: 0.06)
+                    Color(red: 0.99, green: 0.98, blue: 0.97),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -2735,11 +2754,11 @@ private struct LifetimePlanSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text(subtitle)
                     .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.secondary)
             }
             
             Spacer()
@@ -2752,10 +2771,10 @@ private struct LifetimePlanSheet: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.black.opacity(0.04))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
                 )
         )
     }
@@ -2768,7 +2787,7 @@ private struct LifetimePlanSheet: View {
             
             Text(text)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.secondary)
         }
     }
 }
@@ -2833,8 +2852,8 @@ private struct PromoCodeInputView: View {
             // Base dark gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.08),
-                    Color(red: 0.01, green: 0.01, blue: 0.04)
+                    Color(red: 0.98, green: 0.97, blue: 0.96),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -2888,19 +2907,19 @@ private struct PromoCodeInputView: View {
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Color.black.opacity(0.05))
                                 .overlay(
                                     Circle()
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
                                 )
                         )
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DS.Spacing.l)
             .padding(.top, 16)
             
             Spacer()
@@ -2924,11 +2943,11 @@ private struct PromoCodeInputView: View {
                 VStack(spacing: 8) {
                     Text("Enter Promo Code")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     
-                    Text("Unlock lifetime access with a valid code")
+                    Text("Unlock Lifetime Access")
                         .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 .opacity(animateIn ? 1 : 0)
@@ -2938,9 +2957,9 @@ private struct PromoCodeInputView: View {
                 // Input field
                 VStack(spacing: 12) {
                     HStack(spacing: 12) {
-                        TextField("Enter promo code", text: $promoCode)
+                        TextField("Enter your code", text: $promoCode)
                             .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                             .focused($isCodeFieldFocused)
@@ -2948,60 +2967,7 @@ private struct PromoCodeInputView: View {
                                 validateAndRedeem()
                             }
                             .onChange(of: promoCode) { newValue in
-                                // Auto-format: PREFIX-XXXX-XXXX (LT- or MO-)
-                                let filtered = newValue.uppercased()
-                                    .replacingOccurrences(of: " ", with: "")
-                                
-                                // Check if it starts with LT- or MO-
-                                let prefix: String
-                                let codePart: String
-                                
-                                if filtered.hasPrefix("LT-") {
-                                    prefix = "LT-"
-                                    codePart = String(String(filtered.dropFirst(3))
-                                        .replacingOccurrences(of: "-", with: "")
-                                        .prefix(8))
-                                } else if filtered.hasPrefix("MO-") {
-                                    prefix = "MO-"
-                                    codePart = String(String(filtered.dropFirst(3))
-                                        .replacingOccurrences(of: "-", with: "")
-                                        .prefix(8))
-                                } else if filtered.hasPrefix("LT") && filtered.count > 2 {
-                                    prefix = "LT-"
-                                    codePart = String(String(filtered.dropFirst(2))
-                                        .replacingOccurrences(of: "-", with: "")
-                                        .prefix(8))
-                                } else if filtered.hasPrefix("MO") && filtered.count > 2 {
-                                    prefix = "MO-"
-                                    codePart = String(String(filtered.dropFirst(2))
-                                        .replacingOccurrences(of: "-", with: "")
-                                        .prefix(8))
-                                } else {
-                                    // No prefix yet, allow typing
-                                    promoCode = filtered
-                                    if errorMessage != nil {
-                                        errorMessage = nil
-                                    }
-                                    return
-                                }
-                                
-                                // Format code part: XXXX-XXXX
-                                let formattedCodePart: String
-                                if codePart.count > 4 {
-                                    formattedCodePart = String(codePart.prefix(4)) + "-" + String(codePart.dropFirst(4).prefix(4))
-                                } else {
-                                    formattedCodePart = String(codePart)
-                                }
-                                
-                                let formatted = prefix + formattedCodePart
-                                if formatted != newValue {
-                                    promoCode = formatted
-                                }
-                                
-                                // Clear error when user types
-                                if errorMessage != nil {
-                                    errorMessage = nil
-                                }
+                                formatPromoCode(newValue)
                             }
                         
                         if isValidating {
@@ -3017,15 +2983,15 @@ private struct PromoCodeInputView: View {
                             .opacity(promoCode.isEmpty ? 0.5 : 1.0)
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, DS.Spacing.l)
+                    .padding(.vertical, DS.Spacing.m)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.white.opacity(0.05))
+                            .fill(Color.black.opacity(0.04))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
                                     .stroke(
-                                        isCodeFieldFocused ? Color.appAccent.opacity(0.5) : Color.white.opacity(0.1),
+                                        isCodeFieldFocused ? Color.appAccent.opacity(0.5) : Color.black.opacity(0.05),
                                         lineWidth: isCodeFieldFocused ? 2 : 1
                                     )
                             )
@@ -3058,12 +3024,12 @@ private struct PromoCodeInputView: View {
                         ))
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .opacity(animateIn ? 1 : 0)
                 .offset(y: animateIn ? 0 : 20)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: animateIn)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DS.Spacing.l)
             
             Spacer()
         }
@@ -3071,11 +3037,11 @@ private struct PromoCodeInputView: View {
     
     private var successView: some View {
         ZStack {
-            // Brand background - black with turquoise accents
+            // Brand background - light gradient with warm accents
             LinearGradient(
                 colors: [
-                    Color.black,
-                    Color(red: 0.05, green: 0.1, blue: 0.15)
+                    Color(red: 0.99, green: 0.98, blue: 0.97),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -3139,26 +3105,22 @@ private struct PromoCodeInputView: View {
                             )
                     }
                     
-                    // Main checkmark circle - black with turquoise border
+                    // Main checkmark circle - filled with accent gradient
                     ZStack {
                         Circle()
-                            .fill(Color.black.opacity(0.6))
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.appAccent, Color.appAccent.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                             .frame(width: 120, height: 120)
                             .overlay(
                                 Circle()
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.appAccent,
-                                                Color.appAccent.opacity(0.7)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 4
-                                    )
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 2)
                             )
-                            .shadow(color: Color.appAccent.opacity(0.5), radius: 20, x: 0, y: 10)
+                            .shadow(color: Color.appAccent.opacity(0.4), radius: 20, x: 0, y: 10)
                         
                         Image(systemName: "checkmark")
                             .font(.system(size: 56, weight: .bold))
@@ -3173,32 +3135,32 @@ private struct PromoCodeInputView: View {
                 
                 // Success message with brand styling
                 VStack(spacing: 20) {
-                    Text("Success! 🎉")
+                    Text("🎉")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .shadow(color: Color.appAccent.opacity(0.3), radius: 10, x: 0, y: 5)
                     
                     if let codeType = redeemedCodeType {
                         if codeType == .lifetime {
-                            Text("Lifetime Access Granted")
+                            Text("Lifetime Access Granted!")
                                 .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundColor(.appAccent)
                                 .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
                             
-                            Text("You've redeemed a lifetime promo code.\nEnjoy unlimited FaithWall+ features forever.")
+                            Text("You now have lifetime access to all FaithWall features!")
                                 .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.primary.opacity(0.8))
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(6)
                         } else {
-                            Text("Monthly Access Granted")
+                            Text("Monthly Access Granted!")
                                 .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundColor(.appAccent)
                                 .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
                             
-                            Text("You've redeemed a monthly promo code.\nEnjoy FaithWall+ features for 1 month.")
+                            Text("You now have 1 month of premium access!")
                                 .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.primary.opacity(0.8))
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(6)
                         }
@@ -3208,9 +3170,9 @@ private struct PromoCodeInputView: View {
                             .foregroundColor(.appAccent)
                             .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
                         
-                        Text("Enjoy FaithWall+ features.")
+                        Text("Enjoy FaithWall+")
                             .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.primary.opacity(0.8))
                             .multilineTextAlignment(.center)
                     }
                 }
@@ -3252,6 +3214,63 @@ private struct PromoCodeInputView: View {
         errorMessage = nil
         
         // Validate and redeem
+    }
+    
+    private func formatPromoCode(_ newValue: String) {
+        // Auto-format: PREFIX-XXXX-XXXX (LT- or MO-)
+        let filtered = newValue.uppercased()
+            .replacingOccurrences(of: " ", with: "")
+        
+        // Check if it starts with LT- or MO-
+        let prefix: String
+        let codePart: String
+        
+        if filtered.hasPrefix("LT-") {
+            prefix = "LT-"
+            codePart = String(String(filtered.dropFirst(3))
+                .replacingOccurrences(of: "-", with: "")
+                .prefix(8))
+        } else if filtered.hasPrefix("MO-") {
+            prefix = "MO-"
+            codePart = String(String(filtered.dropFirst(3))
+                .replacingOccurrences(of: "-", with: "")
+                .prefix(8))
+        } else if filtered.hasPrefix("LT") && filtered.count > 2 {
+            prefix = "LT-"
+            codePart = String(String(filtered.dropFirst(2))
+                .replacingOccurrences(of: "-", with: "")
+                .prefix(8))
+        } else if filtered.hasPrefix("MO") && filtered.count > 2 {
+            prefix = "MO-"
+            codePart = String(String(filtered.dropFirst(2))
+                .replacingOccurrences(of: "-", with: "")
+                .prefix(8))
+        } else {
+            // No prefix yet, allow typing
+            promoCode = filtered
+            if errorMessage != nil {
+                errorMessage = nil
+            }
+            return
+        }
+        
+        // Format code part: XXXX-XXXX
+        let formattedCodePart: String
+        if codePart.count > 4 {
+            formattedCodePart = String(codePart.prefix(4)) + "-" + String(codePart.dropFirst(4).prefix(4))
+        } else {
+            formattedCodePart = String(codePart)
+        }
+        
+        let formatted = prefix + formattedCodePart
+        if formatted != newValue {
+            promoCode = formatted
+        }
+        
+        // Clear error when user types
+        if errorMessage != nil {
+            errorMessage = nil
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             let validation = PromoCodeManager.shared.validateCode(promoCode)
             
@@ -3285,7 +3304,7 @@ private struct PromoCodeInputView: View {
                             notification.notificationOccurred(.success)
                         }
                     } else {
-                        errorMessage = "Failed to redeem code. Please try again."
+                        errorMessage = "Failed to redeem code"
                         let errorGenerator = UINotificationFeedbackGenerator()
                         errorGenerator.notificationOccurred(.error)
                     }

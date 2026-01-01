@@ -5,23 +5,20 @@ import SwiftUI
 /// Represents available Bible translations with their metadata
 /// Maps to SQLite database files from scrollmapper/bible_databases
 enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
-    // English versions
+    // English versions only
     case kjv = "KJV"           // English - King James Version
     case bsb = "BSB"           // English - Berean Standard Bible
     case asv = "ASV"           // English - American Standard Version
     case web = "NHEB"          // English - New Heart English Bible
     case bbe = "BBE"           // English - Bible in Basic English
-    
-    // Other languages
-    case ukrOgienko = "UkrOgienko"  // Ukrainian - Ohienko translation
-    case rusSynodal = "RusSynodal"  // Russian - Synodal translation
-    case spaRV = "SpaRV"       // Spanish - Reina-Valera
-    case freJND = "FreJND"     // French - J.N. Darby
-    case gerSch = "GerSch"     // German - Schlachter
-    case porBLivre = "PorBLivre"   // Portuguese - Bíblia Livre
-    case chiUn = "ChiUn"       // Chinese Traditional - 和合本
+    case niv = "NIV"           // English - New International Version
     
     var id: String { rawValue }
+    
+    /// Whether this translation uses online API instead of local database
+    var isAPIBased: Bool {
+        return false // All translations now use local databases
+    }
     
     /// Display name for the translation
     var displayName: String {
@@ -31,13 +28,7 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
         case .asv: return "American Standard Version"
         case .web: return "New Heart English Bible"
         case .bbe: return "Bible in Basic English"
-        case .ukrOgienko: return "Українська Біблія (Огієнко)"
-        case .rusSynodal: return "Синодальный перевод"
-        case .spaRV: return "Reina-Valera 1909"
-        case .freJND: return "Bible J.N. Darby"
-        case .gerSch: return "Schlachter Bibel"
-        case .porBLivre: return "Bíblia Livre"
-        case .chiUn: return "和合本 (繁體)"
+        case .niv: return "New International Version"
         }
     }
     
@@ -49,42 +40,18 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
         case .asv: return "ASV"
         case .web: return "NHEB"
         case .bbe: return "BBE"
-        case .ukrOgienko: return "УКР"
-        case .rusSynodal: return "РУС"
-        case .spaRV: return "ESP"
-        case .freJND: return "FRA"
-        case .gerSch: return "DEU"
-        case .porBLivre: return "POR"
-        case .chiUn: return "中文"
+        case .niv: return "NIV"
         }
     }
     
     /// Language name for display
     var languageName: String {
-        switch self {
-        case .kjv, .bsb, .asv, .web, .bbe: return "English"
-        case .ukrOgienko: return "Українська"
-        case .rusSynodal: return "Русский"
-        case .spaRV: return "Español"
-        case .freJND: return "Français"
-        case .gerSch: return "Deutsch"
-        case .porBLivre: return "Português"
-        case .chiUn: return "中文"
-        }
+        "English"
     }
     
     /// Flag emoji for visual identification
     var flagEmoji: String {
-        switch self {
-        case .kjv, .bsb, .asv, .web, .bbe: return "🇬🇧"
-        case .ukrOgienko: return "🇺🇦"
-        case .rusSynodal: return "🇷🇺"
-        case .spaRV: return "🇪🇸"
-        case .freJND: return "🇫🇷"
-        case .gerSch: return "🇩🇪"
-        case .porBLivre: return "🇧🇷"
-        case .chiUn: return "🇨🇳"
-        }
+        "🇬🇧"
     }
     
     /// SQLite table prefix (same as rawValue)
@@ -108,48 +75,28 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Codable {
         case .asv: return 4.1
         case .web: return 4.3
         case .bbe: return 3.9
-        case .ukrOgienko: return 3.8
-        case .rusSynodal: return 4.0
-        case .spaRV: return 3.9
-        case .freJND: return 4.1
-        case .gerSch: return 4.0
-        case .porBLivre: return 3.7
-        case .chiUn: return 5.2
+        case .niv: return 4.5 // NIV database downloaded from RapidAPI
         }
     }
     
-    /// Group translations by language for picker UI (with multiple versions per language)
-    static var groupedByLanguage: [(language: String, flag: String, translations: [BibleTranslation])] {
-        [
-            ("English", "🇬🇧", [.kjv, .bsb, .asv, .web, .bbe]),
-            ("Українська", "🇺🇦", [.ukrOgienko]),
-            ("Русский", "🇷🇺", [.rusSynodal]),
-            ("Español", "🇪🇸", [.spaRV]),
-            ("Français", "🇫🇷", [.freJND]),
-            ("Deutsch", "🇩🇪", [.gerSch]),
-            ("Português", "🇧🇷", [.porBLivre]),
-            ("中文", "🇨🇳", [.chiUn])
-        ]
+    /// Get all translations as a list (English versions only)
+    static var allVersions: [BibleTranslation] {
+        [.niv, .kjv, .bsb, .asv, .web, .bbe]
     }
     
-    /// Primary translations (one per language) for initial selection
+    /// Primary translations for initial selection
     static var primaryTranslations: [BibleTranslation] {
-        [.kjv, .ukrOgienko, .rusSynodal, .spaRV, .freJND, .gerSch, .porBLivre, .chiUn]
+        [.niv, .kjv]
     }
     
-    /// Returns all translations for the same language as this translation
+    /// Returns all translations (same since all are English)
     var relatedTranslations: [BibleTranslation] {
-        for group in Self.groupedByLanguage {
-            if group.translations.contains(self) {
-                return group.translations
-            }
-        }
-        return [self]
+        Self.allVersions
     }
     
     /// Whether this language has multiple version options
     var hasMultipleVersions: Bool {
-        relatedTranslations.count > 1
+        true // All English versions are available
     }
 }
 
@@ -170,10 +117,7 @@ struct BibleBook: Identifiable, Codable, Equatable {
         case new = "New Testament"
         
         var localizedName: String {
-            switch self {
-            case .old: return BibleLocalizationManager.shared.localizedString(.oldTestament)
-            case .new: return BibleLocalizationManager.shared.localizedString(.newTestament)
-            }
+            rawValue
         }
     }
 }
@@ -204,6 +148,31 @@ struct BibleVerse: Identifiable, Codable, Equatable {
     let verse: Int
     let text: String
     let translation: BibleTranslation
+    
+    /// Convenience initializer for API-based verses (without database IDs)
+    init(bookName: String, chapter: Int, verse: Int, text: String, translation: BibleTranslation) {
+        // Generate a unique ID based on book, chapter, verse
+        // Using a simple hash-like approach
+        self.id = (bookName.hashValue % 1000) * 1000000 + chapter * 1000 + verse
+        // Derive bookId from standard book order
+        self.bookId = BibleBookList.standardBooks.firstIndex(of: bookName).map { $0 + 1 } ?? 0
+        self.bookName = bookName
+        self.chapter = chapter
+        self.verse = verse
+        self.text = text
+        self.translation = translation
+    }
+    
+    /// Full initializer for database-based verses
+    init(id: Int, bookId: Int, bookName: String, chapter: Int, verse: Int, text: String, translation: BibleTranslation) {
+        self.id = id
+        self.bookId = bookId
+        self.bookName = bookName
+        self.chapter = chapter
+        self.verse = verse
+        self.text = text
+        self.translation = translation
+    }
     
     /// Reference string like "John 3:16"
     var reference: String {
@@ -263,4 +232,26 @@ struct BibleSearchResult: Identifiable {
 extension Notification.Name {
     static let bibleLanguageChanged = Notification.Name("bibleLanguageChanged")
     static let bibleTranslationDownloaded = Notification.Name("bibleTranslationDownloaded")
+}
+
+// MARK: - Standard Bible Book List
+struct BibleBookList {
+    static let standardBooks = [
+        // Old Testament
+        "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
+        "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel",
+        "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles",
+        "Ezra", "Nehemiah", "Esther", "Job", "Psalms", "Proverbs",
+        "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah", "Lamentations",
+        "Ezekiel", "Daniel", "Hosea", "Joel", "Amos",
+        "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk",
+        "Zephaniah", "Haggai", "Zechariah", "Malachi",
+        // New Testament
+        "Matthew", "Mark", "Luke", "John", "Acts",
+        "Romans", "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians",
+        "Philippians", "Colossians", "1 Thessalonians", "2 Thessalonians",
+        "1 Timothy", "2 Timothy", "Titus", "Philemon",
+        "Hebrews", "James", "1 Peter", "2 Peter",
+        "1 John", "2 John", "3 John", "Jude", "Revelation"
+    ]
 }

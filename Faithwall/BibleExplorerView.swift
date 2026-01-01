@@ -26,11 +26,11 @@ struct BibleExplorerView: View {
                     bookListView
                 }
             }
-            .navigationTitle(BL(.exploreBible))
+            .navigationTitle("Explore Bible")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(BL(.closeBible)) {
+                    Button("Close") {
                         dismiss()
                     }
                 }
@@ -39,7 +39,7 @@ struct BibleExplorerView: View {
                     languageButton
                 }
             }
-            .searchable(text: $searchText, prompt: BL(.searchBooks))
+            .searchable(text: $searchText, prompt: "Search books...")
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
@@ -54,9 +54,9 @@ struct BibleExplorerView: View {
                     initialSelection: languageManager.selectedTranslation,
                     showContinueButton: false,
                     isOnboarding: false
-                ) { _ in
-                    showLanguagePicker = false
-                    loadBooks()
+                ) { translation in
+                    // Translation selected - it's already set in languageManager
+                    // Don't dismiss yet - let user click Done
                 }
                 .navigationTitle("Change Language")
                 .navigationBarTitleDisplayMode(.inline)
@@ -64,6 +64,10 @@ struct BibleExplorerView: View {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
                             showLanguagePicker = false
+                            // Force reload after dismissing
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                loadBooks()
+                            }
                         }
                     }
                 }
@@ -97,7 +101,7 @@ struct BibleExplorerView: View {
             ProgressView()
                 .scaleEffect(1.5)
             
-            Text(BL(.loadingBible))
+            Text("Loading Bible...")
                 .font(.headline)
                 .foregroundColor(.secondary)
         }
@@ -111,7 +115,7 @@ struct BibleExplorerView: View {
                 .font(.system(size: 50))
                 .foregroundColor(.orange)
             
-            Text(BL(.unableToLoadBible))
+            Text("Unable to Load Bible")
                 .font(.headline)
             
             Text(message)
@@ -127,7 +131,7 @@ struct BibleExplorerView: View {
                 }) {
                     HStack {
                         Image(systemName: "arrow.down.circle.fill")
-                        Text("\(BL(.downloadBible)) \(languageManager.selectedTranslation.shortName)")
+                        Text("Download \(languageManager.selectedTranslation.shortName) Bible")
                     }
                     .frame(minWidth: 200)
                     .padding()
@@ -142,7 +146,7 @@ struct BibleExplorerView: View {
                 }) {
                     HStack {
                         Image(systemName: "arrow.clockwise")
-                        Text(BL(.resetAndRedownload))
+                        Text("Reset & Redownload")
                     }
                     .frame(minWidth: 200)
                     .padding()
@@ -157,7 +161,7 @@ struct BibleExplorerView: View {
                 }) {
                     HStack {
                         Image(systemName: "globe")
-                        Text(BL(.changeLanguage))
+                        Text("Change Version")
                     }
                     .frame(minWidth: 200)
                     .padding()
@@ -174,7 +178,7 @@ struct BibleExplorerView: View {
     private var bookListView: some View {
         List {
             // Old Testament Section
-            Section(header: Text(BL(.oldTestament))) {
+            Section(header: Text("Old Testament")) {
                 ForEach(filteredBooks.filter { $0.testament == .old }) { book in
                     NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
                         bookRow(book)
@@ -183,7 +187,7 @@ struct BibleExplorerView: View {
             }
             
             // New Testament Section
-            Section(header: Text(BL(.newTestament))) {
+            Section(header: Text("New Testament")) {
                 ForEach(filteredBooks.filter { $0.testament == .new }) { book in
                     NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
                         bookRow(book)
@@ -323,6 +327,7 @@ struct ChapterPickerView: View {
     let book: BibleBook
     var onVerseSelected: ((BibleVerse) -> Void)?
     
+    @StateObject private var languageManager = BibleLanguageManager.shared
     @State private var chapterCount = 0
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -360,6 +365,9 @@ struct ChapterPickerView: View {
         .onAppear {
             loadChapterCount()
         }
+        .onChange(of: languageManager.selectedTranslation) { _ in
+            loadChapterCount()
+        }
     }
     
     private func chapterCell(_ chapter: Int) -> some View {
@@ -375,11 +383,17 @@ struct ChapterPickerView: View {
     private func loadChapterCount() {
         isLoading = true
         
+        // Check if translation is downloaded
+        guard languageManager.isSelectedTranslationReady else {
+            // If not ready, wait for download (handled by manager/UI elsewhere)
+            return
+        }
+        
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let count = try BibleDatabaseService.shared.getChapterCount(
                     bookId: book.id,
-                    translation: book.translation
+                    translation: languageManager.selectedTranslation
                 )
                 
                 DispatchQueue.main.async {
@@ -404,6 +418,7 @@ struct VerseListView: View {
     var onVerseSelected: ((BibleVerse) -> Void)?
     
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var languageManager = BibleLanguageManager.shared
     @State private var verses: [BibleVerse] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -426,11 +441,14 @@ struct VerseListView: View {
         .onAppear {
             loadVerses()
         }
-        .alert(BL(.addToLockScreen), isPresented: $showAddConfirmation) {
-            Button(BL(.cancel), role: .cancel) {
+        .onChange(of: languageManager.selectedTranslation) { _ in
+            loadVerses()
+        }
+        .alert(alertTitle, isPresented: $showAddConfirmation) {
+            Button("Cancel", role: .cancel) {
                 selectedVerse = nil
             }
-            Button(BL(.add)) {
+            Button("Add Anyway") {
                 if let verse = selectedVerse {
                     onVerseSelected?(verse)
                     
@@ -439,14 +457,26 @@ struct VerseListView: View {
                     generator.notificationOccurred(.success)
                     
                     // Dismiss back to explorer or close
-                    dismiss()
+                    // dismiss()
                 }
             }
         } message: {
             if let verse = selectedVerse {
-                Text("\(verse.reference)\n\n\"\(verse.previewText(maxLength: 150))\"")
+                let charCount = verse.lockScreenFormat.count
+                if charCount > 130 {
+                    Text("⚠️ This verse has \(charCount) characters. Lock screen widget supports max 130 characters and will be truncated.\n\n\"\(verse.previewText(maxLength: 100))\"")
+                } else {
+                    Text("\(verse.reference)\n\n\"\(verse.previewText(maxLength: 150))\"")
+                }
             }
         }
+    }
+    
+    private var alertTitle: String {
+        if let verse = selectedVerse, verse.lockScreenFormat.count > 130 {
+            return "⚠️ Verse Too Long"
+        }
+        return "Add to Lock Screen?"
     }
     
     private var verseList: some View {
@@ -465,19 +495,33 @@ struct VerseListView: View {
     }
     
     private func verseRow(_ verse: BibleVerse) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        let isTooLong = verse.lockScreenFormat.count > 130
+        
+        return HStack(alignment: .top, spacing: 12) {
             // Verse number
             Text("\(verse.verse)")
                 .font(.caption)
                 .fontWeight(.bold)
-                .foregroundColor(.blue)
+                .foregroundColor(isTooLong ? .orange : .blue)
                 .frame(width: 28, alignment: .trailing)
             
             // Verse text
-            Text(verse.text)
-                .font(.body)
-                .foregroundColor(.primary)
-                .multilineTextAlignment(.leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verse.text)
+                    .font(.body)
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.leading)
+                
+                if isTooLong {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                        Text("Too long for widget (\(verse.lockScreenFormat.count)/130)")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.orange)
+                }
+            }
         }
         .padding(.vertical, 8)
     }
@@ -485,12 +529,17 @@ struct VerseListView: View {
     private func loadVerses() {
         isLoading = true
         
+        // Check if translation is downloaded
+        guard languageManager.isSelectedTranslationReady else {
+            return
+        }
+        
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let loadedVerses = try BibleDatabaseService.shared.getVerses(
                     bookId: book.id,
                     chapter: chapter,
-                    translation: book.translation
+                    translation: languageManager.selectedTranslation
                 )
                 
                 DispatchQueue.main.async {

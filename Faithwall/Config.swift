@@ -6,6 +6,11 @@ struct Config {
     /// 8-digit developer PIN for promo code admin access
     static let developerPIN = "84739261"
     
+    // MARK: - Bible API
+    /// RapidAPI key for NIV Bible access
+    /// Sign up at https://rapidapi.com/sambuce23/api/niv-bible
+    static let rapidAPIKey = "7a954be5c4mshf685e59b3ff51cdp15b7bbjsnfb53291ad5b1"
+    
     // MARK: - User Count API
     /// Vercel API endpoint for real-time user count
     /// After deploying vercel-email-api, update this with your Vercel URL

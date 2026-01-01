@@ -21,8 +21,8 @@ struct DeleteNotesLoadingView: View {
     
     var body: some View {
         ZStack {
-            // Semi-transparent overlay
-            Color.black.opacity(0.4)
+            // Semi-transparent overlay - light mode uses darker overlay for contrast
+            Color.black.opacity(0.3)
                 .ignoresSafeArea()
                 .onTapGesture {
                     // Prevent dismissal by tapping outside

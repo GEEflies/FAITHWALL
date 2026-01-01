@@ -15,7 +15,7 @@ struct LegalDocumentView: View {
                                 .fontWeight(.bold)
                                 .padding(.top, 20)
                             
-                            Text("Your Privacy Policy is hosted online.")
+                            Text("Our privacy policy is hosted online for easy access and updates.")
                                 .font(.body)
                                 .foregroundColor(.secondary)
                             
@@ -44,7 +44,7 @@ struct LegalDocumentView: View {
                                 .fontWeight(.bold)
                                 .padding(.top, 20)
                             
-                            Text("Your Terms of Use are hosted online.")
+                            Text("Our terms of use are hosted online for easy access and updates.")
                                 .font(.body)
                                 .foregroundColor(.secondary)
                             
@@ -80,7 +80,7 @@ struct LegalDocumentView: View {
                                 }
                             }) {
                                 HStack {
-                                    Text("End-User License Agreement (EULA)")
+                                    Text("EULA")
                                         .fontWeight(.semibold)
                                     Spacer()
                                     Image(systemName: "arrow.up.right.square")
@@ -176,7 +176,7 @@ struct LegalDocumentView: View {
         case .privacyPolicy:
             return "" // Handled in body - opens URL
         case .termsAndPrivacy:
-            return termsAndPrivacyContent
+            return "" // Opens links to external documents
         }
     }
 }

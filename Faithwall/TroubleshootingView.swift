@@ -95,8 +95,8 @@ struct TroubleshootingView: View {
             // Base dark gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.08),
-                    Color(red: 0.02, green: 0.02, blue: 0.04)
+                    Color(red: 0.98, green: 0.97, blue: 0.96),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -158,14 +158,14 @@ struct TroubleshootingView: View {
                     }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.secondary)
                             .frame(width: 36, height: 36)
                             .background(
                                 Circle()
-                                    .fill(Color.white.opacity(0.08))
+                                    .fill(Color.black.opacity(0.05))
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
                                     )
                             )
                     }
@@ -186,7 +186,7 @@ struct TroubleshootingView: View {
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                 }
             }
             .padding(.horizontal, 20)
@@ -198,7 +198,7 @@ struct TroubleshootingView: View {
                     ZStack(alignment: .leading) {
                         // Background track
                         Capsule()
-                            .fill(Color.white.opacity(0.1))
+                            .fill(Color.black.opacity(0.05))
                             .frame(height: 4)
                         
                         // Progress fill
@@ -241,11 +241,11 @@ struct TroubleshootingView: View {
             VStack(spacing: 12) {
             Text("Troubleshooting")
                     .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
             
-            Text("Let's fix the issue together")
+            Text("Let's fix this together")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.secondary)
             }
             .multilineTextAlignment(.center)
             .opacity(animateIn ? 1 : 0)
@@ -336,10 +336,10 @@ struct TroubleshootingView: View {
                 VStack(spacing: 8) {
                 Text("Shortcut Setup")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 
                     // Badge
-                Text("Most Common Issue")
+                Text("Most common issue")
                         .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.appAccent)
                         .padding(.horizontal, 14)
@@ -379,10 +379,10 @@ struct TroubleshootingView: View {
                         
                         Text("The Problem")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                     
-                    Text("Something may have gone wrong during the shortcut installation process.")
+                    Text("The FaithWall Shortcut wasn't installed correctly, or folder access wasn't granted during setup. This is the #1 reason wallpapers don't show.")
                         .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.7))
                         .lineSpacing(4)
@@ -391,10 +391,10 @@ struct TroubleshootingView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.white.opacity(0.05))
+                        .fill(Color.black.opacity(0.04))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                .stroke(Color.black.opacity(0.05), lineWidth: 1)
                         )
                 )
                 .opacity(animateIn ? 1 : 0)
@@ -418,10 +418,10 @@ struct TroubleshootingView: View {
                         
                         Text("The Solution")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                     
-                    Text("Click \"Yes, Fix This\" below to re-install the shortcut and complete the setup correctly with our step-by-step guide.")
+                    Text("We'll reset your shortcut setup and guide you through it again. This time, make sure to tap \"Always Allow\" when prompted for folder access.")
                         .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.7))
                         .lineSpacing(4)
@@ -457,7 +457,7 @@ struct TroubleshootingView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 16, weight: .bold))
-                        Text("Yes, Fix This")
+                        Text("Yes, Fix This!")
                             .font(.system(size: 17, weight: .bold, design: .rounded))
                     }
                     .foregroundColor(.black)
@@ -499,9 +499,9 @@ struct TroubleshootingView: View {
                         }
                     }
                 }) {
-                    Text("No, This Is Not the Issue")
+                    Text("No, Not The Issue")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(
@@ -509,7 +509,7 @@ struct TroubleshootingView: View {
                                 .fill(Color.white.opacity(0.06))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
                                 )
                         )
                 }
@@ -542,12 +542,12 @@ struct TroubleshootingView: View {
                 .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: animateIn)
                 
                 VStack(spacing: 8) {
-                    Text("Wrong Wallpaper")
+                    Text("Wrong Wallpaper Selected")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     
                     // Badge
-                    Text("Second Most Common")
+                    Text("2nd most common")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.appAccent)
                         .padding(.horizontal, 14)
@@ -587,10 +587,10 @@ struct TroubleshootingView: View {
                         
                         Text("The Problem")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                     
-                    Text("The shortcut worked, but it put notes on the wrong wallpaper in your collection.")
+                    Text("When you set your lock screen wallpaper in Settings, you might have accidentally selected an old FaithWall wallpaper instead of the latest one. iOS doesn't automatically use the newest photo.")
                         .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.7))
                         .lineSpacing(4)
@@ -600,10 +600,10 @@ struct TroubleshootingView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.white.opacity(0.05))
+                        .fill(Color.black.opacity(0.04))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                .stroke(Color.black.opacity(0.05), lineWidth: 1)
                         )
                 )
                 .opacity(animateIn ? 1 : 0)
@@ -627,13 +627,13 @@ struct TroubleshootingView: View {
                         
                         Text("Quick Fix")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                     
                     VStack(alignment: .leading, spacing: 12) {
-                        solutionStep(number: 1, text: "Swipe down to your Lock Screen")
-                        solutionStep(number: 2, text: "Long-press on your wallpaper")
-                        solutionStep(number: 3, text: "Select the one with notes")
+                        solutionStep(number: 1, text: "Open Settings app → Wallpaper")
+                        solutionStep(number: 2, text: "Tap \"Customize\" on your lock screen")
+                        solutionStep(number: 3, text: "Under Photos, scroll down and select the NEWEST FaithWall image (it will have today's date)")
                     }
                 }
                 .padding(20)
@@ -706,9 +706,9 @@ struct TroubleshootingView: View {
                         }
                     }
                 }) {
-                    Text("Still Having Issues")
+                    Text("Still Having Issues?")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(
@@ -716,7 +716,7 @@ struct TroubleshootingView: View {
                                 .fill(Color.white.opacity(0.06))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
                                 )
                         )
                 }
@@ -732,12 +732,12 @@ struct TroubleshootingView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(Color.black.opacity(0.05))
                     .frame(width: 24, height: 24)
                 
                 Text("\(number)")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.primary.opacity(0.8))
             }
             
             Text(text)
@@ -764,13 +764,13 @@ struct TroubleshootingView: View {
             
             // Title
             VStack(spacing: 10) {
-            Text("We're Here to Help")
+            Text("We're here to help!")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
-                Text("Our team responds within 24 hours")
+                Text("Our team typically responds within 24 hours")
                     .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.secondary)
             }
             .multilineTextAlignment(.center)
             .opacity(animateIn ? 1 : 0)
@@ -805,7 +805,7 @@ struct TroubleshootingView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Email Support")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             Text("iosfaithwall@gmail.com")
                                 .font(.system(size: 13))
                                 .foregroundColor(.appAccent)
@@ -815,7 +815,7 @@ struct TroubleshootingView: View {
                         
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.secondary)
                     }
                     .padding(.horizontal, 18)
                     .padding(.vertical, 14)
@@ -856,7 +856,7 @@ struct TroubleshootingView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Twitter / X")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             Text("@billikkarol3")
                                 .font(.system(size: 13))
                                 .foregroundColor(.appAccent)
@@ -866,7 +866,7 @@ struct TroubleshootingView: View {
                         
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.secondary)
                     }
                     .padding(.horizontal, 18)
                     .padding(.vertical, 14)
@@ -892,7 +892,7 @@ struct TroubleshootingView: View {
                 }) {
                     Text("Close")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                 }
@@ -935,7 +935,7 @@ struct TroubleshootingView: View {
             VStack(spacing: 12) {
                 Text(scanningStep.title)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text("Please wait while we check your setup...")
                     .font(.system(size: 17))
@@ -953,7 +953,7 @@ struct TroubleshootingView: View {
                 ZStack(alignment: .leading) {
                     // Background track
                     Capsule()
-                        .fill(Color.white.opacity(0.1))
+                        .fill(Color.black.opacity(0.05))
                         .frame(height: 6)
                     
                     // Progress fill

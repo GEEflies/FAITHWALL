@@ -30,7 +30,7 @@ struct WallpaperUpdateLoadingView: View {
     var body: some View {
         ZStack {
             // Semi-transparent overlay to dim the homepage
-            Color.black.opacity(0.4)
+            Color.black.opacity(0.3)
                 .ignoresSafeArea()
                 .onTapGesture {
                     // Prevent dismissal by tapping outside
@@ -455,6 +455,6 @@ struct WallpaperUpdateLoadingView: View {
         isPresented: .constant(true),
         showTroubleshooting: .constant(false)
     )
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }
 

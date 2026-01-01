@@ -33,6 +33,7 @@ struct ContentView: View {
     @State private var shouldRestartOnboarding = false
     @State private var showWallpaperUpdateLoading = false
     @AppStorage("hasShownFirstNoteHint") private var hasShownFirstNoteHint = false
+    @AppStorage("selectedOnboardingPipeline") private var selectedOnboardingPipeline = ""
     @State private var showFirstNoteHint = false
     @FocusState private var isTextFieldFocused: Bool
 
@@ -190,6 +191,7 @@ struct ContentView: View {
             shouldRestartOnboarding: $shouldRestartOnboarding,
             showWallpaperUpdateLoading: $showWallpaperUpdateLoading,
             showFirstNoteHint: $showFirstNoteHint,
+            selectedOnboardingPipeline: selectedOnboardingPipeline,
             isTextFieldFocused: $isTextFieldFocused,
             addNote: addNote,
             moveNotes: moveNotes,
@@ -233,7 +235,10 @@ struct ContentView: View {
 
     private func saveNotes() {
         do {
-            savedNotesData = try JSONEncoder().encode(notes)
+            let data = try JSONEncoder().encode(notes)
+            savedNotesData = data
+            // Sync to widget via App Group
+            WidgetDataSync.syncNotesToWidget(data)
         } catch {
             #if DEBUG
             print("Failed to encode notes: \(error)")
@@ -401,12 +406,8 @@ struct ContentView: View {
             return nil
         }
 
-        switch preset {
-        case .black:
-            return HomeScreenImageManager.homePresetBlackImage()
-        case .gray:
-            return HomeScreenImageManager.homePresetGrayImage()
-        }
+        // Generate the gradient image for the selected preset
+        return preset.generateGradientImage()
     }
 
     private func resolveLockBackgroundImage(using homeImage: UIImage) -> UIImage? {
@@ -768,6 +769,7 @@ private struct ContentViewContext {
     let shouldRestartOnboarding: Binding<Bool>
     let showWallpaperUpdateLoading: Binding<Bool>
     let showFirstNoteHint: Binding<Bool>
+    let selectedOnboardingPipeline: String
     let isTextFieldFocused: FocusState<Bool>.Binding
     let addNote: () -> Void
     let moveNotes: (IndexSet, Int) -> Void
@@ -910,7 +912,7 @@ private struct RootConfiguredModifier: ViewModifier {
         case .deletePreviousWallpaper:
             return Alert(
                 title: Text("Delete Previous Wallpaper?"),
-                message: Text("To avoid filling your Photos library, FaithWall can delete the previous wallpaper. If you continue, iOS will ask for permission to delete the photo."),
+                message: Text("To avoid filling your Photos library, FaithWall can delete the previous wallpaper."),
                 primaryButton: .cancel(Text("Skip")) {
                     // Light impact haptic for alert dismissal
                     let generator = UIImpactFeedbackGenerator(style: .light)
@@ -971,7 +973,7 @@ private struct RootConfiguredModifier: ViewModifier {
 
 private struct MainContentView: View {
     let context: ContentViewContext
-    @State private var showBibleExplorer = false
+    @State private var showBibleMenu = false
 
     var body: some View {
         NavigationView {
@@ -983,12 +985,14 @@ private struct MainContentView: View {
                         AddNoteSectionView(context: context)
                     }
                     
-                    // Explore Bible Button
+                    // Open Bible Button
                     if !context.isEditMode.wrappedValue {
-                        ExploreBibleButtonView(showBibleExplorer: $showBibleExplorer, context: context)
+                        OpenBibleButtonView(showBibleMenu: $showBibleMenu, context: context)
                     }
 
-                    UpdateWallpaperButtonView(context: context)
+                    if context.selectedOnboardingPipeline != "widget" {
+                        UpdateWallpaperButtonView(context: context)
+                    }
                 }
             }
             .navigationTitle("FaithWall")
@@ -1009,11 +1013,11 @@ private struct MainContentView: View {
                 shouldRestartOnboarding: context.shouldRestartOnboarding
             )
         }
-        .sheet(isPresented: $showBibleExplorer) {
-            BibleExplorerView { verse in
+        .sheet(isPresented: $showBibleMenu) {
+            BibleMenuView { verse in
                 // Add the selected verse as a note
                 addVerseAsNote(verse)
-                showBibleExplorer = false
+                showBibleMenu = false
             }
         }
     }
@@ -1034,6 +1038,8 @@ private struct MainContentView: View {
         // Save notes
         if let encoded = try? JSONEncoder().encode(currentNotes) {
             context.savedNotesData.wrappedValue = encoded
+            // Sync to widget
+            WidgetDataSync.syncNotesToWidget(encoded)
         }
         
         // Haptic feedback
@@ -1046,9 +1052,9 @@ private struct MainContentView: View {
     }
 }
 
-// MARK: - Explore Bible Button
-private struct ExploreBibleButtonView: View {
-    @Binding var showBibleExplorer: Bool
+// MARK: - Open Bible Button
+private struct OpenBibleButtonView: View {
+    @Binding var showBibleMenu: Bool
     let context: ContentViewContext
     @StateObject private var languageManager = BibleLanguageManager.shared
     
@@ -1058,13 +1064,13 @@ private struct ExploreBibleButtonView: View {
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
             
-            showBibleExplorer = true
+            showBibleMenu = true
         }) {
             HStack(spacing: 8) {
                 Image(systemName: "book.fill")
                     .font(.system(size: 16))
                 
-                Text("Explore Bible")
+                Text("Open Bible")
                     .fontWeight(.medium)
                 
                 Spacer()
@@ -1096,6 +1102,16 @@ private struct ExploreBibleButtonView: View {
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
+    }
+}
+
+// Deprecated - kept for compatibility
+private struct ExploreBibleButtonView: View {
+    @Binding var showBibleExplorer: Bool
+    let context: ContentViewContext
+    
+    var body: some View {
+        OpenBibleButtonView(showBibleMenu: $showBibleExplorer, context: context)
     }
 }
 
@@ -1215,7 +1231,7 @@ private struct EditModeMenuButton: View {
                     .frame(width: 44, height: 44) // Ensure good touch target
                     .contentShape(Rectangle()) // Ensure entire 44x44 area is tappable
             }
-            .accessibilityLabel(context.isEditMode.wrappedValue ? "Close editing" : "Edit notes")
+            .accessibilityLabel(context.isEditMode.wrappedValue ? "Close Editing" : "Edit Notes")
             .highPriorityGesture(
                 TapGesture()
                     .onEnded { _ in
@@ -1362,36 +1378,68 @@ private struct EditModeSupplementView: View {
     }
 }
 
+// MARK: - Widget Character Limit
+private let widgetCharacterLimit = 130
+
 private struct AddNoteSectionView: View {
     let context: ContentViewContext
+    
+    private var characterCount: Int {
+        context.newNoteText.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).count
+    }
+    
+    private var isOverLimit: Bool {
+        characterCount > widgetCharacterLimit
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            TextField("Add a note...", text: context.newNoteText)
-                .focused(context.isTextFieldFocused)
-                .submitLabel(.done)
-                .font(.system(size: 16))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .onSubmit {
-                    context.addNote()
+        VStack(spacing: 0) {
+            // Warning banner when over character limit
+            if isOverLimit {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text("Lock screen widget supports max \(widgetCharacterLimit) characters. Current: \(characterCount)")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    Spacer()
                 }
-
-            Button(action: { context.addNote() }) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(isAddDisabled ? .gray : .appAccent)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.1))
             }
-            .disabled(isAddDisabled)
+            
+            HStack(spacing: 12) {
+                TextField("Add a note...", text: context.newNoteText)
+                    .focused(context.isTextFieldFocused)
+                    .submitLabel(.done)
+                    .font(.system(size: 16))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isOverLimit ? Color.orange : Color.clear, lineWidth: 2)
+                    )
+                    .onSubmit {
+                        context.addNote()
+                    }
+
+                Button(action: { context.addNote() }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(isAddDisabled ? .gray : .appAccent)
+                }
+                .disabled(isAddDisabled)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                Color(.systemBackground)
+                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: -1)
+            )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            Color(.systemBackground)
-                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: -1)
-        )
     }
 
     private var isAddDisabled: Bool {
@@ -1517,8 +1565,8 @@ struct NoteRowView: View {
                         .foregroundColor(.appAccent)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.horizontal, DS.Spacing.l)
+            .padding(.vertical, DS.Spacing.m)
 
             Divider()
                 .background(Color(.separator))
@@ -1792,6 +1840,7 @@ private struct TrialReminderBannerView: View {
 
 private struct FirstNoteHintBannerView: View {
     let context: ContentViewContext
+    @AppStorage("selectedOnboardingPipeline") private var selectedOnboardingPipeline = ""
     @State private var isDismissed = false
     
     var body: some View {
@@ -1809,10 +1858,17 @@ private struct FirstNoteHintBannerView: View {
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
                             
-                            Text("Add more notes using the + button, then tap \"Update Wallpaper\" to apply them to your lock screen.")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            if selectedOnboardingPipeline == "widget" {
+                                Text("Add more notes using the + button. They will automatically appear on your widget.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Text("Add more notes using the + button, then tap \"Update Wallpaper\" to apply them to your lock screen.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                         
                         Spacer()

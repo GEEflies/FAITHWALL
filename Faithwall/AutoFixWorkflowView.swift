@@ -151,8 +151,8 @@ struct AutoFixWorkflowView: View {
             // Base dark gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.08),
-                    Color(red: 0.01, green: 0.01, blue: 0.04)
+                    Color(red: 0.98, green: 0.97, blue: 0.96),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -205,14 +205,14 @@ struct AutoFixWorkflowView: View {
                     }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.secondary)
                             .frame(width: 36, height: 36)
                             .background(
                                 Circle()
-                                    .fill(Color.white.opacity(0.08))
+                                    .fill(Color.black.opacity(0.05))
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
                                     )
                             )
                     }
@@ -227,7 +227,7 @@ struct AutoFixWorkflowView: View {
                     ZStack(alignment: .leading) {
                         // Background track
                         Capsule()
-                            .fill(Color.white.opacity(0.1))
+                            .fill(Color.black.opacity(0.05))
                             .frame(height: 4)
                         
                         // Progress fill
@@ -288,7 +288,7 @@ struct AutoFixWorkflowView: View {
             VStack(spacing: 12) {
                 Text(currentStep.title)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text(currentStep.description)
                     .font(.system(size: 17))
@@ -310,10 +310,10 @@ struct AutoFixWorkflowView: View {
             .padding(20)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.04))
+                    .fill(Color.black.opacity(0.03))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
                     )
             )
             .padding(.horizontal, 24)
@@ -336,7 +336,7 @@ struct AutoFixWorkflowView: View {
             
             Text(title)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.primary.opacity(0.8))
             
             Spacer()
         }
@@ -366,7 +366,7 @@ struct AutoFixWorkflowView: View {
             VStack(spacing: 12) {
                 Text(currentStep.title)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text(currentStep.description)
                     .font(.system(size: 17))
@@ -422,7 +422,7 @@ struct AutoFixWorkflowView: View {
             VStack(spacing: 12) {
                 Text(currentStep.title)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text(currentStep.description)
                     .font(.system(size: 17))
@@ -464,7 +464,7 @@ struct AutoFixWorkflowView: View {
             
             Text(title)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
             
             Spacer()
         }
@@ -492,7 +492,7 @@ struct AutoFixWorkflowView: View {
             VStack(spacing: 12) {
                 Text(currentStep.title)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text(currentStep.description)
                     .font(.system(size: 17))
@@ -510,7 +510,7 @@ struct AutoFixWorkflowView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Issues found:")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                     
                     ForEach(detectedIssues, id: \.self) { issue in
                         Text(issue)
@@ -622,7 +622,7 @@ struct AutoFixWorkflowView: View {
                 }) {
                     Text("Close")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(
@@ -630,7 +630,7 @@ struct AutoFixWorkflowView: View {
                                 .fill(Color.white.opacity(0.06))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14)
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
                                 )
                         )
                 }
@@ -888,6 +888,6 @@ struct AutoFixWorkflowView: View {
 
 #Preview {
     AutoFixWorkflowView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }
 

@@ -90,7 +90,15 @@ Before writing any code, explain:
 ```
 Perfect, now create the complete BibleDatabaseService.swift file.
 
-Requirements:
+Requirements:/Users/carly/GITHUB REPOS/STRANKY:APLIKACIE/FAITHWALL/Faithwall/BibleModels.swift
+/Users/carly/GITHUB REPOS/STRANKY:APLIKACIE/FAITHWALL/Faithwall/BibleModels.swift:174:31 Cannot find 'BL' in scope
+
+/Users/carly/GITHUB REPOS/STRANKY:APLIKACIE/FAITHWALL/Faithwall/BibleModels.swift:174:35 Cannot infer contextual base in reference to member 'oldTestament'
+
+/Users/carly/GITHUB REPOS/STRANKY:APLIKACIE/FAITHWALL/Faithwall/BibleModels.swift:175:31 Cannot find 'BL' in scope
+
+/Users/carly/GITHUB REPOS/STRANKY:APLIKACIE/FAITHWALL/Faithwall/BibleModels.swift:175:35 Cannot infer contextual base in reference to member 'newTestament'
+
 - Put it in the Faithwall/ folder
 - Include all the functions you described
 - Add helpful comments explaining what each part does

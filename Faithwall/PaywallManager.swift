@@ -36,7 +36,7 @@ final class PaywallManager: NSObject, ObservableObject {
     
     // MARK: - Constants
     private let freeExportLimit = 3
-    private let entitlementID = "Notewall+"
+    private let entitlementID = "Faithwall Unlimited"
     private let lifetimeProductID = "lifetime"
     private var paywallDelayWorkItem: DispatchWorkItem?
     private var hasConnectedToRevenueCat = false

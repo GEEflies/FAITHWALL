@@ -34,17 +34,27 @@ final class BibleLanguageManager: ObservableObject {
     
     /// Returns true if the selected translation is downloaded and ready
     var isSelectedTranslationReady: Bool {
-        databaseService.isDownloaded(selectedTranslation)
+        // API-based translations are always ready (no download needed)
+        if selectedTranslation.isAPIBased {
+            return true
+        }
+        return databaseService.isDownloaded(selectedTranslation)
     }
     
     /// Returns all downloaded translations
     var downloadedTranslations: [BibleTranslation] {
-        BibleTranslation.allCases.filter { databaseService.isDownloaded($0) }
+        BibleTranslation.allCases.filter { translation in
+            // API-based translations are always "downloaded"
+            translation.isAPIBased || databaseService.isDownloaded(translation)
+        }
     }
     
     /// Returns translations that need to be downloaded
     var notDownloadedTranslations: [BibleTranslation] {
-        BibleTranslation.allCases.filter { !databaseService.isDownloaded($0) }
+        BibleTranslation.allCases.filter { translation in
+            // API-based translations never need download
+            !translation.isAPIBased && !databaseService.isDownloaded(translation)
+        }
     }
     
     // MARK: - Initialization
@@ -77,7 +87,10 @@ final class BibleLanguageManager: ObservableObject {
     /// Refreshes the download state for all translations
     func refreshDownloadStates() {
         for translation in BibleTranslation.allCases {
-            if databaseService.isDownloaded(translation) {
+            // API-based translations are always ready
+            if translation.isAPIBased {
+                downloadStates[translation] = .downloaded
+            } else if databaseService.isDownloaded(translation) {
                 downloadStates[translation] = .downloaded
             } else {
                 downloadStates[translation] = .notDownloaded
@@ -87,6 +100,13 @@ final class BibleLanguageManager: ObservableObject {
     
     /// Downloads a translation if not already downloaded
     func downloadTranslation(_ translation: BibleTranslation, completion: ((Result<Void, Error>) -> Void)? = nil) {
+        // API-based translations don't need download
+        if translation.isAPIBased {
+            downloadStates[translation] = .downloaded
+            completion?(.success(()))
+            return
+        }
+        
         guard !databaseService.isDownloaded(translation) else {
             downloadStates[translation] = .downloaded
             completion?(.success(()))
@@ -146,6 +166,12 @@ final class BibleLanguageManager: ObservableObject {
     /// Changes the selected translation and downloads if needed
     func changeTranslation(to translation: BibleTranslation, completion: ((Result<Void, Error>) -> Void)? = nil) {
         selectedTranslation = translation
+        
+        // API-based translations don't need download
+        if translation.isAPIBased {
+            completion?(.success(()))
+            return
+        }
         
         if !databaseService.isDownloaded(translation) {
             downloadTranslation(translation, completion: completion)

@@ -117,12 +117,29 @@ final class BibleDatabaseService {
     
     /// Returns the local path for a translation's database
     func databasePath(for translation: BibleTranslation) -> URL {
-        databaseDirectory.appendingPathComponent(translation.databaseFileName)
+        // NIV is bundled with the app, other translations are downloaded
+        if translation == .niv {
+            // First check if it's in the documents directory (if user re-downloaded)
+            let documentsPath = databaseDirectory.appendingPathComponent(translation.databaseFileName)
+            if fileManager.fileExists(atPath: documentsPath.path) {
+                return documentsPath
+            }
+            // Otherwise use the bundled version
+            if let bundlePath = Bundle.main.path(forResource: "NIV", ofType: "db") {
+                return URL(fileURLWithPath: bundlePath)
+            }
+        }
+        return databaseDirectory.appendingPathComponent(translation.databaseFileName)
     }
     
     /// Checks if a translation is downloaded
     func isDownloaded(_ translation: BibleTranslation) -> Bool {
-        fileManager.fileExists(atPath: databasePath(for: translation).path)
+        // NIV is bundled with the app
+        if translation == .niv {
+            return Bundle.main.path(forResource: "NIV", ofType: "db") != nil ||
+                   fileManager.fileExists(atPath: databasePath(for: translation).path)
+        }
+        return fileManager.fileExists(atPath: databasePath(for: translation).path)
     }
     
     // MARK: - Download Management

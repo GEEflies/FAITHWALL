@@ -21,95 +21,64 @@ final class UserCountService: ObservableObject {
     @AppStorage("userCountBaseValue") private var baseValue: Int = 80 // Your real download count
     
     // MARK: - Configuration
-    private let cacheValidityDuration: TimeInterval = 3600 // 1 hour cache
-    private let minimumDisplayCount: Int = 50 // Never show less than this
+    private let baseCount: Int = 1031
+    private let dailyGrowth: Int = 6
+    private let minimumDisplayCount: Int = 50
+    private let cacheValidityDuration: TimeInterval = 3600
+    // Fixed start date: December 30, 2025
+    private let startDate: Date = {
+        var components = DateComponents()
+        components.year = 2025
+        components.month = 12
+        components.day = 30
+        return Calendar.current.date(from: components) ?? Date()
+    }()
     
     // MARK: - Computed Properties
     
-    /// Estimated count based on base value with slight variation
-    /// This provides a realistic number even when API is unavailable
-    var estimatedCount: Int {
-        // Apply a slight reduction (70-85% of total downloads)
-        // to represent "active focused users" rather than total downloads
-        let activeUserRatio = Double.random(in: 0.70...0.85)
-        let estimated = Int(Double(baseValue) * activeUserRatio)
-        return max(minimumDisplayCount, estimated)
+    private var isCacheValid: Bool {
+        let now = Date().timeIntervalSince1970
+        return (now - lastFetchTimestamp) < cacheValidityDuration
     }
     
-    /// Whether cached data is still valid
-    var isCacheValid: Bool {
-        guard lastFetchTimestamp > 0 else { return false }
-        let cacheAge = Date().timeIntervalSince1970 - lastFetchTimestamp
-        return cacheAge < cacheValidityDuration
+    private var estimatedCount: Int {
+        return calculatedCount
+    }
+    
+    /// Deterministic count based on date
+    /// Starts at 1031 on Dec 30, 2025 and increases by 6 every day
+    var calculatedCount: Int {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Calculate days passed since start date
+        let components = calendar.dateComponents([.day], from: startDate, to: now)
+        let daysPassed = max(0, components.day ?? 0)
+        
+        return baseCount + (daysPassed * dailyGrowth)
     }
     
     // MARK: - Initialization
     
     private init() {
-        // Load cached value or use estimated
-        if cachedUserCount > 0 && isCacheValid {
-            currentCount = cachedUserCount
-        } else {
-            currentCount = estimatedCount
-        }
+        // Always use the calculated deterministic count
+        currentCount = calculatedCount
     }
     
     // MARK: - Public Methods
     
-    /// Fetch latest count from API or return cached/estimated value
+    /// Fetch latest count (returns calculated value)
     @MainActor
     func fetchUserCount() async -> Int {
-        // Return cached if still valid
-        if isCacheValid {
-            currentCount = cachedUserCount
-            return currentCount
-        }
-        
-        isLoading = true
-        fetchError = nil
-        
-        // Try to fetch from API
-        if let apiURL = Config.userCountAPIURL, let url = URL(string: apiURL) {
-            do {
-                let (data, response) = try await URLSession.shared.data(from: url)
-                
-                if let httpResponse = response as? HTTPURLResponse,
-                   httpResponse.statusCode == 200 {
-                    
-                    // Try to parse JSON response
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let count = json["count"] as? Int {
-                        updateCache(with: count)
-                        isLoading = false
-                        return count
-                    }
-                    
-                    // Try plain text number
-                    if let countString = String(data: data, encoding: .utf8),
-                       let count = Int(countString.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                        updateCache(with: count)
-                        isLoading = false
-                        return count
-                    }
-                }
-            } catch {
-                #if DEBUG
-                print("📊 UserCountService: API fetch failed - \(error.localizedDescription)")
-                #endif
-                fetchError = error.localizedDescription
-            }
-        }
-        
-        // Fallback to estimated count
-        let estimated = estimatedCount
-        currentCount = estimated
+        // Update current count based on today's date
+        currentCount = calculatedCount
         isLoading = false
         
         #if DEBUG
-        print("📊 UserCountService: Using estimated count - \(estimated)")
+        print("📊 UserCountService: Using calculated count - \(currentCount)")
         #endif
         
-        return estimated
+        return currentCount
     }
     
     /// Update the base value (call this when you know the real download count)

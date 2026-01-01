@@ -120,7 +120,7 @@ struct ShortcutSetupView: View {
                         .padding(.horizontal, 24)
                     
                     // Subtitle
-                    Text("This takes 30 seconds and you only do it once.")
+                    Text("Set up the FaithWall Shortcut once, and we'll handle the rest automatically.")
                         .font(.system(.title3))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -132,12 +132,12 @@ struct ShortcutSetupView: View {
                             Image(systemName: "info.circle.fill")
                                 .foregroundColor(.appAccent)
                                 .font(.system(size: 16))
-                            Text("Important:")
+                            Text("Important")
                                 .font(.system(.subheadline, design: .rounded))
                                 .fontWeight(.semibold)
                                 .foregroundColor(.appAccent)
                         }
-                        Text("When the shortcut asks for folder access, you'll need to navigate to:\nFiles → On My iPhone → FaithWall → HomeScreen\n(and LockScreen)")
+                        Text("During setup, you'll be asked to grant folder access. This lets the shortcut save wallpapers to your Photos.")
                             .font(.system(.caption))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.leading)
@@ -164,7 +164,7 @@ struct ShortcutSetupView: View {
                                 
                                 Text("\(step.id)")
                                     .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                             }
                             .accessibilityHidden(true)
                             
@@ -200,7 +200,7 @@ struct ShortcutSetupView: View {
                     }
                     .frame(height: 56)
                     .frame(maxWidth: .infinity)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(
@@ -244,11 +244,11 @@ struct ShortcutSetupView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.appAccent)
                     
-                    Text("Follow the Instructions")
+                    Text("Follow the instructions")
                         .font(.system(.title, design: .rounded))
                         .fontWeight(.bold)
                     
-                    Text("Follow the instructions in Shortcuts, then return to this app.")
+                    Text("The Shortcuts app will guide you through the setup. Grant folder access when prompted, then return here.")
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -483,11 +483,11 @@ struct ShortcutSetupView: View {
                 .scaleEffect(2)
                 .padding(.top, 100)
             
-            Text("Verifying Setup...")
+            Text("Verifying setup...")
                 .font(.system(.title2, design: .rounded))
                 .fontWeight(.semibold)
             
-            Text("Please wait while we verify that your shortcut is configured correctly.")
+            Text("Please wait while we check that everything is set up correctly.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -511,18 +511,18 @@ struct ShortcutSetupView: View {
                 
                 Image(systemName: "checkmark")
                     .font(.system(size: 60, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
             }
             .padding(.bottom, 24)
             
             // Success message
             VStack(spacing: 16) {
-                Text("Setup Complete ✓")
+                Text("Setup Complete!")
                     .font(.system(.largeTitle, design: .rounded))
                     .fontWeight(.bold)
                     .foregroundColor(.appAccent)
                 
-                Text("Your shortcut is configured correctly. You're all set!")
+                Text("Your wallpaper will update automatically. You're all set!")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -552,7 +552,7 @@ struct ShortcutSetupView: View {
                 // Error details
                 if let errorMessage = viewModel.userFriendlyErrorMessage {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("What's missing:")
+                        Text("What's Missing:")
                             .font(.headline)
                             .foregroundColor(.primary)
                         
@@ -586,7 +586,7 @@ struct ShortcutSetupView: View {
                         }
                         .frame(height: 56)
                         .frame(maxWidth: .infinity)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(Color.appAccent)
@@ -628,7 +628,7 @@ struct ShortcutSetupView: View {
                             Image(systemName: "arrow.right.square.fill")
                                 .font(.system(size: 18, weight: .semibold))
                             
-                            Text("Reopen Shortcuts")
+                            Text("Reopen Shortcuts App")
                                 .font(.headline)
                                 .fontWeight(.semibold)
                         }
@@ -706,7 +706,7 @@ struct ShortcutSetupView: View {
 //                     VStack(spacing: 16) {
 //                         Image(systemName: "video.slash.fill")
 //                             .font(.system(size: 50))
-//                             .foregroundColor(.white.opacity(0.5))
+//                             .foregroundColor(.secondary)
 //                         
 //                         Text("Tutorial video not found")
 //                             .font(.subheadline)

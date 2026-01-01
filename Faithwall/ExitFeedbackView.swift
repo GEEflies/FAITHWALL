@@ -128,8 +128,8 @@ struct ExitFeedbackView: View {
             // Base dark gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.08),
-                    Color(red: 0.01, green: 0.01, blue: 0.04)
+                    Color(red: 0.98, green: 0.97, blue: 0.96),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -181,14 +181,14 @@ struct ExitFeedbackView: View {
                     }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.secondary)
                             .frame(width: 36, height: 36)
                             .background(
                                 Circle()
-                                    .fill(Color.white.opacity(0.08))
+                                    .fill(Color.black.opacity(0.05))
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
                                     )
                             )
                     }
@@ -215,19 +215,19 @@ struct ExitFeedbackView: View {
                 
                 // Title and personal message
                 VStack(spacing: 12) {
-                    Text("Before You Go...")
+                    Text("Before you go...")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .multilineTextAlignment(.center)
                     
                     VStack(spacing: 8) {
-                        Text("Hey! I built FaithWall myself and I'm genuinely trying to make it better every day.")
+                        Text("I built FaithWall myself, alone")
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(.appAccent)
                         
-                        Text("If something didn't work or felt off, I really want to know. Your feedback directly shapes what I fix next.")
+                        Text("If something didn't work, I genuinely want to know.")
                             .font(.system(size: 17))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.primary.opacity(0.8))
                         
                         Text("What went wrong?")
                             .font(.system(size: 17, weight: .semibold))
@@ -276,15 +276,15 @@ struct ExitFeedbackView: View {
                     
                     ZStack(alignment: .topLeading) {
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white.opacity(0.05))
+                            .fill(Color.black.opacity(0.04))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .stroke(isTextFieldFocused ? Color.appAccent.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                                    .stroke(isTextFieldFocused ? Color.appAccent.opacity(0.5) : Color.black.opacity(0.05), lineWidth: 1)
                             )
                         
                         TextEditor(text: $additionalDetails)
                             .font(.system(size: 15))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .background(Color.clear)
                             .padding(12)
                             .frame(minHeight: 100)
@@ -310,9 +310,9 @@ struct ExitFeedbackView: View {
                                 .font(.system(size: 20))
                                 .foregroundColor(.appAccent)
                             
-                            Text("Want me to help fix this in 30 seconds?")
+                            Text("Want me to try to auto-fix it?")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             
                             Spacer()
                         }
@@ -417,7 +417,7 @@ struct ExitFeedbackView: View {
                 }) {
                     Text("Skip for now")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.top, 16)
                 .padding(.bottom, 32)
@@ -467,7 +467,7 @@ struct ExitFeedbackView: View {
                 // Text
                 Text(reason.rawValue)
                     .font(.system(size: 16, weight: isSelected ? .semibold : .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .multilineTextAlignment(.leading)
                 
                 Spacer()
@@ -485,7 +485,7 @@ struct ExitFeedbackView: View {
                     if isSelected {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
@@ -494,10 +494,10 @@ struct ExitFeedbackView: View {
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.white.opacity(0.1) : Color.white.opacity(0.04))
+                    .fill(isSelected ? Color.black.opacity(0.05) : Color.black.opacity(0.03))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? reason.iconColor.opacity(0.5) : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+                            .stroke(isSelected ? reason.iconColor.opacity(0.5) : Color.black.opacity(0.05), lineWidth: isSelected ? 2 : 1)
                     )
             )
             .shadow(
@@ -553,15 +553,15 @@ struct ExitFeedbackView: View {
             
             // Thank you message
             VStack(spacing: 16) {
-                Text("Thank You! 🙏")
+                Text("Thank you! 🙏")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
-                Text("This helps more than you know.")
+                Text("This helps me more than you know")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundColor(.appAccent)
                 
-                Text("If you change your mind, we'd love to have you back.")
+                Text("If you change your mind, you can always reach me at iosfaithwall@gmail.com")
                     .font(.system(size: 17))
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -720,6 +720,6 @@ struct ExitFeedbackView: View {
 
 #Preview {
     ExitFeedbackView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }
 

@@ -76,7 +76,7 @@ struct SettingsView: View {
                         resetToFreshInstall()
                     }
                 } message: {
-                    Text("This will reset the app to fresh install state and guide you through reinstalling the shortcut. All app data including notes, wallpapers, and settings will be deleted.")
+                    Text("This will reset the app to fresh install state and guide you through reinstalling the shortcut.")
                 }
         }
         .navigationViewStyle(StackNavigationViewStyle())
@@ -91,6 +91,7 @@ struct SettingsView: View {
             wallpaperSettingsSection
             actionsSection
             supportSection
+            debugSection
         }
         .sheet(isPresented: $showPaywall) {
             if #available(iOS 15.0, *) {
@@ -120,8 +121,8 @@ struct SettingsView: View {
                             .font(.system(.body, design: .default))
                             .foregroundColor(.primary)
                             .multilineTextAlignment(.leading)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
+                            .padding(.horizontal, DS.Spacing.l)
+                            .padding(.vertical, DS.Spacing.m)
                     }
                 }
                 .navigationTitle(selectedLegalDocument.title)
@@ -169,7 +170,7 @@ struct SettingsView: View {
                             .font(.system(size: 20))
                             .foregroundColor(.appAccent)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, DS.Spacing.xs)
                 }
                 .buttonStyle(.plain)
             } else {
@@ -189,7 +190,7 @@ struct SettingsView: View {
                                 .font(.headline)
                                 .foregroundColor(.primary)
                             
-                            Text("\(paywallManager.remainingFreeExports) free wallpapers remaining")
+                            Text(String(format: "%d free wallpapers remaining", paywallManager.remainingFreeExports))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -200,7 +201,7 @@ struct SettingsView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondary)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, DS.Spacing.xs)
                 }
                 .buttonStyle(.plain)
                 
@@ -265,19 +266,6 @@ struct SettingsView: View {
                 .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 0, trailing: 0))
                 .listRowSeparator(.hidden)
 
-                HomeScreenQuickPresetsView(
-                    isSavingHomeScreenPhoto: $isSavingHomeScreenPhoto,
-                    homeScreenStatusMessage: $homeScreenStatusMessage,
-                    homeScreenStatusColor: $homeScreenStatusColor,
-                    homeScreenImageAvailable: Binding(
-                        get: { homeScreenUsesCustomPhoto },
-                        set: { homeScreenUsesCustomPhoto = $0 }
-                    ),
-                    handlePickedHomeScreenData: handlePickedHomeScreenData
-                )
-                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 0, trailing: 0))
-                .listRowSeparator(.hidden)
-
                 LockScreenBackgroundPickerView(
                     isSavingBackground: $isSavingLockScreenBackground,
                     statusMessage: $lockScreenBackgroundStatusMessage,
@@ -306,7 +294,7 @@ struct SettingsView: View {
             .onAppear(perform: ensureCustomHomePhotoFlagIsAccurate)
         } else {
             Section(header: Text("Wallpapers")) {
-                Text("Save a home screen image requires iOS 16 or newer.")
+                Text("Requires iOS 16 or later to save wallpapers")
                     .font(.caption)
                     .foregroundColor(.gray)
                     .padding(.vertical, 4)
@@ -321,7 +309,7 @@ struct SettingsView: View {
                 showTroubleshooting = true
             }) {
                 HStack {
-                    Text("Wallpaper Not Showing?")
+                    Text("Wallpaper not showing?")
                         .foregroundColor(.appAccent)
                     Spacer()
                     Image(systemName: "wrench.and.screwdriver.fill")
@@ -425,6 +413,21 @@ struct SettingsView: View {
             }
         }
     }
+    
+    private var debugSection: some View {
+        Section(header: Text("Developer")) {
+            Button(action: {
+                showResetAlert = true
+            }) {
+                HStack {
+                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                        .foregroundColor(.red)
+                    Text("Reset App (Fresh Install)")
+                        .foregroundColor(.red)
+                }
+            }
+        }
+    }
 
 
     private func deleteAllNotes() {
@@ -435,6 +438,8 @@ struct SettingsView: View {
         // Delete notes after a small delay (overlay will be visible by then)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             savedNotesData = Data()
+            // Sync empty notes to widget
+            WidgetDataSync.syncNotesToWidget(Data())
         }
         
         // The loading view will automatically show success after 10 seconds and dismiss
@@ -456,6 +461,8 @@ struct SettingsView: View {
         
         // Clear notes and wallpaper-related data (user needs to go through setup again)
         savedNotesData = Data()
+        // Sync empty notes to widget
+        WidgetDataSync.syncNotesToWidget(Data())
         skipDeletingOldWallpaper = false
         saveWallpapersToPhotos = false
         autoUpdateWallpaperAfterDeletionRaw = ""
@@ -522,6 +529,8 @@ struct SettingsView: View {
         
         // Now clear other data (order matters for race conditions!)
         savedNotesData = Data()
+        // Sync empty notes to widget
+        WidgetDataSync.syncNotesToWidget(Data())
         skipDeletingOldWallpaper = false
         saveWallpapersToPhotos = false
         autoUpdateWallpaperAfterDeletionRaw = ""
@@ -530,12 +539,16 @@ struct SettingsView: View {
         lockScreenBackgroundPhotoData = Data()
         homeScreenUsesCustomPhoto = false
         homeScreenPresetSelectionRaw = ""
+        hasLockScreenWidgets = true
         
         // Clear other AppStorage keys that might exist
         UserDefaults.standard.removeObject(forKey: "lastLockScreenIdentifier")
         UserDefaults.standard.removeObject(forKey: "hasCompletedInitialWallpaperSetup")
         UserDefaults.standard.removeObject(forKey: "hasShownAutoUpdatePrompt")
         UserDefaults.standard.removeObject(forKey: "hasShownFirstNoteHint")
+        UserDefaults.standard.removeObject(forKey: "hasCompletedBibleLanguageSetup")
+        UserDefaults.standard.removeObject(forKey: "hasRequestedAppReview")
+        UserDefaults.standard.removeObject(forKey: "shouldShowTroubleshootingBanner")
         
         // Reset paywall data for fresh install
         PaywallManager.shared.resetForFreshInstall()
@@ -627,7 +640,7 @@ struct SettingsView: View {
         ZStack {
             // Background gradient
             LinearGradient(
-                colors: [Color(red: 0.05, green: 0.05, blue: 0.1), Color.black],
+                colors: [Color(red: 0.99, green: 0.98, blue: 0.97), Color.white],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -656,7 +669,7 @@ struct SettingsView: View {
                             )
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DS.Spacing.l)
                 .padding(.top, 16)
                 
                 Spacer()
@@ -672,11 +685,11 @@ struct SettingsView: View {
                 
                 // Title
                 VStack(spacing: 10) {
-                    Text("We're Here to Help")
+                    Text("We're here to help!")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("Our team responds within 24 hours")
+                    Text("Our team typically responds within 24 hours")
                         .font(.system(size: 16))
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -839,7 +852,7 @@ struct SettingsView: View {
                         .offset(x: supportViewAnimateIn ? 0 : -20)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.3), value: supportViewAnimateIn)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .padding(.bottom, 40)
             }
             .onAppear {
@@ -857,7 +870,7 @@ struct SettingsView: View {
         ZStack {
             // Background gradient (same as supportOnlyView)
             LinearGradient(
-                colors: [Color(red: 0.05, green: 0.05, blue: 0.1), Color.black],
+                colors: [Color(red: 0.99, green: 0.98, blue: 0.97), Color.white],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -886,7 +899,7 @@ struct SettingsView: View {
                             )
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DS.Spacing.l)
                 .padding(.top, 16)
                 
                 // Title
@@ -914,8 +927,8 @@ struct SettingsView: View {
                                     .foregroundColor(.white.opacity(0.4))
                                     .font(.system(size: 12))
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
+                            .padding(.horizontal, DS.Spacing.l)
+                            .padding(.vertical, DS.Spacing.m)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.white.opacity(0.06))
@@ -946,8 +959,8 @@ struct SettingsView: View {
                                     .foregroundColor(.white.opacity(0.4))
                                     .font(.system(size: 12))
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
+                            .padding(.horizontal, DS.Spacing.l)
+                            .padding(.vertical, DS.Spacing.m)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.white.opacity(0.06))
@@ -974,8 +987,8 @@ struct SettingsView: View {
                                     .foregroundColor(.white.opacity(0.4))
                                     .font(.system(size: 12))
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
+                            .padding(.horizontal, DS.Spacing.l)
+                            .padding(.vertical, DS.Spacing.m)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.white.opacity(0.06))
@@ -988,7 +1001,7 @@ struct SettingsView: View {
                         
                         // Developer option removed
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DS.Spacing.xl)
                     .padding(.bottom, 40)
                 }
             }
@@ -1014,12 +1027,12 @@ private struct UpdateWallpaperButton: View {
                         .font(.system(size: 18, weight: .semibold))
                 }
 
-                Text(isGenerating ? "Updating…" : "Update Wallpaper Now")
+                Text(isGenerating ? "Updating..." : "Update Wallpaper Now")
                     .fontWeight(.semibold)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DS.Spacing.l)
             .background(Color.appAccent)
             .foregroundColor(.white)
             .cornerRadius(12)

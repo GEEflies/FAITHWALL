@@ -170,21 +170,34 @@ struct CroppedVideoPlayerView: UIViewControllerRepresentable {
 }
 
 private enum OnboardingPage: Int, CaseIterable, Hashable {
-    // Phase 1: Emotional Hook
-    case preOnboardingHook
-    case painPoint
-    case quizForgetMost
-    case quizPhoneChecks
-    case quizDistraction
-    case personalizationLoading
-    case resultsPreview
+    // Phase 1: Welcome & Quiz Introduction
+    case preOnboardingHook      // Step 0: Mockup preview
+    case quizIntro              // "Let's personalize your experience" transition
     
-    // Phase 2: Social Proof & Value Demo
-    case socialProof
+    // Phase 2: Assessment Quiz
+    case quizForgetMost         // What do you struggle with?
+    case quizPhoneChecks        // How often do you check your phone?
+    case quizDistraction        // What distracts you most?
     
-    // Phase 3: Technical Setup (wrapped in encouragement)
-    case setupIntro
-    case welcome  // Keep existing welcome (now becomes video intro step)
+    // Phase 3: Analysis & Results
+    case personalizationLoading // Analyzing your answers...
+    case resultsPreview         // Your personalized profile
+    
+    // Phase 4: Education & Symptoms
+    case symptoms               // Pain points they relate to
+    case howAppHelps            // Position FaithWall as the solution
+    
+    // Phase 5: Social Proof & Features
+    case socialProof            // Reviews & user count
+    
+    // Phase 6: Custom Plan & Setup Introduction
+    case setupIntro             // Preview technical setup steps
+    case pipelineChoice         // Choose between Full Screen or Widget
+    
+    // Phase 7a: Widget Setup (alternative path)
+    case widgetOnboarding       // Widget setup flow
+    
+    // Phase 7b: Technical Setup - Full Screen (keep existing)
     case videoIntroduction
     case installShortcut
     case shortcutSuccess
@@ -192,7 +205,7 @@ private enum OnboardingPage: Int, CaseIterable, Hashable {
     case chooseWallpapers
     case allowPermissions
     
-    // Phase 4: Celebration & Completion
+    // Phase 8: Completion
     case setupComplete
     case overview
 }
@@ -216,6 +229,7 @@ struct OnboardingView: View {
     @AppStorage("hasShownAutoUpdatePrompt") private var hasShownAutoUpdatePrompt = false
     @AppStorage("hasRequestedAppReview") private var hasRequestedAppReview = false
     @AppStorage("hasLockScreenWidgets") private var hasLockScreenWidgets = true
+    @AppStorage("selectedOnboardingPipeline") private var selectedOnboardingPipeline = "" // "fullscreen" or "widget"
     @State private var didOpenShortcut = false
     @State private var shouldAdvanceToInstallStep = false
     @State private var advanceToInstallStepTimer: Timer?
@@ -260,6 +274,9 @@ struct OnboardingView: View {
     // Post-onboarding troubleshooting
     @State private var showTroubleshooting = false
     @State private var shouldRestartOnboarding = false
+    
+    // Widget onboarding sheet
+    @State private var showWidgetOnboarding = false
     
     // Notes management for onboarding
     @State private var onboardingNotes: [Note] = []
@@ -331,6 +348,17 @@ struct OnboardingView: View {
     @State private var mockupScale: CGFloat = 0.95
     @State private var mockupRotation: Double = 0
     @State private var taglineOpacity: Double = 0
+    
+    // 3-to-1 Animation States
+    @State private var bubble1Offset: CGSize = .zero
+    @State private var bubble2Offset: CGSize = .zero
+    @State private var bubble3Offset: CGSize = .zero
+    @State private var bubble1Opacity: Double = 0
+    @State private var bubble2Opacity: Double = 0
+    @State private var bubble3Opacity: Double = 0
+    @State private var mergedBubbleOpacity: Double = 0
+    @State private var mergedBubbleScale: CGFloat = 0.5
+    @State private var showFinalContent: Bool = false
     @State private var continueButtonOpacity: Double = 0
     @State private var overallScale: CGFloat = 1.0
     @State private var overallOffset: CGFloat = 100 // Start lower on screen
@@ -338,16 +366,30 @@ struct OnboardingView: View {
     
     // Typewriter animation states for Bible verse
     @State private var typewriterText: String = ""
+    @State private var typewriterReference: String = ""
     @State private var typewriterIndex: Int = 0
+    @State private var typewriterRefIndex: Int = 0
     @State private var isTyping: Bool = false
+    @State private var isTypingReference: Bool = false
     @State private var showVerseOnMockup: Bool = false
     @State private var containerOpacity: Double = 0
     @State private var verseOpacity: Double = 0
     @State private var textOffsetY: CGFloat = 0
     @State private var textFontSize: CGFloat = 28
     @State private var isMovingToMockup: Bool = false
-    private let bibleVerse = "Be strong and courageous. Do not be afraid or terrified because of them, for the LORD your God goes with you; he will never leave you nor forsake you."
-    private let bibleReference = "Deuteronomy 31:6"
+    
+    // Background transition animation states - Red-Orange like appAccent
+    @State private var backgroundColorStart = Color(red: 0.95, green: 0.4, blue: 0.2)
+    @State private var backgroundColorEnd = Color(red: 1.0, green: 0.5, blue: 0.1)
+    @State private var showMockupBelow: Bool = false
+    
+    private var bibleVerse: String {
+        "Be strong and courageous. Do not be afraid or terrified because of them, for the LORD your God goes with you; he will never leave you nor forsake you."
+    }
+    
+    private var bibleReference: String {
+        "— Deuteronomy 31:6"
+    }
 
     private let shortcutURL = "https://www.icloud.com/shortcuts/4735a1723f8a4cc28c12d07092c66a35"
     private let whatsappNumber = "421907758852" // Replace with your actual WhatsApp number
@@ -384,106 +426,7 @@ struct OnboardingView: View {
             handleWallpaperGenerationFinished()
         }
         .onChange(of: scenePhase) { newPhase in
-            if newPhase == .active {
-                debugLog("📱 Onboarding: App became active, currentPage: \(currentPage), didOpenShortcut: \(didOpenShortcut)")
-                // ALWAYS stop PiP when returning to app - be aggressive about it
-                // This ensures PiP disappears when user returns from Shortcuts app
-                debugLog("🛑 Onboarding: Stopping PiP video (app became active)")
-                pipVideoPlayerManager.stopPictureInPicture()
-                pipVideoPlayerManager.stop()
-                shouldStartPiP = false
-                
-                // Double-check after a brief delay to ensure it's stopped
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    if self.pipVideoPlayerManager.isPiPActive {
-                        debugLog("⚠️ Onboarding: PiP still active after stop, forcing stop again")
-                        self.pipVideoPlayerManager.stopPictureInPicture()
-                        self.pipVideoPlayerManager.stop()
-                    }
-                }
-                
-                // Handle return from App Store during step 2 setup
-                if currentPage == .videoIntroduction && wentToAppStoreForShortcuts {
-                    debugLog("📱 Onboarding: Returned from App Store (Shortcuts download)")
-                    wentToAppStoreForShortcuts = false
-                    
-                    // Ensure Shortcuts check is marked complete so Safari section shows
-                    withAnimation {
-                        hasCompletedShortcutsCheck = true
-                    }
-                    
-                    // Ensure the sheet is still showing
-                    if !showShortcutsCheckAlert {
-                        showShortcutsCheckAlert = true
-                    }
-                    isTransitioningBetweenPopups = false
-                }
-                
-                // Resume video if on step 2 and no popup is showing
-                if currentPage == .videoIntroduction {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        let noPopupShowing = !self.showShortcutsCheckAlert && !self.showInstallSheet
-                        if noPopupShowing && !self.isTransitioningBetweenPopups, let player = self.welcomeVideoPlayer, player.rate == 0 {
-                            player.play()
-                            self.isWelcomeVideoPaused = false
-                            debugLog("▶️ Welcome video resumed (no popup showing)")
-                        }
-                    }
-                }
-                
-                // Handle return from Shortcuts app after installing shortcut
-                // DON'T auto-advance - let user stay on Step 3 to see "Did it work?" screen
-                if currentPage == .installShortcut && didOpenShortcut {
-                    debugLog("📱 Onboarding: Detected return from Shortcuts app, staying on installShortcut step")
-                    // Reset the flag and hide "Ready to Try Again?" screen to show "Installation Check"
-                    self.didOpenShortcut = false
-                    self.userWentToSettings = false
-                    debugLog("✅ Onboarding: User can now interact with Step 3 - showing Installation Check screen")
-                }
-                // Only complete shortcut launch if we're on the chooseWallpapers step
-                if currentPage == .chooseWallpapers {
-                    completeShortcutLaunch()
-                }
-            } else if newPhase == .background {
-                // Advance to step 3 when app backgrounds after opening Shortcuts
-                if shouldAdvanceToInstallStep {
-                    debugLog("📱 Onboarding: App went to background, advancing to installShortcut step")
-                    // Cancel fallback timer since app backgrounded successfully
-                    advanceToInstallStepTimer?.invalidate()
-                    advanceToInstallStepTimer = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.easeInOut) {
-                            self.currentPage = .installShortcut
-                        }
-                        self.shouldAdvanceToInstallStep = false
-                    }
-                }
-                
-                // PiP should automatically take over the already-playing video
-                // because we set canStartPictureInPictureAutomaticallyFromInline = true
-                if shouldStartPiP && currentPage == .installShortcut {
-                    debugLog("🎬 Onboarding: App went to background")
-                    debugLog("   - Video should already be playing")
-                    debugLog("   - PiP should take over automatically")
-                    
-                    // If automatic PiP doesn't work, try manual start as fallback
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        if !self.pipVideoPlayerManager.isPiPActive {
-                            debugLog("⚠️ Onboarding: Automatic PiP didn't start, trying manual start")
-                            if self.pipVideoPlayerManager.isReadyToPlay && self.pipVideoPlayerManager.isPiPControllerReady {
-                                let success = self.pipVideoPlayerManager.startPictureInPicture()
-                                if success {
-                                    debugLog("✅ Onboarding: PiP started manually")
-                                } else {
-                                    debugLog("❌ Onboarding: Manual PiP start also failed")
-                                }
-                            }
-                        } else {
-                            debugLog("✅ Onboarding: Automatic PiP is active")
-                        }
-                    }
-                }
-            }
+            handleScenePhaseChange(newPhase)
         }
         .onChange(of: currentPage) { page in
             if page == .chooseWallpapers {
@@ -562,7 +505,7 @@ struct OnboardingView: View {
             if shouldRestart {
                 // Reset to first page and restart onboarding
                 withAnimation {
-                    currentPage = .welcome
+                    currentPage = .preOnboardingHook
                 }
                 shouldRestartOnboarding = false
             }
@@ -632,7 +575,7 @@ struct OnboardingView: View {
                     requestAppReviewIfNeeded()
                 }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
     @ViewBuilder
@@ -648,7 +591,7 @@ struct OnboardingView: View {
     private func installSheetContent() -> some View {
         ZStack(alignment: .topTrailing) {
             // Black background
-            Color.black
+            Color.white
                 .ignoresSafeArea()
             
             VStack(spacing: 16) {
@@ -660,7 +603,7 @@ struct OnboardingView: View {
                 Text("Install Shortcut")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 VStack(spacing: 8) {
                     Text("We'll open the Shortcuts app now.")
@@ -722,7 +665,7 @@ struct OnboardingView: View {
                         .background(Color.appAccent)
                         .cornerRadius(12)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .padding(.bottom, 32)
             }
             .frame(maxWidth: .infinity)
@@ -734,14 +677,14 @@ struct OnboardingView: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.secondary)
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
-                            .fill(Color.white.opacity(0.08))
+                            .fill(Color.black.opacity(0.05))
                             .overlay(
                                 Circle()
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
                             )
                     )
             }
@@ -770,14 +713,14 @@ struct OnboardingView: View {
             // Dark gradient background for new emotional pages and video introduction
             // These pages have their own dark backgrounds
             let needsDarkBackground = [
-                OnboardingPage.painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
-                .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .videoIntroduction,
+                OnboardingPage.quizForgetMost, .quizPhoneChecks, .quizDistraction,
+                .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .pipelineChoice, .widgetOnboarding, .videoIntroduction,
                 .shortcutSuccess, .setupComplete
             ].contains(currentPage)
             
             if needsDarkBackground {
                 LinearGradient(
-                    colors: [Color(red: 0.05, green: 0.05, blue: 0.1), Color.black],
+                    colors: [Color(red: 0.99, green: 0.98, blue: 0.97), Color.white],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -816,35 +759,31 @@ struct OnboardingView: View {
                         switch currentPage {
                         case .preOnboardingHook:
                             preOnboardingHookStep()
-                        case .painPoint:
-                            PainPointView {
+                        case .quizIntro:
+                            MotivationalTransitionView {
                                 advanceStep()
                             }
                         case .quizForgetMost:
-                            MultiSelectQuizQuestionView(
-                                question: "But before we start, what do you forget the most?",
-                                subtitle: "Select all that apply",
+                            QuizQuestionView(
+                                question: "What do you struggle with most in your walk with God?",
+                                subtitle: "Select the biggest one",
                                 options: QuizData.forgetMostOptions
-                            ) { answers in
-                                OnboardingQuizState.shared.forgetMostList = answers
+                            ) { answer in
+                                OnboardingQuizState.shared.forgetMostList = [answer]
                                 advanceStep()
                             }
                         case .quizPhoneChecks:
-                            QuizQuestionView(
-                                question: "And how often do you check your phone?",
-                                subtitle: "Be honest, no judgment!",
-                                options: QuizData.phoneChecksOptions
-                            ) { answer in
+                            PhoneUsageSliderQuestionView { answer in
                                 OnboardingQuizState.shared.phoneChecks = answer
                                 advanceStep()
                             }
                         case .quizDistraction:
-                            MultiSelectQuizQuestionView(
-                                question: "Last one: what's your biggest distraction?",
-                                subtitle: "Select all that apply",
+                            QuizQuestionView(
+                                question: "What distracts you most from your faith?",
+                                subtitle: "Select the biggest one",
                                 options: QuizData.distractionOptions
-                            ) { answers in
-                                OnboardingQuizState.shared.biggestDistractionList = answers
+                            ) { answer in
+                                OnboardingQuizState.shared.biggestDistractionList = [answer]
                                 advanceStep()
                             }
                         case .personalizationLoading:
@@ -855,33 +794,63 @@ struct OnboardingView: View {
                             ResultsPreviewView {
                                 advanceStep()
                             }
+                        case .symptoms:
+                            SymptomsView {
+                                advanceStep()
+                            }
+                        case .howAppHelps:
+                            HowAppHelpsView {
+                                advanceStep()
+                            }
                         case .socialProof:
                             SocialProofView {
                                 advanceStep()
                             }
                         case .setupIntro:
                             SetupIntroView(
-                                title: "Quick 4-Minute Setup",
-                                subtitle: "Let's get your focus system working",
+                                title: "Let's Get You Set Up",
+                                subtitle: "We'll guide you through each step",
                                 icon: "gearshape.2.fill",
                                 steps: QuizData.setupSteps,
-                                timeEstimate: "About 4 minutes",
-                                ctaText: "Let's Do This!"
+                                timeEstimate: "Takes about 3-4 minutes",
+                                ctaText: "Choose Your Setup"
                             ) {
                                 advanceStep()
                             }
-                        case .welcome:
-                            welcomeStep()
+                        case .pipelineChoice:
+                            PipelineChoiceView(
+                                onSelectFullScreen: {
+                                    selectedOnboardingPipeline = "fullscreen"
+                                    // Skip widget onboarding and go to video introduction
+                                    withAnimation(.easeInOut) {
+                                        currentPage = .videoIntroduction
+                                    }
+                                },
+                                onSelectWidget: {
+                                    selectedOnboardingPipeline = "widget"
+                                    // Show widget onboarding
+                                    withAnimation(.easeInOut) {
+                                        currentPage = .widgetOnboarding
+                                    }
+                                }
+                            )
+                        case .widgetOnboarding:
+                            WidgetOnboardingView(isPresented: $showWidgetOnboarding) {
+                                // Widget onboarding complete - go to overview/complete
+                                withAnimation(.easeInOut) {
+                                    currentPage = .overview
+                                }
+                            }
                         case .videoIntroduction:
                             videoIntroductionStep()
                         case .installShortcut:
                             installShortcutStep()
                         case .shortcutSuccess:
                             CelebrationView(
-                                title: "🎉 Nailed It!",
-                                subtitle: "That was the hardest part.\nEverything else takes under 60 seconds.",
-                                encouragement: "You're crushing this setup!",
-                                nextStepPreview: "Add your first notes"
+                                title: "Shortcut Installed!",
+                                subtitle: "Great job! Now let's personalize your experience",
+                                encouragement: "You're doing great!",
+                                nextStepPreview: "Next: Add your first notes"
                             ) {
                                 advanceStep()
                             }
@@ -936,7 +905,7 @@ struct OnboardingView: View {
             // Help button - visible only on technical setup steps
             // Different positioning for overview step (smaller, in grey corner)
             // Hidden on chooseWallpapers step as it's now integrated into the content
-            if currentPage.showsProgressIndicator && currentPage != .welcome && currentPage != .chooseWallpapers {
+            if currentPage.showsProgressIndicator && currentPage != .chooseWallpapers {
                 VStack {
                     HStack {
                         Spacer()
@@ -986,7 +955,7 @@ struct OnboardingView: View {
     }
 
     private var onboardingProgressIndicatorCompact: some View {
-        let technicalSteps: [OnboardingPage] = [.welcome, .videoIntroduction, .installShortcut, .addNotes, .chooseWallpapers, .allowPermissions]
+        let technicalSteps: [OnboardingPage] = [.videoIntroduction, .installShortcut, .addNotes, .chooseWallpapers, .allowPermissions]
         
         return HStack(alignment: .center, spacing: 12) {
             ForEach(technicalSteps, id: \.self) { page in
@@ -1008,7 +977,7 @@ struct OnboardingView: View {
                 .disabled(page.rawValue >= currentPage.rawValue) // Disable future steps
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, DS.Spacing.xl)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Onboarding progress")
         .accessibilityValue("\(currentPage.accessibilityLabel) of 6")
@@ -1061,42 +1030,80 @@ struct OnboardingView: View {
     private func preOnboardingHookStep() -> some View {
         GeometryReader { geometry in
             ZStack {
-                // Orange background with low opacity
-                Color.appAccent.opacity(0.15) // Slightly orange background with low opacity
-                    .ignoresSafeArea()
+                // Background: Orange -> White transition
+                LinearGradient(
+                    colors: [backgroundColorStart, backgroundColorEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
                 
+                // Phase 1: Typewriter on orange background (stays visible during transition)
                 VStack(spacing: 0) {
                     Spacer()
+                        .frame(height: geometry.size.height * 0.25 + textOffsetY)
                     
-                    // Phone mockup container with actual mockup image
-                    preOnboardingMockupView(geometry: geometry)
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Verse text
+                        Text(typewriterText)
+                            .font(.system(size: 22, weight: .semibold, design: .serif))
+                            .foregroundColor(.white)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                            .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                        
+                        // Reference text (smaller)
+                        if !typewriterReference.isEmpty {
+                            Text(typewriterReference)
+                                .font(.system(size: 16, weight: .medium, design: .serif))
+                                .foregroundColor(.white.opacity(0.9))
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.leading)
+                                .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                        }
+                    }
+                    .frame(maxWidth: geometry.size.width * 0.55, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                    .opacity(showVerseOnMockup ? 0 : containerOpacity)
                     
                     Spacer()
-                    
-                    // App title below mockup
-                    Text("FaithWall")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .opacity(taglineOpacity)
-                        .padding(.top, 30)
-                    
-                    // Tagline below app title - action-oriented phrase that suggests the benefit
-                    Text("Never miss what matters")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .opacity(taglineOpacity)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                        .padding(.top, 12)
-                    
-                    // Continue button with fade-in - matching Step 1 button position
-                    Button(action: {
-                        // Start quiz state tracking
-                        OnboardingQuizState.shared.startTime = Date()
+                }
+                
+                // Phase 2: Mockup with verse on white background
+                if showVerseOnMockup {
+                    VStack(spacing: 0) {
+                        Spacer()
+                            .frame(height: geometry.size.height * 0.02)
                         
-                        withAnimation(.easeInOut(duration: 0.4)) {
-                            currentPage = .painPoint
-                        }
+                        preOnboardingMockupView(geometry: geometry)
+                        
+                        Spacer()
+                    }
+                }
+                
+                // Continue button
+                VStack {
+                    Spacer()
+                    
+                    // Title
+                    Text("FaithWall")
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundColor(.black)
+                        .opacity(taglineOpacity)
+                    
+                    // Subtitle
+                    Text("Your Daily Spiritual Companion")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .opacity(taglineOpacity)
+                        .padding(.top, 2)
+                        .padding(.bottom, 20)
+                    
+                    Button(action: {
+                        OnboardingQuizState.shared.startTime = Date()
+                        advanceStep()
                     }) {
                         HStack(spacing: 12) {
                             Text("Get Started")
@@ -1108,12 +1115,14 @@ struct OnboardingView: View {
                         }
                         .frame(height: 56)
                         .frame(maxWidth: .infinity)
+                        .background(Color.appAccent)
+                        .foregroundColor(.white)
+                        .cornerRadius(ScreenDimensions.isCompactDevice ? 14 : 20)
+                        .shadow(color: Color.appAccent.opacity(0.3), radius: 8, x: 0, y: 4)
                     }
-                    .buttonStyle(OnboardingPrimaryButtonStyle(isEnabled: true))
                     .opacity(continueButtonOpacity)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 18) // Match Step 1 button top padding
-                    .padding(.bottom, 22) // Match Step 1 button bottom padding
+                    .padding(.horizontal, DS.Spacing.xl)
+                    .padding(.bottom, 0)
                 }
             }
         }
@@ -1127,34 +1136,26 @@ struct OnboardingView: View {
     
     @ViewBuilder
     private func preOnboardingMockupView(geometry: GeometryProxy) -> some View {
-        // Calculate mockup dimensions - made bigger since button is now positioned higher
-        let availableHeight = geometry.size.height * 0.75 // Increased from 0.7 to 0.75
+        // Calculate mockup dimensions
+        let availableHeight = geometry.size.height * 0.75
         let availableWidth = geometry.size.width
-        // Actual aspect ratio of step0_mockup.png: 1892 x 4300 = 0.44 (1/2.27)
         let mockupAspectRatio: CGFloat = 1892.0 / 4300.0
         let maxMockupHeight = availableHeight
-        let maxMockupWidth = availableWidth * 0.9 // Increased from 0.85 to 0.9
+        let maxMockupWidth = availableWidth * 0.9
         
-        // Calculate dimensions that preserve aspect ratio without cropping
         let mockupWidth = min(maxMockupHeight * mockupAspectRatio, maxMockupWidth)
         let mockupHeight = mockupWidth / mockupAspectRatio
         
-        // Screen insets within the mockup frame (must match transparent screen window in mockup PNG)
         let screenInsetTop: CGFloat = mockupHeight * 0.012
         let screenInsetBottom: CGFloat = mockupHeight * 0.012
         let screenInsetHorizontal: CGFloat = mockupWidth * 0.042
         
-        // Calculate screen dimensions - fits within the transparent window
         let screenWidth = mockupWidth - (screenInsetHorizontal * 2)
         let screenHeight = mockupHeight - screenInsetTop - screenInsetBottom
-        
-        // Corner radius that matches the mockup's screen corners
         let screenCornerRadius = mockupWidth * 0.115
         
         ZStack {
-            // iPhone mockup overlay (transparent screen window) - positioned behind notes
-            // Use aspectRatio modifier to preserve the full image without cropping
-            // Remove frame constraints to allow natural sizing based on aspect ratio
+            // iPhone mockup overlay
             Image("step0_mockup")
                 .resizable()
                 .aspectRatio(mockupAspectRatio, contentMode: .fit)
@@ -1167,12 +1168,9 @@ struct OnboardingView: View {
                     perspective: 0.5
                 )
                 .shadow(color: Color.black.opacity(0.5), radius: 30, x: 0, y: 15)
-                .zIndex(1) // Mockup behind notes
+                .zIndex(1)
             
-            // Lock screen content layer (above the mockup) - shows through transparent screen area
-            // Positioned exactly like step 7 - content is centered, sized to screen area, and masked
-            // Note: Time and date are already in the mockup image, so we only show notes here
-            // Uses same font system as WallpaperRenderer: San Francisco, Heavy weight, adaptive size
+            // Lock screen text content overlaid on mockup
             preOnboardingNotesView(
                 screenWidth: screenWidth,
                 screenHeight: screenHeight
@@ -1182,68 +1180,63 @@ struct OnboardingView: View {
             .mask(
                 RoundedRectangle(cornerRadius: screenCornerRadius, style: .continuous)
             )
-            // Offset content to align with mockup's transparent screen area
-            // Screen area is at (screenInsetHorizontal, screenInsetTop) from mockup's top-left
-            // Since mockup is centered, offset content by: (inset - mockupSize/2 + screenSize/2)
             .offset(
                 x: screenInsetHorizontal - mockupWidth/2 + screenWidth/2,
                 y: screenInsetTop - mockupHeight/2 + screenHeight/2
             )
-            .zIndex(2) // Notes above mockup
+            .zIndex(2)
         }
         .frame(width: mockupWidth, height: mockupHeight, alignment: .center)
     }
     
     @ViewBuilder
     private func preOnboardingNotesView(screenWidth: CGFloat, screenHeight: CGFloat) -> some View {
-        // Fixed anchor point for text to start - text expands downward from here
-        let topSpacing: CGFloat = screenHeight * 0.23 // Start position for text
-        let mockupOffset: CGFloat = showVerseOnMockup ? screenHeight * 0.10 : 0 // Move down when mockup appears
-        let availableWidthForNotes = screenWidth - 64 // Account for horizontal padding (32 on each side)
+        let topSpacing: CGFloat = screenHeight * 0.23
+        let availableWidthForNotes = screenWidth - 64
         
-        VStack(alignment: .leading, spacing: 0) {
-            // Fixed top spacing - text starts here and expands down
+        VStack(spacing: 0) {
             Spacer()
                 .frame(height: topSpacing)
             
-            // Text content anchored to top, expands downward
             VStack(alignment: .leading, spacing: 12) {
-                if showVerseOnMockup {
-                    // Show complete verse on mockup (after typing animation)
-                    Text(bibleVerse)
-                        .font(.system(size: textFontSize, weight: .medium, design: .serif))
-                        .foregroundColor(Color.white)
-                        .opacity(verseOpacity)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
-                    
-                    Text(bibleReference)
-                        .font(.system(size: textFontSize * 0.7, weight: .medium, design: .serif))
-                        .foregroundColor(Color.white.opacity(0.95))
-                        .opacity(verseOpacity)
-                        .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
-                } else {
-                    // Typewriter animation - anchored to top, expands downward (no cursor)
-                    Text(typewriterText)
-                        .font(.system(size: textFontSize, weight: .medium, design: .serif))
-                        .foregroundColor(Color.white)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .opacity(containerOpacity)
-                }
+                // Verse text - match typewriter styling
+                Text(bibleVerse)
+                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .foregroundColor(Color.white)
+                    .opacity(verseOpacity)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
+                    .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 2)
+                
+                // Reference text - match typewriter styling
+                Text(bibleReference)
+                    .font(.system(size: 16, weight: .medium, design: .serif))
+                    .foregroundColor(Color.white.opacity(0.95))
+                    .opacity(verseOpacity)
+                    .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
+                    .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 2)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: availableWidthForNotes, alignment: .leading)
             .padding(.horizontal, 32)
-            .offset(y: mockupOffset)
-            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: showVerseOnMockup)
             
-            // Push everything to top - text stays anchored and only grows down
             Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+    
+    // MARK: - Language Selection Step
+    
+    /// Language selection step - shown immediately after the mockup preview
+    /// This allows users to choose their preferred language before seeing any other localized content
+    private func languageSelectionStep() -> some View {
+        BibleLanguageSelectionView(
+            showContinueButton: true,
+            isOnboarding: true
+        ) { selectedTranslation in
+            // Language was selected and downloaded, advance to next step
+            debugLog("🌍 Onboarding: Language selected - \(selectedTranslation.displayName)")
+            advanceStep()
+        }
     }
     
     /// Calculates adaptive font size for notes (similar to WallpaperRenderer)
@@ -1324,118 +1317,131 @@ struct OnboardingView: View {
     }
     
     private func startPreOnboardingAnimation() {
-        // Set fixed smaller font size (no calculation needed - always use small size)
-        textFontSize = 18 // Fixed small size
+        // Reset to orange background
+        backgroundColorStart = Color(red: 0.95, green: 0.4, blue: 0.2)
+        backgroundColorEnd = Color(red: 1.0, green: 0.5, blue: 0.1)
         
-        // Phase 1: Fade in text area (text will appear on orange background)
-        withAnimation(.easeOut(duration: 0.4)) {
-            containerOpacity = 1.0 // Fade in text on orange background
-        }
+        // Initial state
+        typewriterText = ""
+        typewriterReference = ""
+        typewriterIndex = 0
+        typewriterRefIndex = 0
+        containerOpacity = 1
+        showVerseOnMockup = false
+        mockupOpacity = 0
+        mockupScale = 0.95
+        verseOpacity = 1
+        continueButtonOpacity = 0
         
-        // Phase 2: Wait 0.5 seconds, then start typewriter animation
+        // Phase 1: Start typing on orange background (0.5s delay)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Reset typewriter state to ensure it starts fresh and continues properly
-            typewriterText = ""
-            typewriterIndex = 0
-            isTyping = true
             startTypewriterAnimation()
         }
+    }
+    
+    private func startTypewriterAnimation() {
+        let verseCharacters = Array(bibleVerse)
+        let refCharacters = Array(bibleReference)
         
-        // Calculate typing duration based on actual text length
-        let fullText = "\(bibleVerse) \(bibleReference)"
-        let characters = Array(fullText)
-        var totalTypingTime: TimeInterval = 0.0
-        
-        for (_, char) in characters.enumerated() {
-            var delay: TimeInterval = 0.03
-            if char == " " {
-                delay = 0.02
-            } else if char == "." || char == "," || char == ";" || char == ":" {
-                delay = 0.08
+        func typingSpeed(for character: Character) -> TimeInterval {
+            if character == " " {
+                return 0.04
+            } else if character == "." || character == "," || character == ";" || character == ":" {
+                return 0.15
+            } else {
+                return 0.06
             }
-            totalTypingTime += delay
         }
         
-        // Phase 3: After typing completes, move text to mockup and fade out container
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + totalTypingTime) {
-            isTyping = false
-            isMovingToMockup = true
-            showVerseOnMockup = true
-            
-            // Fade out container and show on mockup
-            withAnimation(.easeInOut(duration: 0.8)) {
-                containerOpacity = 0 // Fade out container as text moves
+        func typeNextVerseCharacter() {
+            guard typewriterIndex < verseCharacters.count else {
+                // Verse complete, start reference
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    typeNextReferenceCharacter()
+                }
+                return
             }
             
-            // Fade in the complete verse on mockup
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation(.easeIn(duration: 0.5)) {
-                    verseOpacity = 1.0
+            typewriterText += String(verseCharacters[typewriterIndex])
+            typewriterIndex += 1
+            
+            if typewriterIndex < verseCharacters.count {
+                let delay = typingSpeed(for: verseCharacters[typewriterIndex - 1])
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    typeNextVerseCharacter()
+                }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    typeNextReferenceCharacter()
                 }
             }
         }
         
-        // Phase 4: Mockup appears AFTER text moves to position
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + totalTypingTime + 0.5) {
+        func typeNextReferenceCharacter() {
+            guard typewriterRefIndex < refCharacters.count else {
+                // Typing complete - transition to mockup
+                transitionToMockup()
+                return
+            }
+            
+            typewriterReference += String(refCharacters[typewriterRefIndex])
+            typewriterRefIndex += 1
+            
+            if typewriterRefIndex < refCharacters.count {
+                let delay = typingSpeed(for: refCharacters[typewriterRefIndex - 1])
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    typeNextReferenceCharacter()
+                }
+            } else {
+                transitionToMockup()
+            }
+        }
+        
+        typeNextVerseCharacter()
+    }
+    
+    private func transitionToMockup() {
+        // Step 1: Pause briefly, then slide text down to mockup position
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeInOut(duration: 0.8)) {
+                // Calculate how much to move down (from 25% to where mockup will be)
+                textOffsetY = UIScreen.main.bounds.height * 0.15
+            }
+        }
+        
+        // Step 2: Transition background to white (starts during slide)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(.easeInOut(duration: 1.0)) {
+                backgroundColorStart = .white
+                backgroundColorEnd = .white
+            }
+        }
+        
+        // Step 3: Fade out typewriter text and show mockup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                containerOpacity = 0
+            }
+            
+            showVerseOnMockup = true
+            
             withAnimation(.easeOut(duration: 0.8)) {
                 mockupOpacity = 1.0
                 mockupScale = 1.0
             }
-        }
-        
-        // Phase 5: Tagline and button fade in
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + totalTypingTime + 2.0) {
-            withAnimation(.easeOut(duration: 0.6)) {
+            
+            // Fade in title and subtitle
+            withAnimation(.easeOut(duration: 0.6).delay(0.3)) {
                 taglineOpacity = 1.0
             }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation(.easeOut(duration: 0.6)) {
-                    continueButtonOpacity = 1.0
-                }
-            }
-        }
-    }
-    
-    // Typewriter animation - smooth letter-by-letter typing
-    private func startTypewriterAnimation() {
-        let fullText = "\(bibleVerse) \(bibleReference)"
-        let characters = Array(fullText)
-        
-        // Variable typing speed: faster for spaces, normal for letters, slower for punctuation
-        func typingSpeed(for character: Character) -> TimeInterval {
-            if character == " " {
-                return 0.02 // Faster for spaces
-            } else if character == "." || character == "," || character == ";" || character == ":" {
-                return 0.08 // Slower pause for punctuation
-            } else {
-                return 0.03 // Normal speed for letters
-            }
         }
         
-        func typeNextCharacter() {
-            guard typewriterIndex < characters.count else {
-                isTyping = false
-                return
-            }
-            
-            // Add current character
-            typewriterText += String(characters[typewriterIndex])
-            typewriterIndex += 1
-            
-            // Schedule next character with variable delay
-            if typewriterIndex < characters.count {
-                let delay = typingSpeed(for: characters[typewriterIndex - 1])
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    typeNextCharacter()
-                }
-            } else {
-                isTyping = false
+        // Step 4: Show button (0.5s after mockup)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            withAnimation(.easeIn(duration: 0.5)) {
+                continueButtonOpacity = 1.0
             }
         }
-        
-        // Start typing immediately (delay is handled in startPreOnboardingAnimation)
-        typeNextCharacter()
     }
     
     // Calculate font size for Bible verse text
@@ -1444,8 +1450,8 @@ struct OnboardingView: View {
         availableHeight: CGFloat,
         availableWidth: CGFloat
     ) -> CGFloat {
-        let minFontSize: CGFloat = 14 // Smaller minimum
-        let maxFontSize: CGFloat = 20 // Much smaller maximum (was 36)
+        let minFontSize: CGFloat = 18
+        let maxFontSize: CGFloat = 36
         let fontWeight = UIFont.Weight.heavy
         
         // Binary search to find optimal size
@@ -1494,88 +1500,6 @@ struct OnboardingView: View {
         return textSize.height <= availableHeight
     }
     
-    private func welcomeStep() -> some View {
-        let isCompact = ScreenDimensions.isCompactDevice
-        let iconSize: CGFloat = isCompact ? 85 : 110
-        let titleFontSize: CGFloat = isCompact ? 26 : 34
-        let sectionSpacing: CGFloat = isCompact ? 18 : 28
-        let cardSpacing: CGFloat = isCompact ? 10 : 16
-        
-        return ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: sectionSpacing) {
-                VStack(spacing: isCompact ? 10 : 16) {
-                    AppIconAnimationView(size: iconSize)
-                    
-                    Text("Welcome to FaithWall")
-                        .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                    
-                    VStack(spacing: 8) {
-                        Text("You forget things for one simple reason: you don't see them. FaithWall fixes that.")
-                            .font(.system(size: isCompact ? 16 : 20))
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        
-                    }
-                    .padding(.horizontal, isCompact ? 8 : 12)
-                }
-                
-                VStack(spacing: cardSpacing) {
-                    welcomeHighlightCard(
-                        title: "Turn Every Pickup Into Focus",
-                        subtitle: "You pick up your phone up to 498× per day. Now each one becomes a reminder of what matters.",
-                        icon: "bolt.fill"
-                    )
-                    
-                    welcomeHighlightCard(
-                        title: "Keep Your Goals Always in Sight",
-                        subtitle: "Your lock screen becomes a visual cue you can't ignore.",
-                        icon: "target"
-                    )
-                    
-                    welcomeHighlightCard(
-                        title: "Beat Scrolling Before It Starts",
-                        subtitle: "See your goals before TikTok, Instagram, or distractions.",
-                        icon: "stop.fill"
-                    )
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, AdaptiveLayout.horizontalPadding)
-            .padding(.vertical, isCompact ? 20 : 36)
-            .padding(.bottom, AdaptiveLayout.bottomScrollPadding)
-        }
-        .scrollAlwaysBounceIfAvailable()
-    }
-    
-    private func welcomeHighlightCard(title: String, subtitle: String, icon: String) -> some View {
-        let isCompact = ScreenDimensions.isCompactDevice
-        
-        return HStack(alignment: .top, spacing: isCompact ? 12 : 16) {
-            Image(systemName: icon)
-                .font(.system(size: isCompact ? 22 : 28, weight: .semibold))
-                .foregroundColor(.appAccent)
-                .frame(width: isCompact ? 32 : 40, height: isCompact ? 32 : 40)
-            
-            VStack(alignment: .leading, spacing: isCompact ? 4 : 6) {
-                Text(title)
-                    .font(.system(size: isCompact ? 16 : 20, weight: .semibold, design: .rounded))
-                
-                Text(subtitle)
-                    .font(.system(size: isCompact ? 14 : 17))
-                    .foregroundColor(.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(isCompact ? 14 : 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: isCompact ? 14 : 18, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
-    }
-    
     @State private var showTextVersion = false
     @State private var showInstallSheet = false
     @State private var userWentToSettings = false
@@ -1616,11 +1540,11 @@ struct OnboardingView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "arrow.left")
                                         .font(.system(size: 16, weight: .semibold))
-                                    Text("Back to Video")
+                                    Text("← Back to Video")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
                                 .background(
@@ -1644,7 +1568,7 @@ struct OnboardingView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "text.alignleft")
                                         .font(.system(size: 14, weight: .semibold))
-                                    Text("Text version")
+                                    Text("Prefer text instructions?")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                 }
@@ -1679,12 +1603,12 @@ struct OnboardingView: View {
                                 VStack(spacing: isCompact ? 8 : 12) {
                                     Text("Important Setup Information")
                                         .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                         .multilineTextAlignment(.center)
                                     
-                                    Text("Before we install the shortcut")
+                                    Text("Before you install the shortcut...")
                                         .font(.system(size: isCompact ? 14 : 16))
-                                        .foregroundColor(.white.opacity(0.6))
+                                        .foregroundColor(.secondary)
                                         .multilineTextAlignment(.center)
                                 }
                                 .padding(.horizontal, horizontalPadding)
@@ -1700,10 +1624,10 @@ struct OnboardingView: View {
                                                     .foregroundColor(.appAccent)
                                                 Text("Quick Heads Up")
                                                     .font(.system(size: cardTitleFontSize, weight: .bold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                             }
                                             
-                                            Text("Hey! Before we install the shortcut, there's something important you need to know.")
+                                            Text("When you tap 'Install Shortcut', you'll see some prompts. Here's what to expect:")
                                                 .font(.system(size: cardBodyFontSize))
                                                 .foregroundColor(.white.opacity(0.9))
                                                 .fixedSize(horizontal: false, vertical: true)
@@ -1717,24 +1641,24 @@ struct OnboardingView: View {
                                                 Image(systemName: "exclamationmark.triangle.fill")
                                                     .font(.system(size: cardIconSize))
                                                     .foregroundColor(.appAccent)
-                                                Text("Apple's Shortcut Limitation")
+                                                Text("Apple's Security Feature")
                                                     .font(.system(size: cardTitleFontSize, weight: .bold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                             }
                                             
-                                            Text("Apple's Shortcuts app has a quirk that affects how wallpapers work. The shortcut can only work with wallpapers that use photos or images from your library.")
+                                            Text("Due to Apple's security requirements, you'll need to allow several permissions for FaithWall to work.")
                                                 .font(.system(size: cardBodyFontSize))
                                                 .foregroundColor(.white.opacity(0.9))
                                                 .fixedSize(horizontal: false, vertical: true)
                                             
                                             Divider()
-                                                .background(Color.white.opacity(0.1))
+                                                .background(Color.black.opacity(0.05))
                                             
-                                            Text("Here's what that means:")
+                                            Text("Don't worry, this is normal!")
                                                 .font(.system(size: cardBodyFontSize, weight: .semibold))
                                                 .foregroundColor(.appAccent)
                                             
-                                            Text("If your current lock screen wallpaper is one of Apple's built-in presets - like those colorful gradients, astronomy pictures, emoji wallpapers, or any of Apple's default designs - the shortcut won't be able to select it in the next step.")
+                                            Text("Every permission request is necessary for creating your wallpapers. Just tap 'Allow' on each one.")
                                                 .font(.system(size: cardBodyFontSize))
                                                 .foregroundColor(.white.opacity(0.9))
                                                 .fixedSize(horizontal: false, vertical: true)
@@ -1746,7 +1670,7 @@ struct OnboardingView: View {
                                                     .foregroundColor(.appAccent)
                                                     .padding(.top, 2)
                                                 
-                                                Text("This isn't a bug with FaithWall. It's a limitation Apple built into the Shortcuts app. They only allow shortcuts to work with photo-based wallpapers, not their built-in preset designs.")
+                                                Text("We take your privacy seriously - we never access or share your personal data.")
                                                     .font(.system(size: isCompact ? 13 : 15, weight: .medium))
                                                     .foregroundColor(.appAccent)
                                                     .fixedSize(horizontal: false, vertical: true)
@@ -1770,12 +1694,12 @@ struct OnboardingView: View {
                                                 Image(systemName: "questionmark.circle.fill")
                                                     .font(.system(size: cardIconSize))
                                                     .foregroundColor(.appAccent)
-                                                Text("What Happens If You Have an Apple Preset?")
+                                                Text("What Happens Next?")
                                                     .font(.system(size: cardTitleFontSize, weight: .bold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                             }
                                             
-                                            Text("When you try to install the shortcut, you'll see a list of wallpapers to choose from. If you're using an Apple preset, that list will be empty or all the options will be grayed out and you won't be able to tap any of them.")
+                                            Text("After tapping 'Install Shortcut', the Shortcuts app will open and ask you to allow various permissions. Tap 'Allow' on all of them.")
                                                 .font(.system(size: cardBodyFontSize))
                                                 .foregroundColor(.white.opacity(0.9))
                                                 .fixedSize(horizontal: false, vertical: true)
@@ -1789,20 +1713,20 @@ struct OnboardingView: View {
                                                 Image(systemName: "checkmark.seal.fill")
                                                     .font(.system(size: cardIconSize))
                                                     .foregroundColor(.appAccent)
-                                                Text("Don't Worry - Easy Fix!")
+                                                Text("Easy Fix")
                                                     .font(.system(size: cardTitleFontSize, weight: .bold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                             }
                                             
-                                            Text("I'll show you exactly how to fix it. The solution is simple: we'll create a new wallpaper using a FaithWall image (which will be saved to your Photos). This takes about 2 minutes, and I'll guide you through every step.")
+                                            Text("If you accidentally tap 'Don't Allow', no problem!")
                                                 .font(.system(size: cardBodyFontSize))
                                                 .foregroundColor(.white.opacity(0.9))
                                                 .fixedSize(horizontal: false, vertical: true)
                                             
                                             Divider()
-                                                .background(Color.white.opacity(0.1))
+                                                .background(Color.black.opacity(0.05))
                                             
-                                            Text("For most people, this setup works perfectly the first time. If you already have a photo-based wallpaper, you'll breeze through the next step in about 90 seconds.")
+                                            Text("Just close the Shortcuts app and tap 'Install Shortcut' again to retry.")
                                                 .font(.system(size: cardBodyFontSize))
                                                 .foregroundColor(.white.opacity(0.9))
                                                 .fixedSize(horizontal: false, vertical: true)
@@ -1816,9 +1740,9 @@ struct OnboardingView: View {
                                                 Image(systemName: "arrow.right.circle.fill")
                                                     .font(.system(size: cardIconSize))
                                                     .foregroundColor(.appAccent)
-                                                Text("Ready? Let's Do This!")
+                                                Text("Ready? Let's do this!")
                                                     .font(.system(size: cardTitleFontSize, weight: .bold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                             }
                                         }
                                     }
@@ -1860,7 +1784,7 @@ struct OnboardingView: View {
                                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                                     Text("Loading video...")
                                                         .font(.caption)
-                                                        .foregroundColor(.white.opacity(0.6))
+                                                        .foregroundColor(.secondary)
                                                 }
                                             )
                                     }
@@ -1873,10 +1797,10 @@ struct OnboardingView: View {
                                             VStack(spacing: 8) {
                                                 Image(systemName: "video.slash")
                                                     .font(.largeTitle)
-                                                    .foregroundColor(.white.opacity(0.6))
-                                                Text("Video not found")
+                                                    .foregroundColor(.secondary)
+                                                Text("Video not available")
                                                     .font(.caption)
-                                                    .foregroundColor(.white.opacity(0.6))
+                                                    .foregroundColor(.secondary)
                                             }
                                         )
                                 }
@@ -1984,7 +1908,7 @@ struct OnboardingView: View {
                                         }) {
                                             Image(systemName: isWelcomeVideoMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                                 .font(.system(size: isCompact ? 14 : 16, weight: .semibold))
-                                                .foregroundColor(.white)
+                                                .foregroundColor(.primary)
                                                 .frame(width: isCompact ? 32 : 36, height: isCompact ? 32 : 36)
                                                 .background(
                                                     Circle()
@@ -2016,7 +1940,7 @@ struct OnboardingView: View {
                                         }) {
                                             Image(systemName: isWelcomeVideoPaused ? "play.fill" : "pause.fill")
                                                 .font(.system(size: isCompact ? 14 : 16, weight: .semibold))
-                                                .foregroundColor(.white)
+                                                .foregroundColor(.primary)
                                                 .frame(width: isCompact ? 32 : 36, height: isCompact ? 32 : 36)
                                                 .background(
                                                     Circle()
@@ -2085,7 +2009,7 @@ struct OnboardingView: View {
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                Text("Step \(number)")
+                Text("\("Step") \(number)")
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.appAccent)
@@ -2114,7 +2038,7 @@ struct OnboardingView: View {
         ZStack {
             // Brand identity dark gradient background
             LinearGradient(
-                colors: [Color(red: 0.05, green: 0.05, blue: 0.1), Color.black],
+                colors: [Color(red: 0.99, green: 0.98, blue: 0.97), Color.white],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -2130,43 +2054,80 @@ struct OnboardingView: View {
                     }
                     
                     if hasCompletedShortcutsCheck && hasCompletedSafariCheck {
-                        Button(action: {
-                            let generator = UIImpactFeedbackGenerator(style: .medium)
-                            generator.impactOccurred()
-                            
-                            // Close the combined sheet and show install sheet
-                            isTransitioningBetweenPopups = true
-                            showShortcutsCheckAlert = false
-                            
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                showInstallSheet = true
-                                isTransitioningBetweenPopups = false
-                            }
-                        }) {
-                            Text("Continue")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 18)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(Color.appAccent)
-                                )
-                                .shadow(color: Color.appAccent.opacity(0.3), radius: 12, x: 0, y: 6)
-                        }
-                        .padding(.top, 16)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        requirementsCheckContinueButton
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
                 .padding(.vertical, 40)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
             }
         }
     }
     
+    private var requirementsCheckContinueButton: some View {
+        Button(action: {
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+            
+            // Close the combined sheet and show install sheet
+            isTransitioningBetweenPopups = true
+            showShortcutsCheckAlert = false
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                showInstallSheet = true
+                isTransitioningBetweenPopups = false
+            }
+        }) {
+            Text("Continue")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.appAccent)
+                )
+                .shadow(color: Color.appAccent.opacity(0.3), radius: 12, x: 0, y: 6)
+        }
+        .padding(.top, 16)
+    }
+    
     private var shortcutsSection: some View {
         VStack(spacing: 24) {
-            // Shortcuts App Logo
+            shortcutsLogo
+            shortcutsTitleSection
+            
+            if !hasCompletedShortcutsCheck {
+                shortcutsInfoCard
+                shortcutsActionButtons
+            } else {
+                shortcutsCompletedState
+            }
+        }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.03))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.black.opacity(0.05), lineWidth: 1))
+        )
+    }
+    
+    private var shortcutsCompletedState: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.green)
+            Text("Shortcuts is ready")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.green)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, DS.Spacing.l)
+        .background(Capsule().fill(Color.green.opacity(0.15)))
+    }
+    
+    // Shortcuts section helpers
+    private var shortcutsLogo: some View {
+        Group {
             if let shortcutsImage = UIImage(named: "shortcuts-app-logo") {
                 Image(uiImage: shortcutsImage)
                     .resizable()
@@ -2179,97 +2140,83 @@ struct OnboardingView: View {
                     .foregroundColor(.appAccent)
                     .shadow(color: Color.appAccent.opacity(0.3), radius: 15, x: 0, y: 8)
             }
+        }
+    }
+    
+    private var shortcutsTitleSection: some View {
+        VStack(spacing: 8) {
+            Text("FaithWall Needs Shortcuts")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.primary)
+                .multilineTextAlignment(.center)
             
-            // Title Section
-            VStack(spacing: 8) {
-                Text("Shortcuts Required")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
+            Text("The Shortcuts app makes FaithWall work")
+                .font(.system(size: 15))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+    
+    private var shortcutsInfoCard: some View {
+        BrandCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.appAccent)
+                    Text("Why do I need Shortcuts?")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
+                }
                 
-                Text("FaithWall uses Apple's Shortcuts app to automatically update your lock screen.")
-                    .font(.system(size: 15))
-                    .foregroundColor(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
+                Text("FaithWall uses Apple's Shortcuts app to automatically update your wallpaper with your notes. It's quick, secure, and built into iOS.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.primary.opacity(0.8))
             }
+        }
+    }
+    
+    private var shortcutsActionButtons: some View {
+        VStack(spacing: 12) {
+            Button(action: {
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                debugLog("✅ User confirmed Shortcuts is installed")
+                withAnimation(.spring()) {
+                    hasCompletedShortcutsCheck = true
+                }
+            }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("I Have Shortcuts")
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DS.Spacing.m)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.appAccent))
+            }
+        }
+    }
+    
+    private var safariSection: some View {
+        VStack(spacing: 24) {
+            safariLogo
+            safariTitleSection
             
-            if !hasCompletedShortcutsCheck {
-                // Info Card
-                BrandCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundColor(.appAccent)
-                            Text("Why Shortcuts?")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                        
-                        Text("It's a free Apple app that allows FaithWall to work in the background.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                }
-                
-                // Action Buttons
-                VStack(spacing: 12) {
-                    Button(action: {
-                        let generator = UIImpactFeedbackGenerator(style: .medium)
-                        generator.impactOccurred()
-                        debugLog("✅ User confirmed Shortcuts is installed")
-                        withAnimation(.spring()) {
-                            hasCompletedShortcutsCheck = true
-                        }
-                    }) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("I Have Shortcuts")
-                        }
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.appAccent))
-                    }
-                    
-                    Button(action: {
-                        let generator = UIImpactFeedbackGenerator(style: .light)
-                        generator.impactOccurred()
-                        if let url = URL(string: "https://apps.apple.com/app/shortcuts/id915249334") {
-                            UIApplication.shared.open(url)
-                            debugLog("🌐 Opening App Store to install Shortcuts")
-                            wentToAppStoreForShortcuts = true
-                            withAnimation(.spring()) {
-                                hasCompletedShortcutsCheck = true
-                            }
-                        }
-                    }) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "arrow.down.circle.fill")
-                            Text("Download Shortcuts")
-                        }
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.white.opacity(0.05))
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                        )
-                    }
-                }
+            if !hasCompletedSafariCheck {
+                safariInfoCard
+                safariActionButtons
             } else {
                 // Completed state
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
-                    Text("Shortcuts Ready")
+                    Text("Safari is ready!")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(.green)
                 }
                 .padding(.vertical, 10)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DS.Spacing.l)
                 .background(Capsule().fill(Color.green.opacity(0.15)))
             }
         }
@@ -2277,13 +2224,13 @@ struct OnboardingView: View {
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(Color.white.opacity(0.03))
-                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.black.opacity(0.05), lineWidth: 1))
         )
     }
     
-    private var safariSection: some View {
-        VStack(spacing: 24) {
-            // Safari Logo
+    // Safari section helpers
+    private var safariLogo: some View {
+        Group {
             if let safariImage = UIImage(named: "safari-logo") {
                 Image(uiImage: safariImage)
                     .resizable()
@@ -2296,103 +2243,85 @@ struct OnboardingView: View {
                     .foregroundColor(.appAccent)
                     .shadow(color: Color.appAccent.opacity(0.3), radius: 15, x: 0, y: 8)
             }
+        }
+    }
+    
+    private var safariTitleSection: some View {
+        VStack(spacing: 8) {
+            Text("Safari Browser Needed")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.primary)
+                .multilineTextAlignment(.center)
             
-            // Title Section
-            VStack(spacing: 8) {
-                Text("Safari Required")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                
-                Text("The shortcut requires Safari to work properly.")
-                    .font(.system(size: 15))
-                    .foregroundColor(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
-            }
-            
-            if !hasCompletedSafariCheck {
-                // Info Card
-                BrandCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundColor(.appAccent)
-                            Text("Why Safari?")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                        
-                        Text("Safari is used to securely process the wallpaper updates.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.8))
-                    }
+            Text("We need Safari to install the shortcut")
+                .font(.system(size: 15))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+    
+    private var safariInfoCard: some View {
+        BrandCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.appAccent)
+                    Text("Why Safari?")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
                 }
                 
-                // Action Buttons
-                VStack(spacing: 12) {
-                    Button(action: {
-                        let generator = UIImpactFeedbackGenerator(style: .medium)
-                        generator.impactOccurred()
-                        debugLog("✅ User confirmed Safari is installed")
-                        withAnimation(.spring()) {
-                            hasCompletedSafariCheck = true
-                        }
-                    }) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("I Have Safari")
-                        }
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.appAccent))
-                    }
-                    
-                    Button(action: {
-                        let generator = UIImpactFeedbackGenerator(style: .light)
-                        generator.impactOccurred()
-                        if let url = URL(string: "https://apps.apple.com/app/id1146562112") {
-                            UIApplication.shared.open(url)
-                            debugLog("🌐 Opening App Store to install Safari")
-                            hasCompletedSafariCheck = true
-                        }
-                    }) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "arrow.down.circle.fill")
-                            Text("Download Safari")
-                        }
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.white.opacity(0.05))
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                        )
-                    }
-                }
-            } else {
-                // Completed state
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Safari Ready")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
-                }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 20)
-                .background(Capsule().fill(Color.green.opacity(0.15)))
+                Text("Apple requires Shortcuts to be installed through Safari for security. Don't worry - it only takes a moment!")
+                    .font(.system(size: 14))
+                    .foregroundColor(.primary.opacity(0.8))
             }
         }
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.03))
-                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
-        )
+    }
+    
+    private var safariActionButtons: some View {
+        VStack(spacing: 12) {
+            Button(action: {
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                debugLog("✅ User confirmed Safari is installed")
+                withAnimation(.spring()) {
+                    hasCompletedSafariCheck = true
+                }
+            }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("I Have Safari")
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DS.Spacing.m)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.appAccent))
+            }
+            
+            Button(action: {
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+                if let url = URL(string: "https://apps.apple.com/app/id1146562112") {
+                    UIApplication.shared.open(url)
+                    debugLog("🌐 Opening App Store to install Safari")
+                }
+            }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "square.and.arrow.down")
+                    Text("Download Safari")
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DS.Spacing.m)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.black.opacity(0.04))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.black.opacity(0.05), lineWidth: 1))
+                )
+            }
+        }
     }
     
     @State private var showTroubleshootingTextVersion = false
@@ -2401,7 +2330,7 @@ struct OnboardingView: View {
         ZStack {
             // Brand identity dark gradient background
             LinearGradient(
-                colors: [Color(red: 0.05, green: 0.05, blue: 0.1), Color.black],
+                colors: [Color(red: 0.99, green: 0.98, blue: 0.97), Color.white],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -2441,11 +2370,11 @@ struct OnboardingView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "arrow.left")
                                         .font(.system(size: 16, weight: .semibold))
-                                    Text("Back to Video")
+                                    Text("← Back to Video")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
                                 .background(
@@ -2466,7 +2395,7 @@ struct OnboardingView: View {
                                     HStack(spacing: 8) {
                                         Image(systemName: "text.alignleft")
                                             .font(.system(size: 14, weight: .semibold))
-                                        Text("Text version")
+                                        Text("Prefer text instructions?")
                                             .font(.subheadline)
                                             .fontWeight(.semibold)
                                     }
@@ -2502,7 +2431,7 @@ struct OnboardingView: View {
                                     .frame(height: 38) // Match Text version button height exactly
                                     .background(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(Color.appAccent.opacity(0.15))
+                                            .fill(Color.clear)
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -2536,24 +2465,24 @@ struct OnboardingView: View {
                         VStack(spacing: 24) {
                             // Title Section (icon removed)
                             VStack(spacing: 12) {
-                                Text("Quick Fix for Apple Presets")
+                                Text("Quick Fix")
                                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                     .multilineTextAlignment(.center)
                                 
-                                Text("This happens when you're using Apple's built-in wallpapers. No worries, we will fix this.")
+                                Text("If the wallpaper didn't update...")
                                     .font(.system(size: 16))
-                                    .foregroundColor(.white.opacity(0.6))
+                                    .foregroundColor(.secondary)
                                     .multilineTextAlignment(.center)
                             }
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, 20)
                             
                             // Video outside of card
                             VStack(spacing: 16) {
-                                Text("Watch this short guide to fix the issue:")
+                                Text("Watch Quick Guide")
                                     .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                     .multilineTextAlignment(.center)
                                 
                                 ZStack {
@@ -2576,7 +2505,7 @@ struct OnboardingView: View {
                                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                                     Text("Loading video...")
                                                         .font(.caption)
-                                                        .foregroundColor(.white.opacity(0.6))
+                                                        .foregroundColor(.secondary)
                                                 }
                                             )
                                     }
@@ -2683,7 +2612,7 @@ struct OnboardingView: View {
                                             }) {
                                                 Image(systemName: isStuckVideoMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                                     .font(.system(size: 16, weight: .semibold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                                     .frame(width: 36, height: 36)
                                                     .background(
                                                         Circle()
@@ -2712,7 +2641,7 @@ struct OnboardingView: View {
                                             }) {
                                                 Image(systemName: isStuckVideoPaused ? "play.fill" : "pause.fill")
                                                     .font(.system(size: 16, weight: .semibold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                                     .frame(width: 36, height: 36)
                                                     .background(
                                                         Circle()
@@ -2735,7 +2664,7 @@ struct OnboardingView: View {
                                     setupStuckVideoPlayerIfNeeded()
                                 }
                             }
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, DS.Spacing.xl)
                             
                             // Instruction wallpaper image
                             VStack(spacing: 12) {
@@ -2746,13 +2675,13 @@ struct OnboardingView: View {
                                     .cornerRadius(12)
                                     .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
                                 
-                                Text("This red image will be saved to your Photos. Set it as your wallpaper to make the shortcut work!")
+                                Text("Note: The image appears red in Photos, but looks normal on your lock screen")
                                     .font(.system(size: 14))
-                                    .foregroundColor(.white.opacity(0.8))
+                                    .foregroundColor(.primary.opacity(0.8))
                                     .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 24)
+                                    .padding(.horizontal, DS.Spacing.xl)
                             }
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, 8)
                             
                             // Primary CTA Button - Brand Style
@@ -2773,7 +2702,7 @@ struct OnboardingView: View {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.on.rectangle")
                                         .font(.system(size: 18, weight: .semibold))
-                            Text("Open Photos")
+                            Text("Open Photos App")
                                         .font(.system(size: 17, weight: .bold, design: .rounded))
                                 }
                                 .foregroundColor(.black)
@@ -2807,7 +2736,7 @@ struct OnboardingView: View {
                             Text("I'll Do This Later")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(.secondary)
                         }
                         .padding(.top, 8)
                         }
@@ -2853,12 +2782,12 @@ struct OnboardingView: View {
                 
                 // Title Section
                 VStack(spacing: 12) {
-            Text("Why Couldn't You Select a Wallpaper?")
+            Text("Why isn't my wallpaper showing up?")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
             
                 // Content Cards - Brand Identity Design
                 VStack(spacing: 20) {
@@ -2869,23 +2798,23 @@ struct OnboardingView: View {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.system(size: 24))
                                     .foregroundColor(.appAccent)
-                Text("The Problem: Apple's Limitation")
+                Text("The Problem")
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                             }
                 
-                Text("The reason you couldn't select any wallpaper is simple: You're currently using one of Apple's built-in wallpaper presets.")
+                Text("Sometimes Apple's iOS doesn't immediately show new wallpapers in the Photos app.")
                                 .font(.system(size: 16))
                                 .foregroundColor(.white.opacity(0.9))
                                 .fixedSize(horizontal: false, vertical: true)
                 
-                Text("Apple designed the Shortcuts app to only work with wallpapers that use photos from your library. It cannot work with Apple's built-in preset wallpapers - like gradients, astronomy images, emoji designs, or any of their default wallpapers.")
+                Text("This is normal and happens with many apps that generate images.")
                                 .font(.system(size: 16))
                                 .foregroundColor(.white.opacity(0.9))
                                 .fixedSize(horizontal: false, vertical: true)
                             
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.black.opacity(0.05))
                             
                             // Highlight box
                             HStack(alignment: .top, spacing: 12) {
@@ -2894,7 +2823,7 @@ struct OnboardingView: View {
                                     .foregroundColor(.appAccent)
                                     .padding(.top, 2)
                 
-                Text("This isn't a FaithWall bug. It's an Apple limitation that affects all shortcuts that try to modify wallpapers.")
+                Text("Important: The wallpaper IS created - it's just invisible at first.")
                                     .font(.system(size: 15, weight: .medium))
                                     .foregroundColor(.appAccent)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -2918,9 +2847,9 @@ struct OnboardingView: View {
                                 Image(systemName: "photo.fill")
                                     .font(.system(size: 24))
                                     .foregroundColor(.appAccent)
-                                Text("We've Saved a Special Image for You")
+                                Text("The Special Image")
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                             }
                             
                             // Show the instruction wallpaper
@@ -2931,15 +2860,15 @@ struct OnboardingView: View {
                                 .cornerRadius(12)
                                 .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
                             
-                            Text("This bright red image will be saved to your Photos once you click the continue button below. It says \"SET THIS AS YOUR WALLPAPER\" - that's exactly what you need to do!")
+                            Text("FaithWall creates a special wallpaper with your notes embedded.")
                                 .font(.system(size: 16))
                                 .foregroundColor(.white.opacity(0.9))
                                 .fixedSize(horizontal: false, vertical: true)
                             
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.black.opacity(0.05))
                             
-                            Text("Don't worry - this is temporary. Once you've set it up and the shortcut works, you can change it to your own custom image wallpaper with your notes on it.")
+                            Text("This image appears RED in the Photos app, but displays normally on your lock screen.")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.appAccent)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -2953,31 +2882,31 @@ struct OnboardingView: View {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.system(size: 24))
                                     .foregroundColor(.appAccent)
-                Text("The Easy Fix")
+                Text("Easy Fix")
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                             }
                 
-                Text("We need to set up a photo-based wallpaper so the shortcut can work. The red image is saved to your Photos - let's set it as your wallpaper now.")
+                Text("Here's how to set it up in just a few taps:")
                                 .font(.system(size: 16))
                                 .foregroundColor(.white.opacity(0.9))
                                 .fixedSize(horizontal: false, vertical: true)
                             
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.black.opacity(0.05))
                 
-                Text("This takes about 2 minutes. Here's exactly what to do:")
+                Text("Follow these steps:")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.appAccent)
                 
                 VStack(alignment: .leading, spacing: 12) {
-                    troubleshootingStep(number: 1, title: "Open Photos", description: "Tap the \"Open Photos\" button below. This will open your Photos app to the Recents album where this red birght image should be.")
-                    troubleshootingStep(number: 2, title: "Find the RED Image", description: "Look in the Recents album - the red image should be there. If you don't see it in Recents, check your \"All Photos\" and scroll to the most recent images.")
-                    troubleshootingStep(number: 3, title: "Long-Press the Image", description: "Long-press (press and hold) on it.")
-                    troubleshootingStep(number: 4, title: "Tap SHARE", description: "Tap SHARE from the menu that appears.")
-                    troubleshootingStep(number: 4, title: "Use as Wallpaper", description: "Scroll down a bit and then tap the \"Use as Wallpaper\" from the menu that appears.")
-                    troubleshootingStep(number: 5, title: "Set as Lock Screen", description: "You'll see a preview. Tap add in top right corner and then Set as wallppaer pair.")
-                    troubleshootingStep(number: 6, title: "Return to FaithWall App", description: "Swipe up to go back to FaithWall app.")
+                    troubleshootingStep(number: 1, title: "Open Photos", description: "Tap the button below to open the Photos app")
+                    troubleshootingStep(number: 2, title: "Find the Red Image", description: "Look for the most recent image - it will appear solid red")
+                    troubleshootingStep(number: 3, title: "Tap the Image", description: "Select the red wallpaper image")
+                    troubleshootingStep(number: 4, title: "Tap Share", description: "Tap the share button (box with arrow)")
+                    troubleshootingStep(number: 4, title: "Use as Wallpaper", description: "Scroll down and select 'Use as Wallpaper'")
+                    troubleshootingStep(number: 5, title: "Set Lock Screen", description: "Choose 'Set Lock Screen' and you're done!")
+                    troubleshootingStep(number: 6, title: "Done!", description: "Lock your phone to see your new FaithWall")
                             }
                         }
                     }
@@ -2989,18 +2918,18 @@ struct OnboardingView: View {
                                 Image(systemName: "arrow.right.circle.fill")
                                     .font(.system(size: 24))
                                     .foregroundColor(.appAccent)
-                Text("What Happens Next?")
+                Text("What's Next?")
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                             }
                 
-                Text("Once you've set your FaithWall image as your wallpaper, come back to the app. We'll go back to the shortcut installation step. This time, when you tap on \"Wallpaper\" in the Shortcuts app, you'll see your FaithWall wallpaper in the list and you'll be able to tap on it!")
+                Text("Once set, your wallpaper will auto-update whenever you add or change notes!")
                                 .font(.system(size: 16))
                                 .foregroundColor(.white.opacity(0.9))
                                 .fixedSize(horizontal: false, vertical: true)
                             
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.black.opacity(0.05))
                 
                 Text("The shortcut will then work perfectly - every time you add, edit, or delete notes, your wallpaper will update automatically.")
                                 .font(.system(size: 16))
@@ -3018,12 +2947,12 @@ struct OnboardingView: View {
                                     .foregroundColor(.appAccent)
                                 Text("Ready? Let's Do This!")
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                             }
                         }
                     }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DS.Spacing.xl)
             
                 // Primary CTA Button - Brand Style
             Button(action: {
@@ -3066,7 +2995,7 @@ struct OnboardingView: View {
                     )
                     .shadow(color: Color.appAccent.opacity(0.3), radius: 12, x: 0, y: 6)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DS.Spacing.xl)
             
                 // Secondary Button
             Button(action: {
@@ -3076,7 +3005,7 @@ struct OnboardingView: View {
                 Text("Got It - I'll Set This Up Later")
                     .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.secondary)
             }
             .padding(.top, 8)
             .padding(.bottom, 32)
@@ -3094,14 +3023,14 @@ struct OnboardingView: View {
                 Text("\(number)")
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.body)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text(description)
                     .font(.subheadline)
@@ -3111,17 +3040,24 @@ struct OnboardingView: View {
         }
     }
     
+    @ViewBuilder
     private func installShortcutStep() -> some View {
+        if userWentToSettings {
+            installShortcutRetryView()
+        } else {
+            installShortcutCheckView()
+        }
+    }
+    
+    private func installShortcutRetryView() -> some View {
         let isCompact = ScreenDimensions.isCompactDevice
         let titleFontSize: CGFloat = isCompact ? 26 : 32
-        let subtitleFontSize: CGFloat = isCompact ? 17 : 20
         let cardTitleFontSize: CGFloat = isCompact ? 16 : 18
         let cardBodyFontSize: CGFloat = isCompact ? 14 : 16
         let cardIconSize: CGFloat = isCompact ? 18 : 20
         let buttonIconSize: CGFloat = isCompact ? 18 : 20
         let buttonFontSize: CGFloat = isCompact ? 16 : 18
         let sectionSpacing: CGFloat = isCompact ? 20 : 32
-        let buttonSpacing: CGFloat = isCompact ? 12 : 16
         let horizontalPadding: CGFloat = isCompact ? 16 : 24
         let heroIconSize: CGFloat = isCompact ? 90 : 110
         let checkIconSize: CGFloat = isCompact ? 36 : 44
@@ -3129,23 +3065,15 @@ struct OnboardingView: View {
         let heroHeight: CGFloat = isCompact ? 130 : 160
         
         return ZStack {
-            // Black background for step 3
-            Color.black
-                .ignoresSafeArea()
+            Color.white.ignoresSafeArea()
             
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: isCompact ? 16 : 24) {
-                    if userWentToSettings {
-                        // "Ready to Try Again?" screen after returning from Settings - Brand Identity Design
-                        ZStack {
-                            // Black background
-                            Color.black
-                                .ignoresSafeArea()
-                            
-                            VStack(spacing: sectionSpacing) {
-                            // Hero Icon
+                    ZStack {
+                        Color.white.ignoresSafeArea()
+                        
+                        VStack(spacing: sectionSpacing) {
                             ZStack {
-                                // Animated rings
                                 ForEach(0..<3, id: \.self) { i in
                                     Circle()
                                         .stroke(Color.appAccent.opacity(0.2), lineWidth: 1)
@@ -3154,7 +3082,6 @@ struct OnboardingView: View {
                                         .opacity(0.4)
                                 }
                                 
-                                // Main icon
                                 ZStack {
                                     Circle()
                                         .fill(
@@ -3175,16 +3102,14 @@ struct OnboardingView: View {
                             .frame(height: heroHeight)
                             .padding(.top, isCompact ? 12 : 20)
                             
-                            // Title Section
                             VStack(spacing: isCompact ? 8 : 12) {
-                                Text("Ready to Try Again?")
+                                Text("Ready to try again?")
                                     .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                     .multilineTextAlignment(.center)
                             }
                             .padding(.horizontal, horizontalPadding)
                             
-                            // Success Card
                             BrandCard {
                                 VStack(alignment: .leading, spacing: isCompact ? 12 : 16) {
                                     HStack(spacing: 12) {
@@ -3193,18 +3118,18 @@ struct OnboardingView: View {
                                             .foregroundColor(.appAccent)
                                         Text("All Set!")
                                             .font(.system(size: cardTitleFontSize, weight: .bold))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                     }
                                     
-                                    Text("Great job! Your photo-based wallpaper is ready. The shortcut installation will work perfectly this time.")
+                                    Text("Great! Your shortcut is installed and ready to go.")
                                         .font(.system(size: cardBodyFontSize))
                                         .foregroundColor(.white.opacity(0.9))
                                         .fixedSize(horizontal: false, vertical: true)
                                     
                                     Divider()
-                                        .background(Color.white.opacity(0.1))
+                                        .background(Color.black.opacity(0.05))
                                     
-                                    Text("This next attempt should only take 30 seconds.")
+                                    Text("Note: If you need to reinstall later, you can find it in the app settings.")
                                         .font(.system(size: cardBodyFontSize, weight: .semibold))
                                         .foregroundColor(.appAccent)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -3212,25 +3137,106 @@ struct OnboardingView: View {
                             }
                             .padding(.horizontal, horizontalPadding)
                             
-                            // Action Button
                             Button(action: {
-                                // Medium haptic for important action
                                 let generator = UIImpactFeedbackGenerator(style: .medium)
                                 generator.impactOccurred()
                                 
-                                // Stop any active PiP before opening install sheet again
                                 pipVideoPlayerManager.stopPictureInPicture()
                                 pipVideoPlayerManager.stop()
                                 shouldStartPiP = false
                                 
-                                // Don't reset userWentToSettings yet - keep "Ready to Try Again?" visible
-                                // It will be reset when user returns from Shortcuts app
                                 showInstallSheet = true
                             }) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "arrow.triangle.2.circlepath")
                                         .font(.system(size: buttonIconSize, weight: .semibold))
                                     Text("Install Shortcut Again")
+                                        .font(.system(size: buttonFontSize, weight: .semibold))
+                                }
+                                .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, isCompact ? 14 : 18)
+                                .background(
+                                    RoundedRectangle(cornerRadius: isCompact ? 12 : 16, style: .continuous)
+                                        .fill(Color.appAccent)
+                                )
+                                .shadow(color: Color.appAccent.opacity(0.3), radius: 12, x: 0, y: 6)
+                            }
+                            .padding(.horizontal, horizontalPadding)
+                            .padding(.bottom, isCompact ? 24 : 40)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, isCompact ? 20 : 36)
+                .padding(.bottom, AdaptiveLayout.bottomScrollPadding)
+            }
+        }
+        .scrollAlwaysBounceIfAvailable()
+    }
+    
+    private func installShortcutCheckView() -> some View {
+        let isCompact = ScreenDimensions.isCompactDevice
+        let titleFontSize: CGFloat = isCompact ? 26 : 32
+        let subtitleFontSize: CGFloat = isCompact ? 17 : 20
+        let cardTitleFontSize: CGFloat = isCompact ? 16 : 18
+        let cardBodyFontSize: CGFloat = isCompact ? 14 : 16
+        let cardIconSize: CGFloat = isCompact ? 18 : 20
+        let buttonIconSize: CGFloat = isCompact ? 18 : 20
+        let buttonFontSize: CGFloat = isCompact ? 16 : 18
+        let sectionSpacing: CGFloat = isCompact ? 20 : 32
+        let buttonSpacing: CGFloat = isCompact ? 12 : 16
+        let horizontalPadding: CGFloat = isCompact ? 16 : 24
+        
+        return ZStack {
+            Color.white.ignoresSafeArea()
+            
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: isCompact ? 16 : 24) {
+                    VStack(spacing: sectionSpacing) {
+                        VStack(spacing: isCompact ? 8 : 12) {
+                            Text("Installation Check")
+                                .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
+                                .foregroundColor(.primary)
+                                .multilineTextAlignment(.center)
+                            
+                            Text("Did the shortcut install successfully?")
+                                .font(.system(size: subtitleFontSize, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.top, isCompact ? 36 : 60)
+                        
+                        BrandCard {
+                            VStack(alignment: .leading, spacing: isCompact ? 10 : 12) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "info.circle.fill")
+                                        .font(.system(size: cardIconSize))
+                                        .foregroundColor(.appAccent)
+                                    Text("Quick Check")
+                                        .font(.system(size: cardTitleFontSize, weight: .bold))
+                                        .foregroundColor(.primary)
+                                }
+                                
+                                Text("Were you able to tap 'Allow' on all the permission prompts in the Shortcuts app?")
+                                    .font(.system(size: cardBodyFontSize))
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(.horizontal, horizontalPadding)
+                        
+                        VStack(spacing: buttonSpacing) {
+                            Button(action: {
+                                let generator = UIImpactFeedbackGenerator(style: .medium)
+                                generator.impactOccurred()
+                                advanceStep()
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: isCompact ? 20 : 24, weight: .semibold))
+                                    Text("Yes, It Worked!")
                                         .font(.system(size: buttonFontSize, weight: .semibold))
                                 }
                                 .foregroundColor(.white)
@@ -3242,129 +3248,54 @@ struct OnboardingView: View {
                                 )
                                 .shadow(color: Color.appAccent.opacity(0.3), radius: 12, x: 0, y: 6)
                             }
-                            .padding(.horizontal, horizontalPadding)
-                            .padding(.bottom, isCompact ? 24 : 40)
-                            }
-                        }
-                    } else {
-                        // Standard "Installation Check" screen - Black background, no icon
-                        VStack(spacing: sectionSpacing) {
-                            // Title Section only (no icon)
-                            VStack(spacing: isCompact ? 8 : 12) {
-                                Text("Installation Check")
-                                    .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                                
-                                Text("Were you able to select a wallpaper?")
-                                    .font(.system(size: subtitleFontSize, weight: .semibold))
-                                    .foregroundColor(.white.opacity(0.9))
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.horizontal, horizontalPadding)
-                            .padding(.top, isCompact ? 36 : 60)
                             
-                            // Quick Info Card
-                            BrandCard {
-                                VStack(alignment: .leading, spacing: isCompact ? 10 : 12) {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "info.circle.fill")
-                                            .font(.system(size: cardIconSize))
-                                            .foregroundColor(.appAccent)
-                                        Text("Quick Check")
-                                            .font(.system(size: cardTitleFontSize, weight: .bold))
-                                            .foregroundColor(.white)
-                                    }
-                                    
-                                    Text("Did you see your wallpapers in the list and could tap one?")
-                                        .font(.system(size: cardBodyFontSize))
-                                        .foregroundColor(.white.opacity(0.9))
-                                        .fixedSize(horizontal: false, vertical: true)
+                            Button(action: {
+                                let generator = UIImpactFeedbackGenerator(style: .medium)
+                                generator.impactOccurred()
+                                showTroubleshooting = true
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "wrench.and.screwdriver.fill")
+                                        .font(.system(size: buttonIconSize, weight: .semibold))
+                                    Text("No, I Got Stuck")
+                                        .font(.system(size: buttonFontSize, weight: .semibold))
                                 }
+                                .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, isCompact ? 14 : 18)
+                                .background(
+                                    RoundedRectangle(cornerRadius: isCompact ? 12 : 16, style: .continuous)
+                                        .fill(Color.black.opacity(0.05))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: isCompact ? 12 : 16, style: .continuous)
+                                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1.5)
+                                        )
+                                )
                             }
-                            .padding(.horizontal, horizontalPadding)
                             
-                            // Action Buttons
-                            VStack(spacing: buttonSpacing) {
-                                Button(action: {
-                                    // Medium haptic for positive confirmation
-                                    let generator = UIImpactFeedbackGenerator(style: .medium)
-                                    generator.impactOccurred()
-                                    
-                                    // Just advance to next step - don't run shortcut yet
-                                    // Shortcut will run in step 5 (chooseWallpapers) after user selects wallpapers
-                                    advanceStep()
-                                }) {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: isCompact ? 20 : 24, weight: .semibold))
-                                        Text("Yes, It Worked!")
-                                            .font(.system(size: buttonFontSize, weight: .semibold))
-                                    }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, isCompact ? 14 : 18)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: isCompact ? 12 : 16, style: .continuous)
-                                            .fill(Color.appAccent)
-                                    )
-                                    .shadow(color: Color.appAccent.opacity(0.3), radius: 12, x: 0, y: 6)
-                                }
-                                
-                        Button(action: {
-                            // Medium haptic for important troubleshooting action
-                            let generator = UIImpactFeedbackGenerator(style: .medium)
-                            generator.impactOccurred()
-                            
-                            showTroubleshooting = true
-                        }) {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "wrench.and.screwdriver.fill")
-                                            .font(.system(size: buttonIconSize, weight: .semibold))
-                                        Text("No, Got Stuck")
-                                            .font(.system(size: buttonFontSize, weight: .semibold))
-                                    }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, isCompact ? 14 : 18)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: isCompact ? 12 : 16, style: .continuous)
-                                            .fill(Color.white.opacity(0.1))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: isCompact ? 12 : 16, style: .continuous)
-                                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1.5)
-                                            )
-                                    )
-                                }
-                                
-                                // Subtle CTA to replay video
-                                Button(action: {
-                                    // Light haptic for subtle action
-                                    let generator = UIImpactFeedbackGenerator(style: .light)
-                                    generator.impactOccurred()
-                                    
-                                    // Replay the video - open Shortcuts app with PiP video
-                                    installShortcut()
-                                }) {
-                                    VStack(spacing: 2) {
-                                        Text("Accidentally clicked or cancelled?")
+                            Button(action: {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                installShortcut()
+                            }) {
+                                VStack(spacing: 2) {
+                                    Text("Accidentally cancelled?")
+                                        .font(.system(size: isCompact ? 12 : 14, weight: .medium))
+                                    if #available(iOS 15.0, *) {
+                                        Text(createUnderlinedText("Replay the video"))
                                             .font(.system(size: isCompact ? 12 : 14, weight: .medium))
-                                        if #available(iOS 15.0, *) {
-                                            Text(createUnderlinedText("Tap here to replay the video"))
-                                                .font(.system(size: isCompact ? 12 : 14, weight: .medium))
-                                        } else {
-                                            Text("Tap here to replay the video")
-                                                .font(.system(size: isCompact ? 12 : 14, weight: .medium))
-                                        }
+                                    } else {
+                                        Text("Replay the video")
+                                            .font(.system(size: isCompact ? 12 : 14, weight: .medium))
                                     }
-                                    .foregroundColor(.white.opacity(0.6))
-                                    .multilineTextAlignment(.center)
-                                    .padding(.top, isCompact ? 4 : 8)
                                 }
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.top, isCompact ? 4 : 8)
                             }
-                            .padding(.horizontal, horizontalPadding)
-                            .padding(.bottom, isCompact ? 24 : 40)
                         }
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.bottom, isCompact ? 24 : 40)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -3421,113 +3352,17 @@ struct OnboardingView: View {
     }
     
     private func addNotesStep() -> some View {
-        let isCompact = ScreenDimensions.isCompactDevice
-        let titleFontSize: CGFloat = isCompact ? 26 : 34
-        let subtitleFontSize: CGFloat = isCompact ? 16 : 20
-        let sectionSpacing: CGFloat = isCompact ? 16 : 24
-        let noteSpacing: CGFloat = isCompact ? 12 : 16
-        let notePadding: CGFloat = isCompact ? 12 : 16
-        let emptyIconSize: CGFloat = isCompact ? 36 : 48
-        let horizontalPadding: CGFloat = isCompact ? 16 : 24
-        let topPadding: CGFloat = isCompact ? 20 : 32
-        
-        return ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: sectionSpacing) {
-                    Text("Add Your First Notes")
-                        .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
-                    
-                    Text("These notes will appear on your lock screen wallpaper")
-                        .font(.system(size: subtitleFontSize))
-                        .foregroundColor(.secondary)
-                    
-                    VStack(spacing: noteSpacing) {
-                        // Display existing notes
-                        ForEach(onboardingNotes) { note in
-                            HStack(spacing: 12) {
-                                Text("\(noteIndex(for: note) + 1).")
-                                    .font(.system(.body, design: .rounded))
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 24, alignment: .leading)
-                                
-                                Text(note.text)
-                                    .font(.system(.body))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                Button(action: {
-                                    withAnimation {
-                                        removeNote(note)
-                                    }
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
-                                        .font(.system(size: 20))
-                                }
-                            }
-                            .padding(notePadding)
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(12)
-                            .id(note.id)
-                        }
-                        
-                        // Input field for new note
-                        HStack(spacing: 12) {
-                            TextField("Type a note...", text: $currentNoteText)
-                                .font(.system(.body))
-                                .focused($isNoteFieldFocused)
-                                .onSubmit {
-                                    addCurrentNote(scrollProxy: proxy)
-                                }
-                            
-                            Button(action: {
-                                // Light impact haptic for adding note button
-                                let generator = UIImpactFeedbackGenerator(style: .light)
-                                generator.impactOccurred()
-                                addCurrentNote(scrollProxy: proxy)
-                            }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundColor(currentNoteText.isEmpty ? .gray : .appAccent)
-                            }
-                            .disabled(currentNoteText.isEmpty)
-                        }
-                        .padding(notePadding)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(12)
-                        .id("inputField")
-                        
-                        if onboardingNotes.isEmpty {
-                            VStack(spacing: isCompact ? 8 : 12) {
-                                Image(systemName: "note.text")
-                                    .font(.system(size: emptyIconSize))
-                                    .foregroundColor(.secondary.opacity(0.5))
-                                
-                                Text("Add at least one note to continue")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, isCompact ? 20 : 32)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, horizontalPadding)
-                .padding(.top, topPadding)
-                .padding(.bottom, AdaptiveLayout.bottomScrollPadding)
-            }
-            .scrollAlwaysBounceIfAvailable()
-            .onTapGesture {
-                // Dismiss keyboard when tapping outside
-                isNoteFieldFocused = false
-            }
-            .onAppear {
-                // Focus the text field when the view appears - reduced delay for faster feel
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isNoteFieldFocused = true
-                }
-            }
+        OnboardingVerseSelectionView { text, reference in
+            // Add note and advance
+            let newNote = Note(text: text, reference: reference)
+            onboardingNotes.append(newNote)
+            saveOnboardingNotes()
+            
+            // Light impact haptic
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            
+            advanceStep()
         }
     }
     
@@ -3586,7 +3421,7 @@ struct OnboardingView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Title - adaptive font size
-                    Text("Allow ALL Permissions")
+                    Text("Allow All Permissions")
                         .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, topPadding)
@@ -3609,7 +3444,7 @@ struct OnboardingView: View {
                     .padding(.bottom, isCompact ? 4 : 8)
                     
                     // Hint text - adaptive font size
-                    Text("Permission popups appear here")
+                    Text("You'll see several permission requests")
                         .font(.system(size: hintFontSize, weight: .semibold))
                         .foregroundColor(.appAccent)
                         .lineLimit(1)
@@ -3617,9 +3452,9 @@ struct OnboardingView: View {
                         .padding(.bottom, isCompact ? 4 : 8)
                     
                     // Title below hint text
-                    Text("click ALLOW for all")
+                    Text("Click 'Allow' on each one to continue")
                         .font(.system(size: instructionFontSize, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .padding(.bottom, sectionSpacing)
                     
                     // Video at adaptive size - CRITICAL: Scale down significantly on compact devices
@@ -3742,7 +3577,7 @@ struct OnboardingView: View {
                     }
                     
                     // Text below video - adaptive font
-                    Text("(this is how it should look)")
+                    Text("How it should look:")
                         .font(.system(size: isCompact ? 14 : 16, weight: .medium))
                         .foregroundColor(.secondary)
                         .padding(.top, isCompact ? 6 : 12)
@@ -3762,9 +3597,9 @@ struct OnboardingView: View {
                                 .foregroundColor(hasConfirmedPermissions ? Color.appAccent : Color.white.opacity(0.4))
                             
                             // Single line on all devices
-                            Text("I've granted all Permissions")
+                            Text("I've Granted All Permissions")
                                 .font(.system(size: isCompact ? 15 : 16, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.85)
                             
@@ -3774,7 +3609,7 @@ struct OnboardingView: View {
                         .padding(.vertical, isCompact ? 12 : 16)
                         .background(
                             RoundedRectangle(cornerRadius: AdaptiveLayout.cornerRadius, style: .continuous)
-                                .fill(hasConfirmedPermissions ? Color.appAccent.opacity(0.15) : Color.white.opacity(0.08))
+                                .fill(hasConfirmedPermissions ? Color.appAccent.opacity(0.15) : Color.black.opacity(0.05))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: AdaptiveLayout.cornerRadius, style: .continuous)
                                         .strokeBorder(hasConfirmedPermissions ? Color.appAccent.opacity(0.4) : Color.white.opacity(0.15), lineWidth: 1)
@@ -4080,7 +3915,7 @@ struct OnboardingView: View {
         let buttonSize: CGFloat = isCompact ? 32 : 36
         let buttonIconSize: CGFloat = isCompact ? 12 : 14
         
-        return ScrollView {
+        ScrollView {
             VStack(alignment: .leading, spacing: sectionSpacing) {
                 // Title row with help and edit buttons
                 HStack(alignment: .top) {
@@ -4104,7 +3939,7 @@ struct OnboardingView: View {
                                 .frame(width: buttonSize, height: buttonSize)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.appAccent.opacity(0.1))
+                                        .fill(Color.clear)
                                 )
                         }
                         
@@ -4157,17 +3992,6 @@ struct OnboardingView: View {
                                     handlePickedHomeScreenData: handlePickedHomeScreenData
                                 )
 
-                                HomeScreenQuickPresetsView(
-                                    isSavingHomeScreenPhoto: $isSavingHomeScreenPhoto,
-                                    homeScreenStatusMessage: $homeScreenStatusMessage,
-                                    homeScreenStatusColor: $homeScreenStatusColor,
-                                    homeScreenImageAvailable: Binding(
-                                        get: { homeScreenUsesCustomPhoto },
-                                        set: { homeScreenUsesCustomPhoto = $0 }
-                                    ),
-                                    handlePickedHomeScreenData: handlePickedHomeScreenData
-                                )
-
                                 if let message = homeScreenStatusMessage {
                                     Text(message)
                                         .font(.caption)
@@ -4210,7 +4034,7 @@ struct OnboardingView: View {
                         }
                     }
                 } else {
-                        Text("Update to iOS 16+ to pick a photo directly. For now, the shortcut will reuse your current home screen wallpaper.")
+                        Text("⚠️ Lock screen customization requires iOS 16 or later")
                             .font(.caption)
                             .foregroundColor(.secondary)
                 }
@@ -4232,16 +4056,16 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Do you use lock screen widgets?")
                     .font(.system(size: isCompact ? 15 : 17, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
-                Text("This adjusts where your notes appear on the lock screen")
+                Text("Add FaithWall widgets to see notes without unlocking")
                     .font(.caption)
                     .foregroundColor(Color(.systemGray2))
             }
             
             // Option buttons
             HStack(spacing: isCompact ? 10 : 12) {
-                // Yes button (black)
+                // Yes button (white)
                 Button(action: {
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
@@ -4256,17 +4080,17 @@ struct OnboardingView: View {
                         .padding(.vertical, isCompact ? 12 : 14)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.black)
+                                .fill(Color.white)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                                         .strokeBorder(hasSelectedWidgetOption && hasLockScreenWidgets ? Color.appAccent : Color.clear, lineWidth: 2.5)
                                 )
                         )
-                        .foregroundColor(.white)
+                        .foregroundColor(.black)
                 }
                 .buttonStyle(.plain)
                 
-                // No button (gray - matches preset gray color)
+                // No button (white)
                 Button(action: {
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
@@ -4281,13 +4105,13 @@ struct OnboardingView: View {
                         .padding(.vertical, isCompact ? 12 : 14)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color(red: 40 / 255, green: 40 / 255, blue: 40 / 255))
+                                .fill(Color.white)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                                         .strokeBorder(hasSelectedWidgetOption && !hasLockScreenWidgets ? Color.appAccent : Color.clear, lineWidth: 2.5)
                                 )
                         )
-                        .foregroundColor(.white)
+                        .foregroundColor(.black)
                 }
                 .buttonStyle(.plain)
             }
@@ -4315,7 +4139,7 @@ struct OnboardingView: View {
         
         return ZStack {
             // Dark background
-            Color.black.ignoresSafeArea()
+            Color.white.ignoresSafeArea()
             
             // Confetti overlay
             if showConfetti {
@@ -4338,9 +4162,9 @@ struct OnboardingView: View {
                     .frame(height: mockupSpacing)
                 
                 // Subtitle
-                Text("See your notes every time you pick up your phone.")
+                Text("See your notes every time you unlock your phone")
                     .font(.system(size: subtitleFontSize))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, horizontalPadding)
                     .opacity(showMockupPreview ? 1 : 0)
@@ -4357,7 +4181,7 @@ struct OnboardingView: View {
                 }) {
                     Text("Continue")
                         .font(.system(size: buttonFontSize, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, isCompact ? 14 : 18)
                         .background(
@@ -4438,8 +4262,8 @@ struct OnboardingView: View {
                     
                     // "PRODUCTIVITY HACK"
                     HStack(spacing: isCompact ? 6 : 8) {
-                        AnimatedWord(text: "PRODUCTIVITY", isVisible: word2Visible, delay: 0, isAccent: true)
-                        AnimatedWord(text: "HACK", isVisible: word2Visible, delay: 0.15, isAccent: true)
+                        AnimatedWord(text: "productivity", isVisible: word2Visible, delay: 0, isAccent: true)
+                        AnimatedWord(text: "hack", isVisible: word2Visible, delay: 0.15, isAccent: true)
                         AnimatedWord(text: "?", isVisible: word2Visible, delay: 0.25, isAccent: true)
                     }
                     .font(.system(size: productivityFontSize, weight: .black, design: .rounded))
@@ -4455,7 +4279,7 @@ struct OnboardingView: View {
                         AnimatedWord(text: "again", isVisible: word3Visible, delay: 0.32)
                     }
                     .font(.system(size: neverForgetFontSize, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.secondary)
                     .padding(.top, isCompact ? 4 : 8)
                 }
                 .multilineTextAlignment(.center)
@@ -4541,9 +4365,9 @@ struct OnboardingView: View {
             // Base dark gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.12),
-                    Color(red: 0.02, green: 0.02, blue: 0.08),
-                    Color.black
+                    Color(red: 0.98, green: 0.97, blue: 0.96),
+                    Color.white,
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -4957,7 +4781,7 @@ struct OnboardingView: View {
                         player.pause()
                         player.seek(to: .zero)
                     }
-                    .accessibilityLabel("FaithWall demo video showing the shortcut flow")
+                    .accessibilityLabel("FaithWall demo video")
             } else {
                 demoVideoPlaceholder(minHeight: minHeight)
             }
@@ -4982,21 +4806,122 @@ struct OnboardingView: View {
             .accessibilityHidden(true)
     }
 
+    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
+        if newPhase == .active {
+            debugLog("📱 Onboarding: App became active, currentPage: \(currentPage), didOpenShortcut: \(didOpenShortcut)")
+            // ALWAYS stop PiP when returning to app - be aggressive about it
+            // This ensures PiP disappears when user returns from Shortcuts app
+            debugLog("🛑 Onboarding: Stopping PiP video (app became active)")
+            pipVideoPlayerManager.stopPictureInPicture()
+            pipVideoPlayerManager.stop()
+            shouldStartPiP = false
+            
+            // Double-check after a brief delay to ensure it's stopped
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if self.pipVideoPlayerManager.isPiPActive {
+                    debugLog("⚠️ Onboarding: PiP still active after stop, forcing stop again")
+                    self.pipVideoPlayerManager.stopPictureInPicture()
+                    self.pipVideoPlayerManager.stop()
+                }
+            }
+            
+            // Handle return from App Store during step 2 setup
+            if currentPage == .videoIntroduction && wentToAppStoreForShortcuts {
+                debugLog("📱 Onboarding: Returned from App Store (Shortcuts download)")
+                wentToAppStoreForShortcuts = false
+                
+                // Ensure Shortcuts check is marked complete so Safari section shows
+                withAnimation {
+                    hasCompletedShortcutsCheck = true
+                }
+                
+                // Ensure the sheet is still showing
+                if !showShortcutsCheckAlert {
+                    showShortcutsCheckAlert = true
+                }
+                isTransitioningBetweenPopups = false
+            }
+            
+            // Resume video if on step 2 and no popup is showing
+            if currentPage == .videoIntroduction {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    let noPopupShowing = !self.showShortcutsCheckAlert && !self.showInstallSheet
+                    if noPopupShowing && !self.isTransitioningBetweenPopups, let player = self.welcomeVideoPlayer, player.rate == 0 {
+                        player.play()
+                        self.isWelcomeVideoPaused = false
+                        debugLog("▶️ Welcome video resumed (no popup showing)")
+                    }
+                }
+            }
+            
+            // Handle return from Shortcuts app after installing shortcut
+            // DON'T auto-advance - let user stay on Step 3 to see "Did it work?" screen
+            if currentPage == .installShortcut && didOpenShortcut {
+                debugLog("📱 Onboarding: Detected return from Shortcuts app, staying on installShortcut step")
+                // Reset the flag and hide "Ready to Try Again?" screen to show "Installation Check"
+                self.didOpenShortcut = false
+                self.userWentToSettings = false
+                debugLog("✅ Onboarding: User can now interact with Step 3 - showing Installation Check screen")
+            }
+            // Only complete shortcut launch if we're on the chooseWallpapers step
+            if currentPage == .chooseWallpapers {
+                completeShortcutLaunch()
+            }
+        } else if newPhase == .background {
+            // Advance to step 3 when app backgrounds after opening Shortcuts
+            if shouldAdvanceToInstallStep {
+                debugLog("📱 Onboarding: App went to background, advancing to installShortcut step")
+                // Cancel fallback timer since app backgrounded successfully
+                advanceToInstallStepTimer?.invalidate()
+                advanceToInstallStepTimer = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut) {
+                        self.currentPage = .installShortcut
+                    }
+                    self.shouldAdvanceToInstallStep = false
+                }
+            }
+            
+            // PiP should automatically take over the already-playing video
+            // because we set canStartPictureInPictureAutomaticallyFromInline = true
+            if shouldStartPiP && currentPage == .installShortcut {
+                debugLog("🎬 Onboarding: App went to background")
+                debugLog("   - Video should already be playing")
+                debugLog("   - PiP should take over automatically")
+                
+                // If automatic PiP doesn't work, try manual start as fallback
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if !self.pipVideoPlayerManager.isPiPActive {
+                        debugLog("⚠️ Onboarding: Automatic PiP didn't start, trying manual start")
+                        if self.pipVideoPlayerManager.isReadyToPlay && self.pipVideoPlayerManager.isPiPControllerReady {
+                            let success = self.pipVideoPlayerManager.startPictureInPicture()
+                            if success {
+                                debugLog("✅ Onboarding: PiP started manually")
+                            } else {
+                                debugLog("❌ Onboarding: Manual PiP start also failed")
+                            }
+                        }
+                    } else {
+                        debugLog("✅ Onboarding: Automatic PiP is active")
+                    }
+                }
+            }
+        }
+    }
+
     private var primaryButtonTitle: String {
         switch currentPage {
-        case .preOnboardingHook, .painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
-             .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .shortcutSuccess, .setupComplete:
+        case .preOnboardingHook, .quizIntro, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
+             .personalizationLoading, .resultsPreview, .symptoms, .howAppHelps, .socialProof, .setupIntro, .pipelineChoice, .widgetOnboarding, .shortcutSuccess, .setupComplete:
             return "" // These pages have their own buttons
-        case .welcome:
-            return "Next"
         case .videoIntroduction:
-            return "Continue"
+            return "Next"
         case .installShortcut:
-            return didOpenShortcut ? "Next" : "Install"
+            return didOpenShortcut ? "Next" : "Install Shortcut"
         case .addNotes:
             return "Continue"
         case .chooseWallpapers:
-            return isLaunchingShortcut ? "Launching Shortcut…" : "Next"
+            return isLaunchingShortcut ? "Launching Shortcut..." : "Next"
         case .allowPermissions:
             return hasConfirmedPermissions ? "Continue" : "Grant Permissions First"
         case .overview:
@@ -5006,15 +4931,13 @@ struct OnboardingView: View {
 
     private var primaryButtonIconName: String? {
         switch currentPage {
-        case .preOnboardingHook, .painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
-             .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .shortcutSuccess, .setupComplete:
+        case .preOnboardingHook, .quizIntro, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
+             .personalizationLoading, .resultsPreview, .symptoms, .howAppHelps, .socialProof, .setupIntro, .pipelineChoice, .widgetOnboarding, .shortcutSuccess, .setupComplete:
             return nil // These pages have their own buttons
-        case .welcome:
-            return "arrow.right.circle.fill"
         case .videoIntroduction:
-            return "arrow.right.circle.fill"
-        case .installShortcut:
             return "bolt.fill"
+        case .installShortcut:
+            return "arrow.down.circle.fill"
         case .addNotes:
             return "arrow.right.circle.fill"
         case .chooseWallpapers:
@@ -5028,11 +4951,9 @@ struct OnboardingView: View {
 
     private var primaryButtonEnabled: Bool {
         switch currentPage {
-        case .preOnboardingHook, .painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
-             .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .shortcutSuccess, .setupComplete:
+        case .preOnboardingHook, .quizIntro, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
+             .personalizationLoading, .resultsPreview, .symptoms, .howAppHelps, .socialProof, .setupIntro, .pipelineChoice, .widgetOnboarding, .shortcutSuccess, .setupComplete:
             return false // These pages have their own buttons
-        case .welcome:
-            return true
         case .videoIntroduction:
             return true
         case .installShortcut:
@@ -5073,19 +4994,16 @@ struct OnboardingView: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         
         switch currentPage {
-        case .preOnboardingHook, .painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
-             .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .shortcutSuccess, .setupComplete:
+        case .preOnboardingHook, .quizIntro, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
+             .personalizationLoading, .resultsPreview, .symptoms, .howAppHelps, .socialProof, .setupIntro, .pipelineChoice, .widgetOnboarding, .shortcutSuccess, .setupComplete:
             // These pages have their own buttons and handle navigation internally
             break
-        case .welcome:
-            advanceStep()
         case .videoIntroduction:
              // Pause video when showing Shortcuts check (video will continue in background)
              if let player = welcomeVideoPlayer, player.rate > 0 {
                  player.pause()
-                 isWelcomeVideoPaused = true
-                 debugLog("⏸️ Welcome video paused (Shortcuts check appearing)")
              }
+              
              // Show Shortcuts check first
              showShortcutsCheckAlert = true
         case .installShortcut:
@@ -5113,6 +5031,13 @@ struct OnboardingView: View {
             return 
         }
         
+        var targetPage = next
+        
+        // Skip quizIntro step (Welcome! Let's personalize your experience)
+        if targetPage == .quizIntro {
+            targetPage = .quizForgetMost
+        }
+        
         // Pause video when leaving video introduction step
         if currentPage == .videoIntroduction {
             if let player = welcomeVideoPlayer, player.rate > 0 {
@@ -5127,13 +5052,20 @@ struct OnboardingView: View {
         generator.impactOccurred()
         
         withAnimation(.easeInOut) {
-            currentPage = next
+            currentPage = targetPage
         }
     }
     
     private func goBackStep() {
         guard currentPage.rawValue > 0 else { return }
         guard let previous = OnboardingPage(rawValue: currentPage.rawValue - 1) else { return }
+        
+        var targetPage = previous
+        
+        // Skip quizIntro step when going back
+        if targetPage == .quizIntro {
+            targetPage = .preOnboardingHook
+        }
         
         // Light impact haptic for going back
         let generator = UIImpactFeedbackGenerator(style: .light)
@@ -5146,11 +5078,11 @@ struct OnboardingView: View {
         }
         
         withAnimation(.easeInOut) {
-            currentPage = previous
+            currentPage = targetPage
         }
         
         // Resume video when returning to video introduction step
-        if previous == .videoIntroduction {
+        if targetPage == .videoIntroduction {
             if let player = welcomeVideoPlayer, player.rate == 0 {
                 player.play()
                 isWelcomeVideoPaused = false
@@ -5175,9 +5107,7 @@ struct OnboardingView: View {
         }
         // Swipe left to go forward (optional, can be removed if not desired)
         else if horizontalAmount < -50 {
-            if currentPage == .welcome {
-                advanceStep()
-            } else if currentPage == .videoIntroduction {
+            if currentPage == .videoIntroduction {
                 advanceStep()
             } else if currentPage == .installShortcut && didOpenShortcut {
                 advanceStep()
@@ -5525,7 +5455,7 @@ struct OnboardingView: View {
                     Image(systemName: "play.circle.fill")
                         .font(.system(size: 44))
                         .foregroundColor(Color.appAccent)
-                    Text("Notifications video loading...")
+                    Text("Loading notifications video...")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -5956,6 +5886,8 @@ struct OnboardingView: View {
             let encoder = JSONEncoder()
             let data = try encoder.encode(onboardingNotes)
             savedNotesData = data
+            // Sync to widget
+            WidgetDataSync.syncNotesToWidget(data)
             print("✅ Saved \(onboardingNotes.count) notes from onboarding")
         } catch {
             print("❌ Failed to save onboarding notes: \(error)")
@@ -6034,38 +5966,11 @@ struct OnboardingView: View {
     }
     
     private func requestAppReviewIfNeeded() {
+        // Review request has been moved to SocialProofView (onboarding step)
+        // to appear before the paywall/completion.
         #if DEBUG
-        // In DEBUG builds, always show review for testing (ignore the "already shown" flag)
-        print("🌟 DEBUG: Requesting app review (DEBUG mode - always showing)")
-        #else
-        // In production, only request review once
-        guard !hasRequestedAppReview else {
-            return
-        }
+        print("🌟 requestAppReviewIfNeeded called but disabled (moved to SocialProofView)")
         #endif
-        
-        hasRequestedAppReview = true
-        #if DEBUG
-        print("🌟 Requesting app review after onboarding completion")
-        #endif
-        
-        // Small delay to let the onboarding dismissal complete smoothly and arrive at home screen
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            #if DEBUG
-            print("🌟 Triggering SKStoreReviewController.requestReview()")
-            #endif
-            if let windowScene = UIApplication.shared.connectedScenes
-                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-                SKStoreReviewController.requestReview(in: windowScene)
-                #if DEBUG
-                print("🌟 Review request sent to window scene")
-                #endif
-            } else {
-                #if DEBUG
-                print("🌟 No active window scene found")
-                #endif
-            }
-        }
     }
 
     private func handleWallpaperGenerationFinished() {
@@ -6141,7 +6046,7 @@ struct OnboardingView: View {
         wallpaperVerificationTask = nil
         didTriggerShortcutRun = false
         isLaunchingShortcut = false
-        homeScreenStatusMessage = "We couldn’t prepare the wallpaper files. Tap “Save Lock Screen” again."
+        homeScreenStatusMessage = "Wallpaper verification failed"
         homeScreenStatusColor = .red
     }
 
@@ -6156,8 +6061,8 @@ struct OnboardingView: View {
 
         debugLog("✅ Onboarding: Wallpaper files verified, opening shortcut")
 
-        let shortcutName = "Set FaithWall Wallpaper"
-        let encodedName = shortcutName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let shortcutName = "FaithWall Automation"
+        let encodedName = shortcutName.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) ?? ""
         let urlString = "shortcuts://run-shortcut?name=\(encodedName)"
         guard let url = URL(string: urlString) else {
             debugLog("❌ Onboarding: Failed to create shortcut URL")
@@ -6179,8 +6084,8 @@ struct OnboardingView: View {
     private func runShortcutForPermissions() {
         debugLog("🚀 Onboarding: Running shortcut for permissions step")
         
-        let shortcutName = "Set FaithWall Wallpaper"
-        let encodedName = shortcutName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let shortcutName = "FaithWall Automation"
+        let encodedName = shortcutName.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) ?? ""
         let urlString = "shortcuts://run-shortcut?name=\(encodedName)"
         guard let url = URL(string: urlString) else {
             debugLog("❌ Onboarding: Failed to create shortcut URL for permissions")
@@ -6241,22 +6146,6 @@ struct OnboardingView: View {
             showHelpSheet = true
         }) {
             ZStack {
-                // Background blur/material for visibility over scrolling content
-                if #available(iOS 15.0, *) {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 48, height: 48)
-                        .overlay(
-                            Circle()
-                                .fill(Color.black.opacity(0.3))
-                                .frame(width: 48, height: 48)
-                        )
-                } else {
-                    Circle()
-                        .fill(Color.black.opacity(0.6))
-                        .frame(width: 48, height: 48)
-                }
-                
                 // Simple pulsing ring (performance optimized)
                 Circle()
                     .strokeBorder(
@@ -6271,17 +6160,11 @@ struct OnboardingView: View {
                         y: 0
                     )
                 
-                // Accent background circle (on top of blur)
-                Circle()
-                    .fill(Color.appAccent.opacity(0.15))
-                    .frame(width: 48, height: 48)
-                
                 // Icon
                 Image(systemName: "headphones")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.appAccent)
             }
-            .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 4)
         }
         .onAppear {
             // Simple pulsing glow animation
@@ -6300,22 +6183,6 @@ struct OnboardingView: View {
             showHelpSheet = true
         }) {
             ZStack {
-                // Background blur/material for visibility over scrolling content
-                if #available(iOS 15.0, *) {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            Circle()
-                                .fill(Color.black.opacity(0.3))
-                                .frame(width: 36, height: 36)
-                        )
-                } else {
-                    Circle()
-                        .fill(Color.black.opacity(0.6))
-                        .frame(width: 36, height: 36)
-                }
-                
                 // Simple pulsing ring (performance optimized)
                 Circle()
                     .strokeBorder(
@@ -6329,11 +6196,6 @@ struct OnboardingView: View {
                         x: 0,
                         y: 0
                     )
-                
-                // Accent background circle (on top of blur)
-                Circle()
-                    .fill(Color.appAccent.opacity(0.15))
-                    .frame(width: 36, height: 36)
                 
                 // Icon (smaller)
                 Image(systemName: "headphones")
@@ -6358,8 +6220,8 @@ struct OnboardingView: View {
             // Dark gradient background
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.15),
-                    Color.black
+                    Color(red: 0.98, green: 0.97, blue: 0.96),
+                    Color.white
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -6373,9 +6235,9 @@ struct OnboardingView: View {
                         Text("Need Help?")
                             .font(.system(.title, design: .rounded))
                             .fontWeight(.bold)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                         
-                        Text("We're here to assist you")
+                        Text("We're here to help you succeed")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -6396,7 +6258,7 @@ struct OnboardingView: View {
                             .foregroundColor(.white.opacity(0.3))
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 .padding(.top, 40)
                 
                 // Support options
@@ -6405,7 +6267,7 @@ struct OnboardingView: View {
                     supportOptionCard(
                         icon: "message.fill",
                         title: "Chat on WhatsApp",
-                        subtitle: "Get instant help",
+                        subtitle: "Get instant help from our team",
                         accentColor: Color(red: 0.15, green: 0.78, blue: 0.40), // WhatsApp green
                         isPrimary: true
                     ) {
@@ -6416,7 +6278,7 @@ struct OnboardingView: View {
                     supportOptionCard(
                         icon: "envelope.fill",
                         title: "Get Help via Email",
-                        subtitle: "We're here to help you",
+                        subtitle: "We'll respond within 24 hours",
                         accentColor: .blue
                     ) {
                         openEmailFeedback()
@@ -6435,12 +6297,12 @@ struct OnboardingView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 
                 Spacer()
                 
                 // Footer note
-                Text("Current step: \(currentPageName)")
+                Text("Current Step" + " \(currentPageName)")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.bottom, 40)
@@ -6480,7 +6342,7 @@ struct OnboardingView: View {
                     Text(title)
                         .font(.system(.body, design: .rounded))
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     
                     Text(subtitle)
                         .font(.caption)
@@ -6501,12 +6363,11 @@ struct OnboardingView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(
-                                isPrimary ? accentColor.opacity(0.3) : Color.white.opacity(0.1),
+                                isPrimary ? accentColor.opacity(0.3) : Color.black.opacity(0.05),
                                 lineWidth: isPrimary ? 1.5 : 1
                             )
                     )
             )
-            .shadow(color: isPrimary ? accentColor.opacity(0.2) : .clear, radius: isPrimary ? 12 : 0, x: 0, y: isPrimary ? 6 : 0)
         }
         .buttonStyle(.plain)
     }
@@ -6518,8 +6379,8 @@ struct OnboardingView: View {
                 // Dark gradient background
                 LinearGradient(
                     colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.15),
-                        Color.black
+                        Color(red: 0.98, green: 0.97, blue: 0.96),
+                        Color.white
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -6553,7 +6414,7 @@ struct OnboardingView: View {
                         Text("Thank You!")
                             .font(.system(.title, design: .rounded))
                             .fontWeight(.bold)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                         
                         Text("Your suggestion has been sent")
                             .font(.body)
@@ -6569,9 +6430,9 @@ struct OnboardingView: View {
                                 Text("What could we improve?")
                                     .font(.system(.title2, design: .rounded))
                                     .fontWeight(.bold)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
-                                Text("Your feedback helps us make FaithWall better for everyone.")
+                                Text("Your feedback helps make FaithWall better for everyone")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
@@ -6579,7 +6440,7 @@ struct OnboardingView: View {
                             
                             // Text editor container
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Your suggestion")
+                                Text("Your Suggestion")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .textCase(.uppercase)
@@ -6587,11 +6448,11 @@ struct OnboardingView: View {
                                 ZStack(alignment: .topLeading) {
                                     // Background
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(Color.white.opacity(0.08))
+                                        .fill(Color.black.opacity(0.05))
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                                 .strokeBorder(
-                                                    isImprovementFieldFocused ? Color("AppAccent").opacity(0.5) : Color.white.opacity(0.1),
+                                                    isImprovementFieldFocused ? Color("AppAccent").opacity(0.5) : Color.black.opacity(0.05),
                                                     lineWidth: isImprovementFieldFocused ? 2 : 1
                                                 )
                                         )
@@ -6604,21 +6465,21 @@ struct OnboardingView: View {
                                             .scrollContentBackground(.hidden)
                                             .frame(height: 180)
                                             .padding(12)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             .font(.body)
                                     } else {
                                         TextEditor(text: $improvementText)
                                             .focused($isImprovementFieldFocused)
                                             .frame(height: 180)
                                             .padding(12)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             .font(.body)
                                             .background(Color.clear)
                                     }
                                     
                                     // Placeholder
                                     if improvementText.isEmpty {
-                                        Text("Share your ideas, suggestions, or feedback...")
+                                        Text("Share your thoughts here...")
                                             .foregroundColor(.secondary)
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 20)
@@ -6630,15 +6491,15 @@ struct OnboardingView: View {
                             // Character count (optional, for better UX)
                             HStack {
                                 Spacer()
-                                Text("\(improvementText.count) characters")
+                                Text("\(improvementText.count) \("characters")")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
                             
                             // Send button
-                            Button(action: {
+                            Button {
                                 sendImprovementFeedback()
-                            }) {
+                            } label: {
                                 HStack(spacing: 12) {
                                     if isSendingImprovement {
                                         ProgressView()
@@ -6651,7 +6512,7 @@ struct OnboardingView: View {
                                         .font(.headline)
                                         .fontWeight(.semibold)
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
                                 .background(
@@ -6674,7 +6535,7 @@ struct OnboardingView: View {
                             .disabled(improvementText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSendingImprovement)
                             .padding(.top, 8)
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, DS.Spacing.xl)
                         .padding(.vertical, 20)
                     }
                     .scrollDismissesKeyboardIfAvailable()
@@ -6715,14 +6576,14 @@ struct OnboardingView: View {
     /// Opens WhatsApp with pre-filled message
     private func openWhatsApp() {
         let message = """
-        Hi! I need help with FaithWall onboarding.
+        \("Hi! I need help with FaithWall.")
         
-        I'm stuck on step: \(currentPageName)
+        \("I'm stuck on:") \(currentPageName)
         
         \(getDeviceInfo())
         """
         
-        let encodedMessage = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let encodedMessage = message.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) ?? ""
         let whatsappURL = "https://wa.me/\(whatsappNumber)?text=\(encodedMessage)"
         
         guard let url = URL(string: whatsappURL) else { return }
@@ -6732,7 +6593,7 @@ struct OnboardingView: View {
                 if !success {
                     // WhatsApp didn't open, show fallback
                     DispatchQueue.main.async {
-                        helpAlertMessage = "WhatsApp could not be opened. Would you like to send an email instead?"
+                        helpAlertMessage = "Couldn't open WhatsApp"
                         showHelpAlert = true
                     }
                 }
@@ -6740,25 +6601,25 @@ struct OnboardingView: View {
             showHelpSheet = false
         } else {
             // WhatsApp not installed
-            helpAlertMessage = "WhatsApp is not installed. Please send us an email at \(supportEmail)"
+            helpAlertMessage = "WhatsApp is not installed"
             showHelpAlert = true
         }
     }
     
     /// Opens email app with pre-filled feedback
     private func openEmailFeedback() {
-        let subject = "FaithWall Feedback - \(currentPageName)"
+        let subject = "\("FaithWall Help Needed") - \(currentPageName)"
         let body = """
         
         
         ---
-        Current Step: \(currentPageName)
+        \("Current Step"): \(currentPageName)
         \(getDeviceInfo())
         ---
         """
         
-        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) ?? ""
+        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) ?? ""
         let mailtoURL = "mailto:\(supportEmail)?subject=\(encodedSubject)&body=\(encodedBody)"
         
         guard let url = URL(string: mailtoURL) else { return }
@@ -6768,7 +6629,7 @@ struct OnboardingView: View {
             showHelpSheet = false
         } else {
             // Email not configured
-            helpAlertMessage = "Email is not configured on your device. Our support email is: \(supportEmail)"
+            helpAlertMessage = "Email is not configured on this device"
             showHelpAlert = true
         }
     }
@@ -6793,12 +6654,12 @@ struct OnboardingView: View {
         // Wait for keyboard to fully dismiss before proceeding (keyboard animation takes ~0.5 seconds)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             let details = """
-            User Suggestion:
+            \("User Suggestion"):
             \(self.improvementText)
             
             ---
-            Context:
-            Current Step: \(self.currentPageName)
+            \("Context"):
+            \("Current Step"): \(self.currentPageName)
             \(self.getDeviceInfo())
             """
             
@@ -6844,7 +6705,7 @@ struct OnboardingView: View {
         let device = UIDevice.current.model
         let osVersion = UIDevice.current.systemVersion
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-        return "Device: \(device), iOS: \(osVersion), App: v\(appVersion)"
+        return "\("Device"): \(device), iOS: \(osVersion), App: v\(appVersion)"
     }
     
     /// Creates underlined text compatible with all iOS versions
@@ -6859,9 +6720,9 @@ struct OnboardingView: View {
     private var currentPageName: String {
         switch currentPage {
         case .preOnboardingHook:
-            return "Pre-Onboarding Hook"
-        case .painPoint:
-            return "Why This Matters"
+            return "Welcome"
+        case .quizIntro:
+            return "Getting Started"
         case .quizForgetMost:
             return "Quick Quiz"
         case .quizPhoneChecks:
@@ -6872,12 +6733,18 @@ struct OnboardingView: View {
             return "Customizing Experience"
         case .resultsPreview:
             return "Personalized Plan"
+        case .symptoms:
+            return "Symptoms"
+        case .howAppHelps:
+            return "How FaithWall Helps"
         case .socialProof:
             return "What Others Say"
         case .setupIntro:
             return "Setup Introduction"
-        case .welcome:
-            return "Welcome"
+        case .pipelineChoice:
+            return "Choose Setup Method"
+        case .widgetOnboarding:
+            return "Widget Setup"
         case .videoIntroduction:
             return "Video Introduction"
         case .installShortcut:
@@ -6955,7 +6822,7 @@ struct OnboardingView: View {
         debugLog("📸 Onboarding: Handling picked home screen data")
         debugLog("   Data size: \(data.count) bytes")
         isSavingHomeScreenPhoto = true
-        homeScreenStatusMessage = "Saving photo…"
+        homeScreenStatusMessage = "Saving photo..."
         homeScreenStatusColor = .gray
 
         Task {
@@ -7336,7 +7203,7 @@ struct OnboardingPrimaryButtonStyle: ButtonStyle {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(isEnabled ? 0.18 : 0.08), lineWidth: 1)
+                    .strokeBorder(Color.black.opacity(isEnabled ? 0.08 : 0.04), lineWidth: 1)
             )
             .shadow(
                 color: Color.appAccent.opacity(isEnabled ? (configuration.isPressed ? 0.16 : 0.28) : 0.08),
@@ -7368,7 +7235,7 @@ private extension OnboardingPage {
         switch self {
         case .preOnboardingHook:
             return ""
-        case .painPoint:
+        case .quizIntro:
             return ""
         case .quizForgetMost, .quizPhoneChecks, .quizDistraction:
             return ""
@@ -7376,12 +7243,18 @@ private extension OnboardingPage {
             return ""
         case .resultsPreview:
             return ""
+        case .symptoms:
+            return ""
+        case .howAppHelps:
+            return ""
         case .socialProof:
             return ""
         case .setupIntro:
             return ""
-        case .welcome:
-            return "Welcome"
+        case .pipelineChoice:
+            return ""
+        case .widgetOnboarding:
+            return ""
         case .addNotes:
             return "Add Notes"
         case .chooseWallpapers:
@@ -7405,20 +7278,26 @@ private extension OnboardingPage {
         switch self {
         case .preOnboardingHook:
             return "Pre-Onboarding Hook"
-        case .painPoint:
-            return "Understanding You"
+        case .quizIntro:
+            return "Getting Started"
         case .quizForgetMost, .quizPhoneChecks, .quizDistraction:
             return "Personalization"
         case .personalizationLoading:
             return "Customizing"
         case .resultsPreview:
             return "Your Profile"
+        case .symptoms:
+            return "Symptoms"
+        case .howAppHelps:
+            return "Solution"
         case .socialProof:
             return "Community"
         case .setupIntro:
             return "Setup Preview"
-        case .welcome:
-            return "Welcome"
+        case .pipelineChoice:
+            return "Choose Setup"
+        case .widgetOnboarding:
+            return "Widget Setup"
         case .addNotes:
             return "Add Notes"
         case .chooseWallpapers:
@@ -7442,8 +7321,8 @@ private extension OnboardingPage {
         switch self {
         case .preOnboardingHook:
             return "Pre-Onboarding"
-        case .painPoint:
-            return "Understanding your needs"
+        case .quizIntro:
+            return "Getting Started"
         case .quizForgetMost:
             return "Quiz question 1"
         case .quizPhoneChecks:
@@ -7454,24 +7333,30 @@ private extension OnboardingPage {
             return "Customizing your experience"
         case .resultsPreview:
             return "Your personalized results"
+        case .symptoms:
+            return "Understanding your struggles"
+        case .howAppHelps:
+            return "How FaithWall helps"
         case .socialProof:
             return "Community proof"
         case .setupIntro:
             return "Setup introduction"
-        case .welcome:
-            return "Step 1"
+        case .pipelineChoice:
+            return "Choose your setup method"
+        case .widgetOnboarding:
+            return "Widget setup"
         case .videoIntroduction:
-            return "Step 2"
+            return "Step 1"
         case .installShortcut:
-            return "Step 3"
+            return "Step 2"
         case .shortcutSuccess:
             return "Shortcut installed"
         case .addNotes:
-            return "Step 4"
+            return "Step 3"
         case .chooseWallpapers:
-            return "Step 5"
+            return "Step 4"
         case .allowPermissions:
-            return "Step 6"
+            return "Step 5"
         case .setupComplete:
             return "Setup complete"
         case .overview:
@@ -7483,32 +7368,32 @@ private extension OnboardingPage {
     // Only technical setup steps show step numbers
     var stepNumber: Int? {
         switch self {
-        case .preOnboardingHook, .painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
-             .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .shortcutSuccess, .setupComplete, .overview:
+        case .preOnboardingHook, .quizIntro, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
+             .personalizationLoading, .resultsPreview, .symptoms, .howAppHelps, .socialProof, .setupIntro, .pipelineChoice, .widgetOnboarding, .shortcutSuccess, .setupComplete, .overview:
             return nil // These don't show step numbers
-        case .welcome:
-            return 1
         case .videoIntroduction:
-            return 2
+            return 1
         case .installShortcut:
-            return 3
+            return 2
         case .addNotes:
-            return 4
+            return 3
         case .chooseWallpapers:
-            return 5
+            return 4
         case .allowPermissions:
-            return 6
+            return 5
         }
     }
     
     // Phase for progress indicator
     var phase: String {
         switch self {
-        case .preOnboardingHook, .painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction, .personalizationLoading, .resultsPreview:
+        case .preOnboardingHook, .quizIntro, .quizForgetMost, .quizPhoneChecks, .quizDistraction, .personalizationLoading, .resultsPreview, .symptoms, .howAppHelps:
             return "Getting to Know You"
-        case .socialProof, .setupIntro:
+        case .socialProof, .setupIntro, .pipelineChoice:
             return "Almost Ready"
-        case .welcome, .videoIntroduction, .installShortcut, .shortcutSuccess, .addNotes, .chooseWallpapers, .allowPermissions:
+        case .widgetOnboarding:
+            return "Widget Setup"
+        case .videoIntroduction, .installShortcut, .shortcutSuccess, .addNotes, .chooseWallpapers, .allowPermissions:
             return "Setup"
         case .setupComplete, .overview:
             return "Complete"
@@ -7518,10 +7403,10 @@ private extension OnboardingPage {
     // Whether this page shows the compact progress indicator
     var showsProgressIndicator: Bool {
         switch self {
-        case .preOnboardingHook, .painPoint, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
-             .personalizationLoading, .resultsPreview, .socialProof, .setupIntro, .shortcutSuccess, .setupComplete, .overview:
+        case .preOnboardingHook, .quizIntro, .quizForgetMost, .quizPhoneChecks, .quizDistraction,
+             .personalizationLoading, .resultsPreview, .symptoms, .howAppHelps, .socialProof, .setupIntro, .pipelineChoice, .widgetOnboarding, .shortcutSuccess, .setupComplete, .overview:
             return false
-        case .welcome, .videoIntroduction, .installShortcut, .addNotes, .chooseWallpapers, .allowPermissions:
+        case .videoIntroduction, .installShortcut, .addNotes, .chooseWallpapers, .allowPermissions:
             return true
         }
     }
@@ -7813,7 +7698,7 @@ private struct AnimatedCheckmarkView: View {
             // Checkmark
             Image(systemName: "checkmark")
                 .font(.system(size: 50, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
                 .opacity(showCheckmark ? 1 : 0)
                 .scaleEffect(showCheckmark ? 1 : 0.3)
         }

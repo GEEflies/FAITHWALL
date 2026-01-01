@@ -5,6 +5,7 @@ import UIKit
 
 @available(iOS 16.0, *)
 struct HomeScreenPhotoPickerView: View {
+    @AppStorage("homeScreenPresetSelection") private var homeScreenPresetSelectionRaw = ""
     @Binding var isSavingHomeScreenPhoto: Bool
     @Binding var homeScreenStatusMessage: String?
     @Binding var homeScreenStatusColor: Color
@@ -18,6 +19,11 @@ struct HomeScreenPhotoPickerView: View {
     @State private var photoLibrarySelection: PhotosPickerItem?
     @State private var isHomeIconActive = false
     @State private var hasActivatedHomeThisSession = false
+    @State private var showPresetPicker = false
+
+    private var selectedPreset: PresetOption? {
+        PresetOption(rawValue: homeScreenPresetSelectionRaw)
+    }
 
     private enum PickerType: Identifiable {
         case camera
@@ -35,7 +41,7 @@ struct HomeScreenPhotoPickerView: View {
         VStack(alignment: .leading, spacing: 0) {
             Button(action: { showSourceOptions = true }) {
                 HStack(spacing: 12) {
-                    Image(systemName: homeScreenImageAvailable ? "photo.fill" : "photo")
+                    Image(systemName: (homeScreenImageAvailable || !homeScreenPresetSelectionRaw.isEmpty) ? "photo.fill" : "photo")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(isHomeIconActive ? .appAccent : .gray)
 
@@ -82,21 +88,11 @@ struct HomeScreenPhotoPickerView: View {
                     .labelStyle(LeadingMenuLabelStyle())
             }
 
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button(role: .none) {
-                    showSourceOptions = false
-                    activePicker = .camera
-                } label: {
-                    Label("Take Photo", systemImage: "camera")
-                        .labelStyle(LeadingMenuLabelStyle())
-                }
-            }
-
             Button(role: .none) {
                 showSourceOptions = false
-                activePicker = .files
+                showPresetPicker = true
             } label: {
-                Label("Choose File", systemImage: "folder")
+                Label("Faith Wall Presets", systemImage: "rectangle.on.rectangle.angled")
                     .labelStyle(LeadingMenuLabelStyle())
             }
 
@@ -135,32 +131,17 @@ struct HomeScreenPhotoPickerView: View {
         .onChange(of: homeScreenImageAvailable) { _ in
             syncHomeIconState()
         }
-        .sheet(item: $activePicker) { picker in
-            switch picker {
-            case .camera:
-                CameraPickerView { image in
-                    guard let data = image.jpegData(compressionQuality: 0.95) ?? image.pngData() else {
-                        reportLoadFailure("Unable to process captured photo.")
-                        return
-                    }
-                    processPickedData(data)
-                } onCancel: {
-                    activePicker = nil
-                } onDismiss: {
-                    activePicker = nil
+        .onChange(of: homeScreenPresetSelectionRaw) { _ in
+            syncHomeIconState()
+        }
+        .sheet(isPresented: $showPresetPicker) {
+            PresetPickerSheet(
+                selectedPreset: selectedPreset,
+                onSelectPreset: { preset in
+                    applyPreset(preset)
+                    showPresetPicker = false
                 }
-
-            case .files:
-                DocumentPickerView { data in
-                    processPickedData(data)
-                } onError: { message in
-                    reportLoadFailure(message)
-                } onCancel: {
-                    activePicker = nil
-                } onDismiss: {
-                    activePicker = nil
-                }
-            }
+            )
         }
         .onAppear {
             syncHomeIconState()
@@ -182,17 +163,61 @@ struct HomeScreenPhotoPickerView: View {
         DispatchQueue.main.async {
             handlePickedHomeScreenData(data)
             hasActivatedHomeThisSession = true
+            // Clear preset selection when picking a custom photo
+            homeScreenPresetSelectionRaw = ""
             print("✅ HomeScreenPhotoPickerView: Photo data processed successfully")
         }
     }
 
     private func syncHomeIconState() {
-        if homeScreenImageAvailable {
+        if homeScreenImageAvailable || !homeScreenPresetSelectionRaw.isEmpty {
             isHomeIconActive = true
             hasActivatedHomeThisSession = true
         } else {
             isHomeIconActive = false
             hasActivatedHomeThisSession = false
+        }
+    }
+
+    private func applyPreset(_ preset: PresetOption) {
+        guard preset != selectedPreset else { return }
+
+        // Light impact haptic for preset selection
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+
+        isSavingHomeScreenPhoto = true
+        homeScreenStatusMessage = "Applying \(preset.title.lowercased()) preset…"
+        homeScreenStatusColor = .secondary
+
+        applyPresetLocally(preset)
+    }
+
+    private func applyPresetLocally(_ preset: PresetOption) {
+        let image = preset.generateGradientImage()
+
+        do {
+            // SIMPLE: Just save to HomeScreen folder
+            // This is what the shortcut will read, whether it's a preset or custom photo
+            try HomeScreenImageManager.saveHomeScreenImage(image)
+            
+            print("✅ Saved \(preset.title) preset to HomeScreen folder")
+            print("   Path: HomeScreen/homescreen.jpg")
+
+            homeScreenPresetSelectionRaw = preset.rawValue
+            homeScreenImageAvailable = false
+            
+            // Update UI state
+            isSavingHomeScreenPhoto = false
+            homeScreenStatusMessage = nil
+            homeScreenStatusColor = .gray
+            
+            // Force icon update
+            syncHomeIconState()
+            
+        } catch {
+            print("❌ Failed to save preset image: \(error)")
+            reportLoadFailure("Failed to apply preset")
         }
     }
 }
@@ -208,18 +233,58 @@ struct HomeScreenQuickPresetsView: View {
 
     let handlePickedHomeScreenData: (Data) -> Void
 
+    @State private var showPresetPicker = false
+
     private var selectedPreset: PresetOption? {
         PresetOption(rawValue: homeScreenPresetSelectionRaw)
     }
 
     var body: some View {
-        PresetOptionsRow(
-            title: "Presets",
-            isDisabled: isSavingHomeScreenPhoto,
-            selectedPreset: selectedPreset,
-            selectionAction: applyPreset
-        )
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Presets")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Button(action: {
+                showPresetPicker = true
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: selectedPreset != nil ? "rectangle.on.rectangle.angled.fill" : "rectangle.on.rectangle.angled")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(selectedPreset != nil ? .appAccent : .gray)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(selectedPreset?.title ?? "Choose Presets")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.primary)
+                        
+                        Text(selectedPreset != nil ? "Tap to change preset" : "Select a gradient background")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer(minLength: 0)
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Color(.tertiaryLabel))
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isSavingHomeScreenPhoto)
+            .contentShape(Rectangle())
+        }
         .padding(.horizontal, 16)
+        .sheet(isPresented: $showPresetPicker) {
+            PresetPickerSheet(
+                selectedPreset: selectedPreset,
+                onSelectPreset: { preset in
+                    applyPreset(preset)
+                    showPresetPicker = false
+                }
+            )
+        }
     }
 
     private func applyPreset(_ preset: PresetOption) {
@@ -246,7 +311,7 @@ struct HomeScreenQuickPresetsView: View {
     }
 
     private func applyPresetLocally(_ preset: PresetOption) {
-        let image = solidColorImage(color: preset.lockScreenOption.uiColor)
+        let image = preset.generateGradientImage()
 
         do {
             // SIMPLE: Just save to HomeScreen folder
@@ -266,15 +331,6 @@ struct HomeScreenQuickPresetsView: View {
             reportLoadFailure("Failed to save \(preset.title.lowercased()) preset.")
         }
     }
-
-    private func solidColorImage(color: UIColor) -> UIImage {
-        let size = CGSize(width: 1290, height: 2796)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { context in
-            color.setFill()
-            context.fill(CGRect(origin: .zero, size: size))
-        }
-    }
 }
 
 @available(iOS 16.0, *)
@@ -285,49 +341,6 @@ private struct LeadingMenuLabelStyle: LabelStyle {
             configuration.title
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-@available(iOS 16.0, *)
-private struct PresetOptionsRow: View {
-    let title: String
-    let isDisabled: Bool
-    let selectedPreset: PresetOption?
-    let selectionAction: (PresetOption) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            HStack(spacing: 8) {
-                ForEach(PresetOption.allCases) { preset in
-                    Button {
-                        selectionAction(preset)
-                    } label: {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(preset.previewColor)
-                            
-                            Text(preset.title)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(preset.textColor)
-                            
-                            if selectedPreset == preset {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .strokeBorder(Color.appAccent, lineWidth: 2.5)
-                            }
-                        }
-                        .frame(height: 50)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isDisabled)
-                    .opacity(isDisabled ? 0.6 : 1.0)
-                }
-            }
-        }
     }
 }
 
@@ -348,6 +361,7 @@ struct LockScreenBackgroundPickerView: View {
     @State private var hasActivatedLockThisSession = false
     @State private var isPhotoLibraryPickerPresented = false
     @State private var photoLibrarySelection: PhotosPickerItem?
+    @State private var showPresetPicker = false
 
     private enum PickerType: Identifiable {
         case camera
@@ -363,11 +377,8 @@ struct LockScreenBackgroundPickerView: View {
 
     private var selectedPreset: PresetOption? {
         guard let option = backgroundMode.presetOption else { return nil }
-        switch option {
-        case .black: return .black
-        case .gray: return .gray
-        case .none: return nil
-        }
+        // Try to match the preset based on stored value
+        return PresetOption.allCases.first
     }
 
     var body: some View {
@@ -406,17 +417,19 @@ struct LockScreenBackgroundPickerView: View {
                     .foregroundColor(statusColor)
                     .padding(.top, 4)
             }
-            
-            PresetOptionsRow(
-                title: "Presets",
-                isDisabled: isSavingBackground,
-                selectedPreset: selectedPreset,
-                selectionAction: selectPreset
-            )
         }
         .padding(.horizontal, 16)
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: backgroundMode)
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isLockIconActive)
+        .sheet(isPresented: $showPresetPicker) {
+            PresetPickerSheet(
+                selectedPreset: selectedPreset,
+                onSelectPreset: { preset in
+                    selectPreset(preset)
+                    showPresetPicker = false
+                }
+            )
+        }
         .confirmationDialog(
             "",
             isPresented: $showSourceOptions,
@@ -430,21 +443,11 @@ struct LockScreenBackgroundPickerView: View {
                     .labelStyle(LeadingMenuLabelStyle())
             }
 
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button(role: .none) {
-                    showSourceOptions = false
-                    activePicker = .camera
-                } label: {
-                    Label("Take Photo", systemImage: "camera")
-                        .labelStyle(LeadingMenuLabelStyle())
-                }
-            }
-
             Button(role: .none) {
                 showSourceOptions = false
-                activePicker = .files
+                showPresetPicker = true
             } label: {
-                Label("Choose File", systemImage: "folder")
+                Label("Faith Wall Presets", systemImage: "rectangle.on.rectangle.angled")
                     .labelStyle(LeadingMenuLabelStyle())
             }
 
@@ -591,23 +594,38 @@ struct LockScreenBackgroundPickerView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
         
-        isSavingBackground = false
-        statusMessage = nil
-        statusColor = .gray
+        isSavingBackground = true
+        statusMessage = "Applying \(preset.title.lowercased()) preset…"
+        statusColor = .secondary
         
         // Clear photo data and file system storage
         print("   Clearing photo data and removing background file...")
         backgroundPhotoData = Data()
         HomeScreenImageManager.removeLockScreenBackgroundSource()
         
-        // Set the preset mode and option
-        backgroundOption = preset.lockScreenOption
-        backgroundMode = LockScreenBackgroundMode.preset(for: preset.lockScreenOption)
+        // Generate and save the gradient image
+        let image = preset.generateGradientImage()
         
-        print("   ✅ Preset selected")
-        print("      Background option: \(backgroundOption)")
-        print("      Background mode: \(backgroundMode)")
-        print("   ℹ️  User must click 'Update Wallpaper Now' to apply")
+        do {
+            try HomeScreenImageManager.saveLockScreenBackgroundSource(image)
+            print("✅ Saved gradient preset to TextEditor folder")
+            
+            // Set the preset mode
+            backgroundOption = .black // Legacy compatibility
+            backgroundMode = .photo // Use photo mode since we saved an image
+            
+            isSavingBackground = false
+            statusMessage = nil
+            statusColor = .gray
+            
+            print("   ✅ Preset applied")
+            print("   ℹ️  User must click 'Update Wallpaper Now' to apply")
+        } catch {
+            print("❌ Failed to save preset: \(error)")
+            isSavingBackground = false
+            statusMessage = "Failed to save \(preset.title.lowercased()) preset."
+            statusColor = .red
+        }
         
         // Update icon state
         isLockIconActive = false
@@ -858,6 +876,89 @@ private struct DocumentPickerView: UIViewControllerRepresentable {
             DispatchQueue.main.async {
                 self.onCancel()
                 self.onDismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Preset Picker Sheet
+
+@available(iOS 16.0, *)
+struct PresetPickerSheet: View {
+    let selectedPreset: PresetOption?
+    let onSelectPreset: (PresetOption) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Text("Choose a beautiful gradient background for your wallpaper")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                    
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(PresetOption.allCases) { preset in
+                            Button(action: {
+                                onSelectPreset(preset)
+                            }) {
+                                VStack(spacing: 8) {
+                                    // Gradient preview
+                                    ZStack {
+                                        LinearGradient(
+                                            colors: preset.gradientColors,
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                        .aspectRatio(9/16, contentMode: .fit)
+                                        .cornerRadius(12)
+                                        
+                                        if selectedPreset == preset {
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .strokeBorder(Color.appAccent, lineWidth: 3)
+                                            
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 30))
+                                                .foregroundColor(.appAccent)
+                                                .background(
+                                                    Circle()
+                                                        .fill(Color.white)
+                                                        .frame(width: 26, height: 26)
+                                                )
+                                        }
+                                    }
+                                    
+                                    Text(preset.title)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.primary)
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.bottom, 20)
+            }
+            .navigationTitle("Choose Preset")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
             }
         }
     }

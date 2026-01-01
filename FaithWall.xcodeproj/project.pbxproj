@@ -19,9 +19,12 @@
 		426047C72EFDC214001BB43B /* BibleLanguageSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */; };
 		426047C82EFDC214001BB43B /* FirstLaunchBibleSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */; };
 		426047C92EFDC214001BB43B /* BibleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C42EFDC214001BB43B /* BibleModels.swift */; };
-		426047CC2EFDC999001BB43B /* BibleLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047CF2EFDC999001BB43B /* BibleLocalization.swift */; };
 		426047CA2EFDC214001BB43B /* BibleLanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C22EFDC214001BB43B /* BibleLanguageManager.swift */; };
 		426047CB2EFDC214001BB43B /* BibleDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047C02EFDC214001BB43B /* BibleDatabaseService.swift */; };
+		426047CC2EFDC215001BB43B /* WidgetOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047CD2EFDC215001BB43B /* WidgetOnboardingView.swift */; };
+		426047CE2EFDC216001BB43B /* BibleAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047CF2EFDC216001BB43B /* BibleAPIService.swift */; };
+		426047D02EFDC217001BB43B /* BibleMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047D12EFDC217001BB43B /* BibleMenuView.swift */; };
+		426047D22EFDC218001BB43B /* BibleSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047D32EFDC218001BB43B /* BibleSearchView.swift */; };
 		4283B2352ED25B5E00093E2D /* ShortcutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */; };
 		4283B2362ED25B5E00093E2D /* ShortcutSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */; };
 		4283B2372ED25B5E00093E2D /* ShortcutVerificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2342ED25B5E00093E2D /* ShortcutVerificationService.swift */; };
@@ -55,7 +58,36 @@
 		D1000001000000000000001 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2000001000000000000001 /* CrashReporter.swift */; };
 		D32DE5152005413895870245 /* DeviceAdaptive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */; };
 		I1000001000000000000000001 /* AppIconAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I2000001000000000000001 /* AppIconAnimationView.swift */; };
+		NIV000001000000000000001 /* NIV.db in Resources */ = {isa = PBXBuildFile; fileRef = NIV000002000000000000001 /* NIV.db */; };
+		W1000001000000000000001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = W2000001000000000000001 /* WidgetKit.framework */; };
+		W1000002000000000000001 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = W2000002000000000000001 /* SwiftUI.framework */; };
+		W1000003000000000000001 /* FaithWallWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = W2000003000000000000001 /* FaithWallWidget.swift */; };
+		W1000004000000000000001 /* FaithWallWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = W3000001000000000000001 /* FaithWallWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		W5000001000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A0000001000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = W6000001000000000000001;
+			remoteInfo = FaithWallWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		W4000001000000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				W1000004000000000000001 /* FaithWallWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		101010101010101010101010 /* PromoCodePersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoCodePersistenceManager.swift; sourceTree = "<group>"; };
@@ -69,8 +101,11 @@
 		426047C22EFDC214001BB43B /* BibleLanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLanguageManager.swift; sourceTree = "<group>"; };
 		426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLanguageSelectionView.swift; sourceTree = "<group>"; };
 		426047C42EFDC214001BB43B /* BibleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleModels.swift; sourceTree = "<group>"; };
-		426047CF2EFDC999001BB43B /* BibleLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleLocalization.swift; sourceTree = "<group>"; };
 		426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstLaunchBibleSetupView.swift; sourceTree = "<group>"; };
+		426047CD2EFDC215001BB43B /* WidgetOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetOnboardingView.swift; sourceTree = "<group>"; };
+		426047CF2EFDC216001BB43B /* BibleAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleAPIService.swift; sourceTree = "<group>"; };
+		426047D12EFDC217001BB43B /* BibleMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleMenuView.swift; sourceTree = "<group>"; };
+		426047D32EFDC218001BB43B /* BibleSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleSearchView.swift; sourceTree = "<group>"; };
 		4283B2312ED25B5E00093E2D /* PIPVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIPVideoPlayer.swift; sourceTree = "<group>"; };
 		4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupView.swift; sourceTree = "<group>"; };
 		4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupViewModel.swift; sourceTree = "<group>"; };
@@ -106,6 +141,13 @@
 		D2000001000000000000001 /* CrashReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporter.swift; sourceTree = "<group>"; };
 		D3F7D2FEBFCCE27BA8058728 /* TroubleshootingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TroubleshootingView.swift; sourceTree = "<group>"; };
 		I2000001000000000000001 /* AppIconAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconAnimationView.swift; sourceTree = "<group>"; };
+		NIV000002000000000000001 /* NIV.db */ = {isa = PBXFileReference; lastKnownFileType = file; path = NIV.db; sourceTree = "<group>"; };
+		W2000001000000000000001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		W2000002000000000000001 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		W2000003000000000000001 /* FaithWallWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaithWallWidget.swift; sourceTree = "<group>"; };
+		W2000004000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		W2000005000000000000001 /* FaithWallWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FaithWallWidget.entitlements; sourceTree = "<group>"; };
+		W3000001000000000000001 /* FaithWallWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FaithWallWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,12 +161,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		W9000002000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				W1000001000000000000001 /* WidgetKit.framework in Frameworks */,
+				W1000002000000000000001 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		425035A22ED5ADB20064014E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				W2000001000000000000001 /* WidgetKit.framework */,
+				W2000002000000000000001 /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -133,6 +186,7 @@
 			isa = PBXGroup;
 			children = (
 				A5000002000000000000001 /* Faithwall */,
+				W7000001000000000000001 /* FaithWallWidget */,
 				A5000003000000000000001 /* Products */,
 				425035A22ED5ADB20064014E /* Frameworks */,
 			);
@@ -142,13 +196,16 @@
 			isa = PBXGroup;
 			children = (
 				426047C02EFDC214001BB43B /* BibleDatabaseService.swift */,
+				426047CF2EFDC216001BB43B /* BibleAPIService.swift */,
 				426047C12EFDC214001BB43B /* BibleExplorerView.swift */,
+				426047D12EFDC217001BB43B /* BibleMenuView.swift */,
+				426047D32EFDC218001BB43B /* BibleSearchView.swift */,
 				426047C22EFDC214001BB43B /* BibleLanguageManager.swift */,
 				426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */,
-				426047CF2EFDC999001BB43B /* BibleLocalization.swift */,
 				426047C42EFDC214001BB43B /* BibleModels.swift */,
 				426047C52EFDC214001BB43B /* FirstLaunchBibleSetupView.swift */,
 				42501EE12EFAF40500BCBC2A /* OnboardingEnhanced.swift */,
+				426047CD2EFDC215001BB43B /* WidgetOnboardingView.swift */,
 				424B745B2EBF88C1009F134B /* FaithWall.entitlements */,
 				A2000001000000000000001 /* FaithWallApp.swift */,
 				A2000002000000000000001 /* ContentView.swift */,
@@ -188,6 +245,7 @@
 				I2000001000000000000001 /* AppIconAnimationView.swift */,
 				BC13CA5FCB3C472D93509B1F /* UserCountService.swift */,
 				6BB4C5ED44A443D7BECFB39C /* DeviceAdaptive.swift */,
+				NIV000002000000000000001 /* NIV.db */,
 			);
 			path = Faithwall;
 			sourceTree = "<group>";
@@ -196,8 +254,19 @@
 			isa = PBXGroup;
 			children = (
 				A3000001000000000000001 /* FaithWall.app */,
+				W3000001000000000000001 /* FaithWallWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		W7000001000000000000001 /* FaithWallWidget */ = {
+			isa = PBXGroup;
+			children = (
+				W2000003000000000000001 /* FaithWallWidget.swift */,
+				W2000004000000000000001 /* Info.plist */,
+				W2000005000000000000001 /* FaithWallWidget.entitlements */,
+			);
+			path = FaithWallWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -210,10 +279,12 @@
 				A8000001000000000000001 /* Sources */,
 				A4000001000000000000001 /* Frameworks */,
 				A9000001000000000000001 /* Resources */,
+				W4000001000000000000001 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				W5000002000000000000001 /* PBXTargetDependency */,
 			);
 			name = FaithWall;
 			packageProductDependencies = (
@@ -224,6 +295,23 @@
 			productName = FaithWall;
 			productReference = A3000001000000000000001 /* FaithWall.app */;
 			productType = "com.apple.product-type.application";
+		};
+		W6000001000000000000001 /* FaithWallWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = W8000001000000000000001 /* Build configuration list for PBXNativeTarget "FaithWallWidgetExtension" */;
+			buildPhases = (
+				W9000001000000000000001 /* Sources */,
+				W9000002000000000000001 /* Frameworks */,
+				W9000003000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FaithWallWidgetExtension;
+			productName = FaithWallWidgetExtension;
+			productReference = W3000001000000000000001 /* FaithWallWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -238,6 +326,9 @@
 					A6000001000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					W6000001000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 				};
 			};
 			buildConfigurationList = A0000002000000000000001 /* Build configuration list for PBXProject "FaithWall" */;
@@ -250,7 +341,7 @@
 			);
 			mainGroup = A5000001000000000000001;
 			packageReferences = (
-				425035A12ED5ACAC0064014E /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+				425035A12ED5ACAC0064014E /* XCRemoteSwiftPackageReference "purchases-ios" */,
 				420E5C3F2EF55E43003293FD /* XCRemoteSwiftPackageReference "SwiftSDK" */,
 			);
 			productRefGroup = A5000003000000000000001 /* Products */;
@@ -258,6 +349,7 @@
 			projectRoot = "";
 			targets = (
 				A6000001000000000000001 /* FaithWall */,
+				W6000001000000000000001 /* FaithWallWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -269,6 +361,14 @@
 			files = (
 				42DB5DEB2EC32ADB00F21F88 /* FaithWall.storekit in Resources */,
 				A1000009000000000000001 /* Assets.xcassets in Resources */,
+				NIV000001000000000000001 /* NIV.db in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		W9000003000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -305,9 +405,12 @@
 				426047C72EFDC214001BB43B /* BibleLanguageSelectionView.swift in Sources */,
 				426047C82EFDC214001BB43B /* FirstLaunchBibleSetupView.swift in Sources */,
 				426047C92EFDC214001BB43B /* BibleModels.swift in Sources */,
-				426047CC2EFDC999001BB43B /* BibleLocalization.swift in Sources */,
 				426047CA2EFDC214001BB43B /* BibleLanguageManager.swift in Sources */,
 				426047CB2EFDC214001BB43B /* BibleDatabaseService.swift in Sources */,
+				426047CE2EFDC216001BB43B /* BibleAPIService.swift in Sources */,
+				426047D02EFDC217001BB43B /* BibleMenuView.swift in Sources */,
+				426047D22EFDC218001BB43B /* BibleSearchView.swift in Sources */,
+				426047CC2EFDC215001BB43B /* WidgetOnboardingView.swift in Sources */,
 				652485545120494283652512 /* QuickActionsManager.swift in Sources */,
 				486563549087408615731241 /* ExitFeedbackView.swift in Sources */,
 				346345317236465393090244 /* AutoFixWorkflowView.swift in Sources */,
@@ -325,7 +428,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		W9000001000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				W1000003000000000000001 /* FaithWallWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		W5000002000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = W6000001000000000000001 /* FaithWallWidgetExtension */;
+			targetProxy = W5000001000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A0000003000000000000001 /* Debug */ = {
@@ -477,7 +596,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -509,7 +628,69 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		W8000002000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = FaithWallWidget/FaithWallWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 26AGTG2MU5;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FaithWallWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FaithWallWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.faithwall.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		W8000003000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = FaithWallWidget/FaithWallWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 26AGTG2MU5;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FaithWallWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FaithWallWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.faithwall.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -536,6 +717,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		W8000001000000000000001 /* Build configuration list for PBXNativeTarget "FaithWallWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				W8000002000000000000001 /* Debug */,
+				W8000003000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -547,9 +737,9 @@
 				minimumVersion = 2.11.0;
 			};
 		};
-		425035A12ED5ACAC0064014E /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+		425035A12ED5ACAC0064014E /* XCRemoteSwiftPackageReference "purchases-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 5.49.0;
@@ -570,7 +760,7 @@
 		};
 		425035A32ED5ADB20064014E /* RevenueCat */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 425035A12ED5ACAC0064014E /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			package = 425035A12ED5ACAC0064014E /* XCRemoteSwiftPackageReference "purchases-ios" */;
 			productName = RevenueCat;
 		};
 /* End XCSwiftPackageProductDependency section */

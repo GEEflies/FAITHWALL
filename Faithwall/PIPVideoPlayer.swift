@@ -760,9 +760,9 @@ struct PIPVideoPlayerView: View {
             } else {
                 // Placeholder while loading
                 ZStack {
-                    Color.black
+                    Color(.systemBackground)
                     ProgressView()
-                        .tint(.white)
+                        .tint(.appAccent)
                 }
             }
         }
