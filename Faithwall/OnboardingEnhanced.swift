@@ -201,6 +201,7 @@ struct MotivationalTransitionView: View {
     
     @State private var visibleWordCount = 0
     @State private var showButton = false
+    @State private var isNavigating = false
     
     private let message = "We built FaithWall so you see God's Word every time you pick up your phone."
     private var words: [String] {
@@ -231,6 +232,9 @@ struct MotivationalTransitionView: View {
                 
                 // Continue button
                 Button(action: {
+                    guard !isNavigating else { return }
+                    isNavigating = true
+                    
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
                     onContinue()
@@ -696,6 +700,7 @@ struct PhoneUsageSliderQuestionView: View {
     @State private var gaugeOpacity: Double = 0
     @State private var sliderOpacity: Double = 0
     @State private var lastHapticValue: Int = 100
+    @State private var isNavigating = false
     
     private var isCompact: Bool { ScreenDimensions.isCompactDevice }
     
@@ -706,9 +711,9 @@ struct PhoneUsageSliderQuestionView: View {
     
     var body: some View {
         ZStack {
-            // Reddish gradient background (Claude.ai inspired)
+            // Orange gradient background (matching Step 0)
             LinearGradient(
-                colors: [Color(red: 0.82, green: 0.35, blue: 0.25), Color(red: 0.75, green: 0.32, blue: 0.22)],
+                colors: [Color(red: 0.95, green: 0.4, blue: 0.2), Color(red: 1.0, green: 0.5, blue: 0.1)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -793,6 +798,9 @@ struct PhoneUsageSliderQuestionView: View {
                     
                     // Next button
                     Button(action: {
+                        guard !isNavigating else { return }
+                        isNavigating = true
+                        
                         let generator = UIImpactFeedbackGenerator(style: .medium)
                         generator.impactOccurred()
                         
@@ -850,6 +858,7 @@ struct QuizQuestionView: View {
     @State private var selectedOption: String?
     @State private var contentOpacity: Double = 0
     @State private var optionsOpacity: Double = 0
+    @State private var isNavigating = false
     
     // Adaptive layout
     private var isCompact: Bool { ScreenDimensions.isCompactDevice }
@@ -906,6 +915,9 @@ struct QuizQuestionView: View {
                             title: option.title,
                             isSelected: selectedOption == option.value
                         ) {
+                            guard !isNavigating else { return }
+                            isNavigating = true
+                            
                             let generator = UIImpactFeedbackGenerator(style: .light)
                             generator.impactOccurred()
                             
@@ -2948,6 +2960,7 @@ struct ResultsPreviewView: View {
                                 .foregroundColor(.secondary)
                         }
                         .padding(.top, 60)
+                        .padding(.horizontal, AdaptiveLayout.horizontalPadding)
                         
                         // Timeline Comparison Section
                         VStack(alignment: .leading, spacing: 16) {
@@ -3097,7 +3110,7 @@ struct ResultsPreviewView: View {
                         .background(Color.white)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.05), radius: 10)
-                        .padding(.horizontal)
+                        .padding(.horizontal, AdaptiveLayout.horizontalPadding)
                         
                         // Key Insight Card
                         VStack(alignment: .leading, spacing: 12) {
@@ -3125,7 +3138,7 @@ struct ResultsPreviewView: View {
                             RoundedRectangle(cornerRadius: 20)
                                 .strokeBorder(Color.appAccent.opacity(0.2), lineWidth: 1)
                         )
-                        .padding(.horizontal)
+                        .padding(.horizontal, AdaptiveLayout.horizontalPadding)
                         
                         // Consistency Rate Comparison
                         VStack(alignment: .leading, spacing: 16) {
@@ -3189,7 +3202,7 @@ struct ResultsPreviewView: View {
                         .background(Color.white)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.05), radius: 10)
-                        .padding(.horizontal)
+                        .padding(.horizontal, AdaptiveLayout.horizontalPadding)
                         
                         // Stats Grid
                         HStack(spacing: 16) {
@@ -3239,7 +3252,7 @@ struct ResultsPreviewView: View {
                             .cornerRadius(20)
                             .shadow(color: Color.black.opacity(0.05), radius: 10)
                         }
-                        .padding(.horizontal)
+                        .padding(.horizontal, AdaptiveLayout.horizontalPadding)
                         
                         Spacer(minLength: 40)
                     }
@@ -3563,11 +3576,34 @@ struct OnboardingVerseSelectionView: View {
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             .opacity(contentOpacity)
+            
+            // Continue Button for Write Mode
+            if selectedTab == 0 {
+                Button(action: {
+                    onVerseSelected(manualText, manualReference)
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(manualText.isEmpty ? Color.gray.opacity(0.5) : Color.appAccent)
+                        .cornerRadius(16)
+                        .shadow(color: manualText.isEmpty ? .clear : Color.appAccent.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                .disabled(manualText.isEmpty)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
+                .opacity(contentOpacity)
+            }
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.5)) {
                 contentOpacity = 1
             }
+        }
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .sheet(isPresented: $showVersionPicker) {
             SettingsVersionSheet(
@@ -3647,21 +3683,21 @@ struct OnboardingVerseSelectionView: View {
     // MARK: - Manual Entry
     
     private var manualEntryView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Verse Text")
                     .font(.caption)
-                    .fontWeight(.medium)
+                    .fontWeight(.bold)
                     .foregroundColor(.secondary)
                     .padding(.leading, 4)
                 
                 TextEditor(text: $manualText)
-                    .frame(height: 120)
-                    .padding(12)
+                    .frame(height: 140)
+                    .padding(16)
                     .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .cornerRadius(16)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 16)
                             .stroke(Color.black.opacity(0.05), lineWidth: 1)
                     )
             }
@@ -3669,65 +3705,58 @@ struct OnboardingVerseSelectionView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Reference")
                     .font(.caption)
-                    .fontWeight(.medium)
+                    .fontWeight(.bold)
                     .foregroundColor(.secondary)
                     .padding(.leading, 4)
                 
                 TextField("e.g. John 3:16", text: $manualReference)
-                    .padding(12)
+                    .padding(16)
                     .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .cornerRadius(16)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 16)
                             .stroke(Color.black.opacity(0.05), lineWidth: 1)
                     )
             }
             
             Spacer()
-            
-            Button(action: {
-                onVerseSelected(manualText, manualReference)
-            }) {
-                Text("Use This Verse")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(manualText.isEmpty ? Color.gray.opacity(0.5) : Color.appAccent)
-                    .cornerRadius(16)
-                    .shadow(color: manualText.isEmpty ? .clear : .appAccent.opacity(0.3), radius: 8, x: 0, y: 4)
-            }
-            .disabled(manualText.isEmpty)
-            .padding(.bottom)
         }
         .padding(.horizontal, 24)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
     
     // MARK: - Explore View
     
     private var exploreView: some View {
-        VStack(spacing: 0) {
-            // Version selector header
-            HStack {
-                Text("Browse Books")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                versionButton
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 12)
-            
-            BibleBookListView(
-                languageManager: languageManager,
-                onVerseSelected: { verse in
-                    selectedVerseForConfirmation = verse
-                    showConfirmationAlert = true
+        NavigationView {
+            VStack(spacing: 0) {
+                // Version selector header
+                HStack {
+                    Text("Browse Books")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    versionButton
                 }
-            )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 12)
+                
+                BibleBookListView(
+                    languageManager: languageManager,
+                    onVerseSelected: { verse in
+                        selectedVerseForConfirmation = verse
+                        showConfirmationAlert = true
+                    }
+                )
+            }
+            .navigationBarHidden(true)
         }
+        .navigationViewStyle(StackNavigationViewStyle())
     }
     
     // MARK: - Search View
@@ -3804,6 +3833,7 @@ struct OnboardingVerseSelectionView: View {
                     }
                 }
                 .listStyle(.plain)
+                .padding(.horizontal, 24)
             } else if !searchText.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {

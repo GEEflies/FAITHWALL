@@ -173,6 +173,17 @@ struct WidgetOnboardingView: View {
                 .font(.system(size: circleFontSize, weight: .semibold, design: .rounded))
                 .foregroundColor(circleTextColor)
         }
+        .contentShape(Rectangle()) // Make the whole area tappable
+        .onTapGesture {
+            if isCompleted {
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+                
+                withAnimation(.easeInOut) {
+                    currentPage = page
+                }
+            }
+        }
     }
     
     // MARK: - Navigation
@@ -195,6 +206,9 @@ struct WidgetOnboardingView: View {
 
 struct WidgetVerseSelectionView: View {
     let onContinue: () -> Void
+    
+    // Step 0 mockup background color
+    private let step0Orange = Color(red: 0.95, green: 0.4, blue: 0.2)
     
     @StateObject private var languageManager = BibleLanguageManager.shared
     @State private var selectedTab = 1 // Default to Explore
@@ -252,11 +266,34 @@ struct WidgetVerseSelectionView: View {
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             .opacity(contentOpacity)
+            
+            // Continue Button for Write Mode
+            if selectedTab == 0 {
+                Button(action: {
+                    saveVerseAndContinue(text: manualText, reference: manualReference)
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(manualText.isEmpty ? Color.gray.opacity(0.5) : step0Orange)
+                        .cornerRadius(16)
+                        .shadow(color: manualText.isEmpty ? .clear : step0Orange.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                .disabled(manualText.isEmpty)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
+                .opacity(contentOpacity)
+            }
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.5)) {
                 contentOpacity = 1
             }
+        }
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .sheet(isPresented: $showVersionPicker) {
             SettingsVersionSheet(
@@ -295,12 +332,12 @@ struct WidgetVerseSelectionView: View {
                 Text(title)
                     .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
             }
-            .foregroundColor(isSelected ? .appAccent : .secondary)
+            .foregroundColor(isSelected ? step0Orange : .secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.appAccent.opacity(0.1) : Color.clear)
+                    .fill(isSelected ? step0Orange.opacity(0.1) : Color.clear)
             )
         }
     }
@@ -323,12 +360,12 @@ struct WidgetVerseSelectionView: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .bold))
             }
-            .foregroundColor(.appAccent)
+            .foregroundColor(step0Orange)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color.appAccent.opacity(0.1))
+                    .fill(step0Orange.opacity(0.1))
             )
         }
     }
@@ -336,21 +373,21 @@ struct WidgetVerseSelectionView: View {
     // MARK: - Manual Entry
     
     private var manualEntryView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Verse Text")
                     .font(.caption)
-                    .fontWeight(.medium)
+                    .fontWeight(.bold)
                     .foregroundColor(.secondary)
                     .padding(.leading, 4)
                 
                 TextEditor(text: $manualText)
-                    .frame(height: 120)
-                    .padding(12)
+                    .frame(height: 140)
+                    .padding(16)
                     .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .cornerRadius(16)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 16)
                             .stroke(Color.black.opacity(0.05), lineWidth: 1)
                     )
             }
@@ -358,70 +395,59 @@ struct WidgetVerseSelectionView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Reference")
                     .font(.caption)
-                    .fontWeight(.medium)
+                    .fontWeight(.bold)
                     .foregroundColor(.secondary)
                     .padding(.leading, 4)
                 
                 TextField("e.g. John 3:16", text: $manualReference)
-                    .padding(12)
+                    .padding(16)
                     .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .cornerRadius(16)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 16)
                             .stroke(Color.black.opacity(0.05), lineWidth: 1)
                     )
             }
             
             Spacer()
-            
-            Button(action: {
-                saveVerseAndContinue(text: manualText, reference: manualReference)
-            }) {
-                Text("Use This Verse")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(manualText.isEmpty ? Color.gray.opacity(0.5) : Color.appAccent)
-                    .cornerRadius(16)
-                    .shadow(color: manualText.isEmpty ? .clear : .appAccent.opacity(0.3), radius: 8, x: 0, y: 4)
-            }
-            .disabled(manualText.isEmpty)
-            .padding(.bottom)
         }
         .padding(.horizontal, 24)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
     
     // MARK: - Explore View
     
     private var exploreView: some View {
-        VStack(spacing: 0) {
-            // Version selector header
-            HStack {
-                Text("Browse Books")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                versionButton
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 12)
-            
-            // Embedded Explorer
-            // We use a simplified version of BibleExplorerView logic here or embed it
-            // Since BibleExplorerView has its own NavigationView, we might need to be careful.
-            // Let's use a custom implementation that fits better here.
-            
-            BibleBookListView(
-                languageManager: languageManager,
-                onVerseSelected: { verse in
-                    selectedVerseForConfirmation = verse
-                    showConfirmationAlert = true
+        NavigationView {
+            VStack(spacing: 0) {
+                // Version selector header
+                HStack {
+                    Text("Browse Books")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    versionButton
                 }
-            )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 12)
+                
+                // Embedded Explorer - BibleBookListView contains NavigationLinks
+                // that need to be inside a NavigationView
+                BibleBookListView(
+                    languageManager: languageManager,
+                    onVerseSelected: { verse in
+                        saveVerseAndContinue(text: verse.text, reference: verse.reference)
+                    }
+                )
+            }
+            .navigationBarHidden(true)
         }
+        .navigationViewStyle(StackNavigationViewStyle())
     }
     
     // MARK: - Search View
@@ -474,7 +500,7 @@ struct WidgetVerseSelectionView: View {
                             HStack {
                                 Text(verse.reference)
                                     .font(.headline)
-                                    .foregroundColor(.appAccent)
+                                    .foregroundColor(step0Orange)
                                 
                                 Spacer()
                                 
@@ -483,9 +509,9 @@ struct WidgetVerseSelectionView: View {
                                     .fontWeight(.bold)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(Color.appAccent.opacity(0.1))
+                                    .background(step0Orange.opacity(0.1))
                                     .cornerRadius(4)
-                                    .foregroundColor(.appAccent)
+                                    .foregroundColor(step0Orange)
                             }
                             
                             Text(verse.text)
@@ -498,6 +524,7 @@ struct WidgetVerseSelectionView: View {
                     }
                 }
                 .listStyle(.plain)
+                .padding(.horizontal, 24)
             } else if !searchText.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
@@ -517,7 +544,7 @@ struct WidgetVerseSelectionView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 50))
-                        .foregroundColor(.appAccent.opacity(0.3))
+                        .foregroundColor(step0Orange.opacity(0.3))
                     
                     Text("Search for Bible Verse")
                         .font(.headline)
@@ -604,35 +631,56 @@ struct BibleBookListView: View {
     @State private var isLoading = true
     @State private var selectedBook: BibleBook?
     @State private var selectedChapter: Int?
+    @State private var loadError: String?
     
     var body: some View {
-        NavigationView {
-            VStack {
-                if isLoading {
+        // NOTE: No NavigationView here - this view is embedded in a parent that already has NavigationView
+        VStack {
+            if isLoading {
+                VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.2)
-                } else {
-                    List {
-                        Section(header: Text("Old Testament")) {
-                            ForEach(books.filter { $0.testament == .old }) { book in
-                                NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
-                                    Text(book.name)
-                                }
-                            }
-                        }
-                        
-                        Section(header: Text("New Testament")) {
-                            ForEach(books.filter { $0.testament == .new }) { book in
-                                NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
-                                    Text(book.name)
-                                }
+                    Text("Loading books...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else if let error = loadError {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 40))
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    Button("Retry") {
+                        loadBooks()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    Section(header: Text("Old Testament")) {
+                        ForEach(books.filter { $0.testament == .old }) { book in
+                            NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
+                                Text(book.name)
                             }
                         }
                     }
-                    .listStyle(.plain)
+                    
+                    Section(header: Text("New Testament")) {
+                        ForEach(books.filter { $0.testament == .new }) { book in
+                            NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
+                                Text(book.name)
+                            }
+                        }
+                    }
                 }
+                .listStyle(.plain)
+                .padding(.horizontal, 24)
             }
-            .navigationBarHidden(true)
         }
         .onAppear {
             loadBooks()
@@ -644,11 +692,12 @@ struct BibleBookListView: View {
     
     private func loadBooks() {
         isLoading = true
+        loadError = nil
         
         // Check if translation is downloaded
         guard languageManager.isSelectedTranslationReady else {
-            // If not ready, it should be downloading via the manager/picker
-            // We can just wait or show loading
+            loadError = "\(languageManager.selectedTranslation.displayName) is not downloaded yet. Please select a different version or download it first."
+            isLoading = false
             return
         }
         
@@ -658,10 +707,12 @@ struct BibleBookListView: View {
                 DispatchQueue.main.async {
                     self.books = loadedBooks
                     self.isLoading = false
+                    self.loadError = nil
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.isLoading = false
+                    self.loadError = "Failed to load books: \(error.localizedDescription)"
                 }
             }
         }
