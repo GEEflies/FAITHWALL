@@ -3434,84 +3434,129 @@ struct PipelineChoiceView: View {
     let onSelectFullScreen: () -> Void
     let onSelectWidget: () -> Void
     
+    @State private var selectedOption: String? = nil
+    
     var body: some View {
         VStack(spacing: DS.Spacing.l) {
             Spacer()
             
-            Text("Choose Your Setup")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .multilineTextAlignment(.center)
-            
-            Text("How would you like to see your daily verses?")
-                .font(DS.Fonts.bodyLarge())
-                .foregroundColor(DS.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            
-            VStack(spacing: DS.Spacing.m) {
-                // Full Screen Option
-                Button(action: onSelectFullScreen) {
-                    HStack {
-                        Image(systemName: "iphone")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white)
-                            .frame(width: 50)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Lock Screen Wallpaper")
-                                .font(DS.Fonts.bodyLarge().weight(.semibold))
-                                .foregroundColor(.white)
-                            
-                            Text("Automated daily updates")
-                                .font(DS.Fonts.bodySmall())
-                                .foregroundColor(.white.opacity(0.85))
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .padding()
-                    .background(DS.Colors.accent)
-                    .cornerRadius(DS.Radius.large)
-                }
-                .buttonStyle(ScaleButtonStyle())
+            VStack(spacing: DS.Spacing.s) {
+                Text("Choose Your Setup")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .multilineTextAlignment(.center)
                 
-                // Widget Option
-                Button(action: onSelectWidget) {
-                    HStack {
-                        Image(systemName: "square.text.square")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white)
-                            .frame(width: 50)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Home Screen Widget")
-                                .font(DS.Fonts.bodyLarge().weight(.semibold))
-                                .foregroundColor(.white)
-                            
-                            Text("Simple widget setup")
-                                .font(DS.Fonts.bodySmall())
-                                .foregroundColor(.white.opacity(0.85))
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .padding()
-                    .background(DS.Colors.accent)
-                    .cornerRadius(DS.Radius.large)
-                }
-                .buttonStyle(ScaleButtonStyle())
+                Text("How would you like to see your daily verses?")
+                    .font(DS.Fonts.bodyLarge())
+                    .foregroundColor(DS.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
             }
-            .padding(.horizontal, DS.Spacing.xl)
+            
+            HStack(spacing: 16) {
+                // Lock Screen Option
+                PipelineOptionCard(
+                    imageName: "lockscreen-choose",
+                    title: "Lock Screen",
+                    subtitle: "Wallpaper",
+                    isSelected: selectedOption == "fullscreen",
+                    action: {
+                        handleSelection("fullscreen", action: onSelectFullScreen)
+                    }
+                )
+                
+                // Home Screen Option
+                PipelineOptionCard(
+                    imageName: "widget-choose",
+                    title: "Home Screen",
+                    subtitle: "Widget",
+                    isSelected: selectedOption == "widget",
+                    action: {
+                        handleSelection("widget", action: onSelectWidget)
+                    }
+                )
+            }
+            .padding(.horizontal)
             
             Spacer()
+            
+            Text("You can change this later in settings")
+                .font(DS.Fonts.bodySmall())
+                .foregroundColor(DS.Colors.textSecondary)
+                .padding(.bottom)
         }
         .background(DS.Colors.background.ignoresSafeArea())
+    }
+    
+    private func handleSelection(_ option: String, action: @escaping () -> Void) {
+        guard selectedOption == nil else { return }
+        
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            selectedOption = option
+        }
+        
+        // Delay for animation to complete
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            action()
+            // Reset after a delay so if they come back it's clean
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                selectedOption = nil
+            }
+        }
+    }
+}
+
+struct PipelineOptionCard: View {
+    let imageName: String
+    let title: String
+    let subtitle: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 12) {
+                // Image Container
+                ZStack {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .cornerRadius(12)
+                    
+                    // Selection Overlay
+                    if isSelected {
+                        Color.appAccent.opacity(0.15)
+                            .cornerRadius(12)
+                        
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(.appAccent)
+                            .background(Circle().fill(Color.white))
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .aspectRatio(0.55, contentMode: .fit)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isSelected ? Color.appAccent : Color.black.opacity(0.05), lineWidth: isSelected ? 3 : 1)
+                )
+                .shadow(color: isSelected ? Color.appAccent.opacity(0.3) : Color.black.opacity(0.05), radius: isSelected ? 12 : 8, x: 0, y: 4)
+                
+                // Text
+                VStack(spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(isSelected ? .appAccent : .primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.bottom, 4)
+            }
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 }
 
@@ -3520,391 +3565,9 @@ struct PipelineChoiceView: View {
 struct OnboardingVerseSelectionView: View {
     let onVerseSelected: (String, String) -> Void
     
-    @StateObject private var languageManager = BibleLanguageManager.shared
-    @State private var selectedTab = 1 // Default to Explore
-    @State private var manualText = ""
-    @State private var manualReference = ""
-    @State private var searchText = ""
-    @State private var searchResults: [BibleVerse] = []
-    @State private var isSearching = false
-    @State private var showVersionPicker = false
-    @State private var selectedVerseForConfirmation: BibleVerse?
-    @State private var showConfirmationAlert = false
-    @State private var contentOpacity: Double = 0
-    
-    private var isCompact: Bool { ScreenDimensions.isCompactDevice }
-    
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 8) {
-                Text("Add Your First Note")
-                    .font(.system(size: isCompact ? 24 : 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
-                
-                Text("Select a verse to display on your lock screen")
-                    .font(.system(size: isCompact ? 14 : 16))
-                    .foregroundColor(.secondary)
-            }
-            .padding(.top, isCompact ? 20 : 30)
-            .padding(.horizontal)
-            .opacity(contentOpacity)
-            
-            // Custom Tab Bar
-            HStack(spacing: 0) {
-                tabButton(title: "Explore", icon: "book.fill", index: 1)
-                tabButton(title: "Search", icon: "magnifyingglass", index: 2)
-                tabButton(title: "Write", icon: "pencil", index: 0)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 20)
-            .opacity(contentOpacity)
-            
-            // Content
-            TabView(selection: $selectedTab) {
-                // Manual Entry
-                manualEntryView
-                    .tag(0)
-                
-                // Explore
-                exploreView
-                    .tag(1)
-                
-                // Search
-                searchView
-                    .tag(2)
-            }
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-            .opacity(contentOpacity)
-            
-            // Continue Button for Write Mode
-            if selectedTab == 0 {
-                Button(action: {
-                    onVerseSelected(manualText, manualReference)
-                }) {
-                    Text("Continue")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(manualText.isEmpty ? Color.gray.opacity(0.5) : Color.appAccent)
-                        .cornerRadius(16)
-                        .shadow(color: manualText.isEmpty ? .clear : Color.appAccent.opacity(0.3), radius: 8, x: 0, y: 4)
-                }
-                .disabled(manualText.isEmpty)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 20)
-                .opacity(contentOpacity)
-            }
-        }
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.5)) {
-                contentOpacity = 1
-            }
-        }
-        .onTapGesture {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }
-        .sheet(isPresented: $showVersionPicker) {
-            SettingsVersionSheet(
-                languageManager: languageManager,
-                onDismiss: { showVersionPicker = false }
-            )
-        }
-        .alert(isPresented: $showConfirmationAlert) {
-            Alert(
-                title: Text("Use this verse?"),
-                message: Text(selectedVerseForConfirmation?.text ?? ""),
-                primaryButton: .default(Text("Yes"), action: {
-                    if let verse = selectedVerseForConfirmation {
-                        onVerseSelected(verse.text, verse.reference)
-                    }
-                }),
-                secondaryButton: .cancel()
-            )
-        }
-    }
-    
-    // MARK: - Tab Button
-    
-    private func tabButton(title: String, icon: String, index: Int) -> some View {
-        let isSelected = selectedTab == index
-        
-        return Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                selectedTab = index
-            }
-        }) {
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
-                
-                Text(title)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-            }
-            .foregroundColor(isSelected ? .appAccent : .secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.appAccent.opacity(0.1) : Color.clear)
-            )
-        }
-    }
-    
-    // MARK: - Version Button
-    
-    private var versionButton: some View {
-        Button(action: {
-            showVersionPicker = true
-        }) {
-            HStack(spacing: 4) {
-                if languageManager.isDownloading {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                }
-                
-                Text(languageManager.selectedTranslation.shortName)
-                    .font(.system(size: 13, weight: .semibold))
-                
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
-            }
-            .foregroundColor(.appAccent)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(Color.appAccent.opacity(0.1))
-            )
-        }
-    }
-    
-    // MARK: - Manual Entry
-    
-    private var manualEntryView: some View {
-        VStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Verse Text")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 4)
-                
-                TextEditor(text: $manualText)
-                    .frame(height: 140)
-                    .padding(16)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                    )
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Reference")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 4)
-                
-                TextField("e.g. John 3:16", text: $manualReference)
-                    .padding(16)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                    )
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }
-    }
-    
-    // MARK: - Explore View
-    
-    private var exploreView: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Version selector header
-                HStack {
-                    Text("Browse Books")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    versionButton
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
-                
-                BibleBookListView(
-                    languageManager: languageManager,
-                    onVerseSelected: { verse in
-                        selectedVerseForConfirmation = verse
-                        showConfirmationAlert = true
-                    }
-                )
-            }
-            .navigationBarHidden(true)
-        }
-        .navigationViewStyle(StackNavigationViewStyle())
-    }
-    
-    // MARK: - Search View
-    
-    private var searchView: some View {
-        VStack(spacing: 0) {
-            // Search Bar & Version
-            HStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    
-                    TextField("Search verses...", text: $searchText)
-                        .onSubmit {
-                            performSearch()
-                        }
-                    
-                    if !searchText.isEmpty {
-                        Button(action: {
-                            searchText = ""
-                            searchResults = []
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(10)
-                .background(Color(.secondarySystemBackground))
-                .cornerRadius(10)
-                
-                versionButton
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 16)
-            
-            // Results
-            if isSearching {
-                Spacer()
-                ProgressView()
-                    .scaleEffect(1.2)
-                Spacer()
-            } else if !searchResults.isEmpty {
-                List(searchResults) { verse in
-                    Button(action: {
-                        selectedVerseForConfirmation = verse
-                        showConfirmationAlert = true
-                    }) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(verse.reference)
-                                    .font(.headline)
-                                    .foregroundColor(.appAccent)
-                                
-                                Spacer()
-                                
-                                Text(verse.translation.shortName)
-                                    .font(.caption2)
-                                    .fontWeight(.bold)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.appAccent.opacity(0.1))
-                                    .cornerRadius(4)
-                                    .foregroundColor(.appAccent)
-                            }
-                            
-                            Text(verse.text)
-                                .font(.body)
-                                .foregroundColor(.primary.opacity(0.8))
-                                .lineLimit(3)
-                                .lineSpacing(2)
-                        }
-                        .padding(.vertical, 8)
-                    }
-                }
-                .listStyle(.plain)
-                .padding(.horizontal, 24)
-            } else if !searchText.isEmpty {
-                Spacer()
-                VStack(spacing: 12) {
-                    Image(systemName: "text.magnifyingglass")
-                        .font(.system(size: 40))
-                        .foregroundColor(.secondary.opacity(0.5))
-                    Text("No verses found")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    Text("Try a different search term or Bible version")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary.opacity(0.7))
-                }
-                Spacer()
-            } else {
-                Spacer()
-                VStack(spacing: 16) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 50))
-                        .foregroundColor(.appAccent.opacity(0.3))
-                    
-                    Text("Search for Bible Verse")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text("Type keywords like 'love', 'hope', or 'strength' to find verses.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-                Spacer()
-            }
-        }
-        .onChange(of: searchText) { newValue in
-            if newValue.count > 2 {
-                performSearch()
-            }
-        }
-        .onChange(of: languageManager.selectedTranslation) { _ in
-            if !searchText.isEmpty {
-                performSearch()
-            }
-        }
-    }
-    
-    private func performSearch() {
-        guard !searchText.isEmpty else { return }
-        isSearching = true
-        let query = searchText
-        let translation = languageManager.selectedTranslation
-        
-        Task {
-            var results: [BibleVerse] = []
-            
-            do {
-                // Use BibleDatabaseService for search (run on background to avoid blocking UI)
-                results = try await Task.detached(priority: .userInitiated) {
-                    try BibleDatabaseService.shared.searchVerses(
-                        query: query,
-                        translation: translation
-                    )
-                }.value
-            } catch {
-                print("Search error: \(error)")
-            }
-            
-            await MainActor.run {
-                self.searchResults = results
-                self.isSearching = false
-            }
+        UnifiedVerseSelectionView { text, reference in
+            onVerseSelected(text, reference)
         }
     }
 }

@@ -356,7 +356,8 @@ struct ChapterPickerView: View {
                             }
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 24)
+                    .padding(.vertical)
                 }
             }
         }
@@ -444,32 +445,7 @@ struct VerseListView: View {
         .onChange(of: languageManager.selectedTranslation) { _ in
             loadVerses()
         }
-        .alert(alertTitle, isPresented: $showAddConfirmation) {
-            Button("Cancel", role: .cancel) {
-                selectedVerse = nil
-            }
-            Button("Add Anyway") {
-                if let verse = selectedVerse {
-                    onVerseSelected?(verse)
-                    
-                    // Haptic feedback
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
-                    
-                    // Dismiss back to explorer or close
-                    // dismiss()
-                }
-            }
-        } message: {
-            if let verse = selectedVerse {
-                let charCount = verse.lockScreenFormat.count
-                if charCount > 130 {
-                    Text("⚠️ This verse has \(charCount) characters. Lock screen widget supports max 130 characters and will be truncated.\n\n\"\(verse.previewText(maxLength: 100))\"")
-                } else {
-                    Text("\(verse.reference)\n\n\"\(verse.previewText(maxLength: 150))\"")
-                }
-            }
-        }
+        // Alert removed for direct selection
     }
     
     private var alertTitle: String {
@@ -483,8 +459,16 @@ struct VerseListView: View {
         List {
             ForEach(verses) { verse in
                 Button(action: {
-                    selectedVerse = verse
-                    showAddConfirmation = true
+                    // Directly select the verse without confirmation
+                    onVerseSelected?(verse)
+                    
+                    // Haptic feedback
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                    
+                    // No need to dismiss manually if the parent handles navigation
+                    // but we'll keep it just in case
+                    dismiss()
                 }) {
                     verseRow(verse)
                 }
@@ -492,6 +476,7 @@ struct VerseListView: View {
             }
         }
         .listStyle(.plain)
+        .padding(.horizontal, 24)
     }
     
     private func verseRow(_ verse: BibleVerse) -> some View {

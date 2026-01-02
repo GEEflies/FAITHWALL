@@ -65,7 +65,7 @@ final class BibleLanguageManager: ObservableObject {
            let saved = BibleTranslation(rawValue: savedRaw) {
             self.selectedTranslation = saved
         } else {
-            self.selectedTranslation = .kjv
+            self.selectedTranslation = .niv // Default to NIV as it is bundled
         }
         
         // Initialize download states

@@ -294,6 +294,7 @@ struct OnboardingView: View {
     @State private var showMockupPreview = false
     @State private var loadedWallpaperImage: UIImage?
     @State private var useLightMockup: Bool = true
+    @State private var audioPlayer: AVAudioPlayer?
     
     // Transition animation from step 6 to step 7
     @State private var showTransitionScreen = false
@@ -426,9 +427,10 @@ struct OnboardingView: View {
             handleWallpaperGenerationFinished()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToShortcutsPipeline"))) { _ in
-            // Switch from widget to shortcuts pipeline
-            selectedOnboardingPipeline = "fullscreen"
-            currentPage = .videoIntroduction
+            // Switch back to pipeline choice
+            withAnimation(.easeInOut) {
+                currentPage = .pipelineChoice
+            }
         }
         .onChange(of: scenePhase) { newPhase in
             handleScenePhaseChange(newPhase)
@@ -1025,14 +1027,15 @@ struct OnboardingView: View {
             // Switch pipeline button for video introduction step
             if currentPage == .videoIntroduction {
                 Button(action: {
-                    // Switch to widget pipeline
-                    selectedOnboardingPipeline = "widget"
-                    currentPage = .widgetOnboarding
+                    // Switch back to pipeline choice
+                    withAnimation(.easeInOut) {
+                        currentPage = .pipelineChoice
+                    }
                 }) {
                     HStack(spacing: 8) {
-                        Image(systemName: "app.badge")
+                        Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("Choose Widget Instead")
+                        Text("Change Setup Choice")
                             .font(.system(size: isCompact ? 14 : 15, weight: .semibold))
                     }
                     .foregroundColor(.appAccent)
@@ -1119,6 +1122,7 @@ struct OnboardingView: View {
                         }
                     }
                     .frame(maxWidth: geometry.size.width * 0.55, alignment: .leading)
+                    .offset(x: 20) // Shift right to visually center
                     .frame(maxWidth: .infinity)
                     .opacity(showVerseOnMockup ? 0 : containerOpacity)
                     
@@ -1398,6 +1402,10 @@ struct OnboardingView: View {
         let verseCharacters = Array(bibleVerse)
         let refCharacters = Array(bibleReference)
         
+        // Haptic generator for typewriter effect
+        let hapticGenerator = UIImpactFeedbackGenerator(style: .soft)
+        hapticGenerator.prepare()
+        
         func typingSpeed(for character: Character) -> TimeInterval {
             if character == " " {
                 return 0.04
@@ -1416,6 +1424,9 @@ struct OnboardingView: View {
                 }
                 return
             }
+            
+            // Trigger haptic feedback
+            hapticGenerator.impactOccurred(intensity: 0.4)
             
             withAnimation(.easeIn(duration: 0.08)) {
                 typewriterText += String(verseCharacters[typewriterIndex])
@@ -1441,6 +1452,9 @@ struct OnboardingView: View {
                 return
             }
             
+            // Trigger haptic feedback
+            hapticGenerator.impactOccurred(intensity: 0.4)
+            
             withAnimation(.easeIn(duration: 0.08)) {
                 typewriterReference += String(refCharacters[typewriterRefIndex])
             }
@@ -1459,16 +1473,47 @@ struct OnboardingView: View {
         typeNextVerseCharacter()
     }
     
+    private func playTransitionAudio() {
+        // Configure audio session to ensure sound plays
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("Failed to set audio session category: \(error)")
+        }
+
+        // Try to find the audio file in the bundle
+        if let url = Bundle.main.url(forResource: "transition-audio", withExtension: "mp3") {
+            do {
+                audioPlayer = try AVAudioPlayer(contentsOf: url)
+                audioPlayer?.prepareToPlay()
+                audioPlayer?.play()
+            } catch {
+                print("Could not play audio: \(error)")
+            }
+        } else {
+            print("Audio file not found in bundle. Please add 'transition-audio.mp3' to your Xcode project targets.")
+        }
+    }
+    
     private func transitionToMockup() {
+        // Delay everything slightly to let the last character settle
+        let startDelay = 0.3
+        
+        // Play audio transition (1s before background fade)
+        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay) {
+            playTransitionAudio()
+        }
+        
         // Step 1: Fade out typewriter text
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay + 0.8) {
             withAnimation(.easeOut(duration: 0.4)) {
                 containerOpacity = 0
             }
         }
         
         // Step 2: Transition background to white
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay + 1.0) {
             withAnimation(.easeInOut(duration: 0.8)) {
                 backgroundColorStart = .white
                 backgroundColorEnd = .white
@@ -1476,7 +1521,7 @@ struct OnboardingView: View {
         }
         
         // Step 3: Show mockup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay + 1.5) {
             showVerseOnMockup = true
             
             withAnimation(.easeOut(duration: 0.8)) {
@@ -1491,7 +1536,7 @@ struct OnboardingView: View {
         }
         
         // Step 4: Show button (0.5s after mockup)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay + 2.0) {
             withAnimation(.easeIn(duration: 0.5)) {
                 continueButtonOpacity = 1.0
             }

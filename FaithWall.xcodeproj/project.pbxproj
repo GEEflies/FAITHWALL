@@ -29,6 +29,7 @@
 		4283B2362ED25B5E00093E2D /* ShortcutSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */; };
 		4283B2372ED25B5E00093E2D /* ShortcutVerificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2342ED25B5E00093E2D /* ShortcutVerificationService.swift */; };
 		4283B2382ED25B5E00093E2D /* PIPVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2312ED25B5E00093E2D /* PIPVideoPlayer.swift */; };
+		429CF30D2F083471009077B1 /* transition-audio.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 429CF30C2F083471009077B1 /* transition-audio.mp3 */; };
 		42DB5DEB2EC32ADB00F21F88 /* FaithWall.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 42DB5DEA2EC32ADB00F21F88 /* FaithWall.storekit */; };
 		486563549087408615731241 /* ExitFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571205128022447414641365 /* ExitFeedbackView.swift */; };
 		652485545120494283652512 /* QuickActionsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179742655116427522430919 /* QuickActionsManager.swift */; };
@@ -110,6 +111,7 @@
 		4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupView.swift; sourceTree = "<group>"; };
 		4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupViewModel.swift; sourceTree = "<group>"; };
 		4283B2342ED25B5E00093E2D /* ShortcutVerificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutVerificationService.swift; sourceTree = "<group>"; };
+		429CF30C2F083471009077B1 /* transition-audio.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "transition-audio.mp3"; sourceTree = "<group>"; };
 		42DB5DEA2EC32ADB00F21F88 /* FaithWall.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = FaithWall.storekit; sourceTree = "<group>"; };
 		434025501223443399045143 /* AutoFixWorkflowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoFixWorkflowView.swift; sourceTree = "<group>"; };
 		444444444444444444444444 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 		A5000002000000000000001 /* Faithwall */ = {
 			isa = PBXGroup;
 			children = (
+				429CF30C2F083471009077B1 /* transition-audio.mp3 */,
 				426047C02EFDC214001BB43B /* BibleDatabaseService.swift */,
 				426047CF2EFDC216001BB43B /* BibleAPIService.swift */,
 				426047C12EFDC214001BB43B /* BibleExplorerView.swift */,
@@ -359,6 +362,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				429CF30D2F083471009077B1 /* transition-audio.mp3 in Resources */,
 				42DB5DEB2EC32ADB00F21F88 /* FaithWall.storekit in Resources */,
 				A1000009000000000000001 /* Assets.xcassets in Resources */,
 				NIV000001000000000000001 /* NIV.db in Resources */,

@@ -119,14 +119,19 @@ final class BibleDatabaseService {
     func databasePath(for translation: BibleTranslation) -> URL {
         // NIV is bundled with the app, other translations are downloaded
         if translation == .niv {
-            // First check if it's in the documents directory (if user re-downloaded)
+            // ALWAYS prefer the bundled version for NIV if it exists
+            // This prevents issues with corrupt downloads in Documents directory
+            if let bundlePath = Bundle.main.path(forResource: "NIV", ofType: "db") {
+                #if DEBUG
+                print("📖 Using bundled NIV database at: \(bundlePath)")
+                #endif
+                return URL(fileURLWithPath: bundlePath)
+            }
+            
+            // Fallback to documents if not in bundle (shouldn't happen in prod if properly bundled)
             let documentsPath = databaseDirectory.appendingPathComponent(translation.databaseFileName)
             if fileManager.fileExists(atPath: documentsPath.path) {
                 return documentsPath
-            }
-            // Otherwise use the bundled version
-            if let bundlePath = Bundle.main.path(forResource: "NIV", ofType: "db") {
-                return URL(fileURLWithPath: bundlePath)
             }
         }
         return databaseDirectory.appendingPathComponent(translation.databaseFileName)
@@ -409,6 +414,10 @@ final class BibleDatabaseService {
     /// Searches verses by text content
     func searchVerses(query: String, translation: BibleTranslation, limit: Int = 50) throws -> [BibleVerse] {
         try openDatabase(for: translation)
+        
+        #if DEBUG
+        print("🔍 Searching for '\(query)' in \(translation.rawValue)")
+        #endif
         
         let versesTable = "\(translation.tablePrefix)_verses"
         let booksTable = "\(translation.tablePrefix)_books"

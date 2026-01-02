@@ -56,7 +56,7 @@ struct BibleSearchView: View {
                         let generator = UINotificationFeedbackGenerator()
                         generator.notificationOccurred(.success)
                         
-                        // dismiss()
+                        dismiss()
                     }
                 }
             } message: {
@@ -268,11 +268,9 @@ struct BibleSearchView: View {
     private func searchVerses(query: String) async throws -> [BibleVerse] {
         let translation = languageManager.selectedTranslation
         
-        // For API-based translations (NIV), we need a different approach
-        if translation.isAPIBased {
-            // API doesn't support search, so return empty for now
-            // In production, you'd need to implement client-side search or use a different API
-            throw BibleDatabaseError.queryFailed(reason: "Search not yet supported for \(translation.shortName). Please use Explore to browse by books.")
+        // Check if translation is downloaded first
+        guard BibleDatabaseService.shared.isDownloaded(translation) else {
+            throw BibleDatabaseError.databaseNotFound(translation: translation.displayName)
         }
         
         // For SQLite-based translations, use existing search
