@@ -575,7 +575,7 @@ struct OnboardingView: View {
             troubleshootingModalView
         }
         .sheet(isPresented: $showPostOnboardingPaywall) {
-            PaywallView(triggerReason: .firstWallpaperCreated, allowDismiss: true)
+            PaywallView(triggerReason: .firstWallpaperCreated, allowDismiss: false)
                 .onDisappear {
                     // Mark onboarding as complete when paywall is dismissed
                     hasCompletedSetup = true
@@ -852,10 +852,8 @@ struct OnboardingView: View {
                             )
                         case .widgetOnboarding:
                             WidgetOnboardingView(isPresented: $showWidgetOnboarding) {
-                                // Widget onboarding complete - go to overview/complete
-                                withAnimation(.easeInOut) {
-                                    currentPage = .overview
-                                }
+                                // Widget onboarding complete - go directly to paywall
+                                completeOnboarding()
                             }
                         case .videoIntroduction:
                             videoIntroductionStep()
@@ -2303,6 +2301,29 @@ struct OnboardingView: View {
                 .padding(.vertical, DS.Spacing.m)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.appAccent))
             }
+            
+            Button(action: {
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+                if let url = URL(string: "https://apps.apple.com/app/id915249334") {
+                    UIApplication.shared.open(url)
+                    debugLog("🌐 Opening App Store to install Shortcuts")
+                }
+            }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "square.and.arrow.down")
+                    Text("Download Shortcuts")
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DS.Spacing.m)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.black.opacity(0.04))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.black.opacity(0.05), lineWidth: 1))
+                )
+            }
         }
     }
     
@@ -2811,9 +2832,9 @@ struct OnboardingView: View {
                                     Image(systemName: "photo.on.rectangle")
                                         .font(.system(size: 18, weight: .semibold))
                             Text("Open Photos App")
-                                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                                        .font(.system(size: 17, weight: .bold))
                                 }
-                                .foregroundColor(.black)
+                                .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
                                 .background(
@@ -2868,282 +2889,154 @@ struct OnboardingView: View {
     
     private var troubleshootingTextGuide: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 32) {
+            VStack(spacing: 24) {
                 // Hero Icon
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.appAccent.opacity(0.25), Color.appAccent.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 120, height: 120)
+                        .fill(Color.appAccent.opacity(0.1))
+                        .frame(width: 80, height: 80)
                     
-            Image(systemName: "questionmark.circle.fill")
-                        .font(.system(size: 50, weight: .medium))
+                    Image(systemName: "questionmark.circle.fill")
+                        .font(.system(size: 40, weight: .semibold))
                         .foregroundColor(.appAccent)
-                        .shadow(color: Color.appAccent.opacity(0.5), radius: 10, x: 0, y: 5)
                 }
                 .padding(.top, 20)
                 
                 // Title Section
-                VStack(spacing: 12) {
-            Text("Why isn't my wallpaper showing up?")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                VStack(spacing: 8) {
+                    Text("Wallpaper Not Showing?")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
-                .multilineTextAlignment(.center)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Don't worry, it's an easy fix.")
+                        .font(.system(size: 17))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.horizontal, 24)
             
-                // Content Cards - Brand Identity Design
-                VStack(spacing: 20) {
-                    // Problem Card
-                    BrandCard {
-            VStack(alignment: .leading, spacing: 16) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.appAccent)
-                Text("The Problem")
-                                    .font(.system(size: 20, weight: .bold))
+                // Content Cards
+                VStack(spacing: 16) {
+                    // Explanation Card
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "info.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.appAccent)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("The Issue")
+                                    .font(.headline)
                                     .foregroundColor(.primary)
-                            }
-                
-                Text("Sometimes Apple's iOS doesn't immediately show new wallpapers in the Photos app.")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white.opacity(0.9))
-                                .fixedSize(horizontal: false, vertical: true)
-                
-                Text("This is normal and happens with many apps that generate images.")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white.opacity(0.9))
-                                .fixedSize(horizontal: false, vertical: true)
-                            
-                            Divider()
-                                .background(Color.black.opacity(0.05))
-                            
-                            // Highlight box
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: "info.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.appAccent)
-                                    .padding(.top, 2)
-                
-                Text("Important: The wallpaper IS created - it's just invisible at first.")
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundColor(.appAccent)
+                                
+                                Text("iOS sometimes hides new wallpapers in Photos. The image IS created, but it might look like a solid RED square.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            .padding(16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.appAccent.opacity(0.15))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .strokeBorder(Color.appAccent.opacity(0.3), lineWidth: 1)
-                                    )
-                            )
                         }
                     }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.appAccent.opacity(0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(Color.appAccent.opacity(0.2), lineWidth: 1)
+                    )
                     
-                    // Red Wallpaper Card
-                    BrandCard {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "photo.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.appAccent)
-                                Text("The Special Image")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.primary)
-                            }
-                            
-                            // Show the instruction wallpaper
-                            Image("InstructionWallpaper")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity)
-                                .cornerRadius(12)
-                                .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
-                            
-                            Text("FaithWall creates a special wallpaper with your notes embedded.")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white.opacity(0.9))
-                                .fixedSize(horizontal: false, vertical: true)
-                            
-                            Divider()
-                                .background(Color.black.opacity(0.05))
-                            
-                            Text("This image appears RED in the Photos app, but displays normally on your lock screen.")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.appAccent)
-                                .fixedSize(horizontal: false, vertical: true)
+                    // Steps Section
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Follow these steps:")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            .padding(.bottom, 16)
+                        
+                        VStack(alignment: .leading, spacing: 24) {
+                            troubleshootingStep(number: 1, title: "Open Photos", description: "Tap the button below to open the Photos app.")
+                            troubleshootingStep(number: 2, title: "Find the Red Image", description: "Look for the most recent image. It will appear as a solid RED square.")
+                            troubleshootingStep(number: 3, title: "Tap Share", description: "Tap the share button (box with arrow) on that red image.")
+                            troubleshootingStep(number: 4, title: "Use as Wallpaper", description: "Scroll down and select 'Use as Wallpaper'.")
+                            troubleshootingStep(number: 5, title: "Set Lock Screen", description: "Tap 'Add' then 'Set Lock Screen Pair' or just 'Set Lock Screen'.")
                         }
                     }
-                    
-                    // Solution Card
-                    BrandCard {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.appAccent)
-                Text("Easy Fix")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.primary)
-                            }
-                
-                Text("Here's how to set it up in just a few taps:")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white.opacity(0.9))
-                                .fixedSize(horizontal: false, vertical: true)
-                            
-                            Divider()
-                                .background(Color.black.opacity(0.05))
-                
-                Text("Follow these steps:")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.appAccent)
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    troubleshootingStep(number: 1, title: "Open Photos", description: "Tap the button below to open the Photos app")
-                    troubleshootingStep(number: 2, title: "Find the Red Image", description: "Look for the most recent image - it will appear solid red")
-                    troubleshootingStep(number: 3, title: "Tap the Image", description: "Select the red wallpaper image")
-                    troubleshootingStep(number: 4, title: "Tap Share", description: "Tap the share button (box with arrow)")
-                    troubleshootingStep(number: 4, title: "Use as Wallpaper", description: "Scroll down and select 'Use as Wallpaper'")
-                    troubleshootingStep(number: 5, title: "Set Lock Screen", description: "Choose 'Set Lock Screen' and you're done!")
-                    troubleshootingStep(number: 6, title: "Done!", description: "Lock your phone to see your new FaithWall")
-                            }
-                        }
-                    }
-                    
-                    // What Happens Next Card
-                    BrandCard {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.appAccent)
-                Text("What's Next?")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.primary)
-                            }
-                
-                Text("Once set, your wallpaper will auto-update whenever you add or change notes!")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white.opacity(0.9))
-                                .fixedSize(horizontal: false, vertical: true)
-                            
-                            Divider()
-                                .background(Color.black.opacity(0.05))
-                
-                Text("The shortcut will then work perfectly - every time you add, edit, or delete notes, your wallpaper will update automatically.")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white.opacity(0.9))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    
-                    // Call to Action Card
-                    BrandCard {
-                        VStack(spacing: 16) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.appAccent)
-                                Text("Ready? Let's Do This!")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.primary)
-                            }
-                        }
-                    }
-            }
-            .padding(.horizontal, DS.Spacing.xl)
-            
-                // Primary CTA Button - Brand Style
-            Button(action: {
-                // Medium haptic for important action
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.impactOccurred()
-                
-                // Save instruction wallpaper to Photos first, then open Photos
-                saveInstructionWallpaperToPhotos()
-                
-                // Small delay to ensure image is saved before opening Photos
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    openWallpaperSettings()
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                    )
                 }
-            }) {
+                .padding(.horizontal, 20)
+            
+                // Primary CTA Button
+                Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    
+                    saveInstructionWallpaperToPhotos()
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        openWallpaperSettings()
+                    }
+                }) {
                     HStack(spacing: 12) {
                         Image(systemName: "photo.on.rectangle")
                             .font(.system(size: 18, weight: .semibold))
-                Text("Open Photos")
+                        Text("Open Photos App")
                             .font(.system(size: 17, weight: .bold, design: .rounded))
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
                     .background(
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.appAccent)
-                                .blur(radius: 12)
-                                .opacity(0.4)
-                                .offset(y: 4)
-                            
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.appAccent)
-                        }
-                    )
-                    .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            .fill(Color.appAccent)
+                            .shadow(color: Color.appAccent.opacity(0.4), radius: 10, x: 0, y: 5)
                     )
-                    .shadow(color: Color.appAccent.opacity(0.3), radius: 12, x: 0, y: 6)
-            }
-            .padding(.horizontal, DS.Spacing.xl)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
             
                 // Secondary Button
-            Button(action: {
-                showTroubleshooting = false
-                showTroubleshootingTextVersion = false
-            }) {
-                Text("Got It - I'll Set This Up Later")
-                    .font(.subheadline)
+                Button(action: {
+                    showTroubleshooting = false
+                    showTroubleshootingTextVersion = false
+                }) {
+                    Text("I'll do this later")
+                        .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+                }
+                .padding(.bottom, 40)
             }
         }
     }
     
     private func troubleshootingStep(number: Int, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 16) {
             ZStack {
                 Circle()
                     .fill(Color.appAccent)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
+                    .shadow(color: Color.appAccent.opacity(0.3), radius: 4, x: 0, y: 2)
                 
                 Text("\(number)")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.body)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.primary)
                 
                 Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.system(size: 15))
+                    .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(2)
             }
         }
     }
@@ -4338,202 +4231,60 @@ struct OnboardingView: View {
     
     private var transitionCountdownView: some View {
         let isCompact = ScreenDimensions.isCompactDevice
-        let readyFontSize: CGFloat = isCompact ? 18 : 22
-        let productivityFontSize: CGFloat = isCompact ? 22 : 28
-        let neverForgetFontSize: CGFloat = isCompact ? 14 : 16
-        let ringSize: CGFloat = isCompact ? 140 : 180
-        let outerRingSize: CGFloat = isCompact ? 160 : 200
+        let numberSize: CGFloat = isCompact ? 180 : 240
         
         return ZStack {
-            // Animated gradient background
-            animatedGradientBackground
+            // Clean white background
+            Color.white
                 .ignoresSafeArea()
-            
-            // Floating ambient particles
-            FloatingParticlesView()
-                .opacity(0.6)
             
             VStack(spacing: 0) {
                 Spacer()
                 
-                // Animated text - word by word
-                VStack(spacing: isCompact ? 8 : 12) {
-                    // "Ready for your new"
-                    HStack(spacing: isCompact ? 6 : 8) {
-                        AnimatedWord(text: "Ready", isVisible: word1Visible, delay: 0)
-                        AnimatedWord(text: "for", isVisible: word1Visible, delay: 0.1)
-                        AnimatedWord(text: "your", isVisible: word1Visible, delay: 0.2)
-                        AnimatedWord(text: "new", isVisible: word1Visible, delay: 0.3)
-                    }
-                    .font(.system(size: readyFontSize, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.7))
-                    
-                    // "PRODUCTIVITY HACK"
-                    HStack(spacing: isCompact ? 6 : 8) {
-                        AnimatedWord(text: "productivity", isVisible: word2Visible, delay: 0, isAccent: true)
-                        AnimatedWord(text: "hack", isVisible: word2Visible, delay: 0.15, isAccent: true)
-                        AnimatedWord(text: "?", isVisible: word2Visible, delay: 0.25, isAccent: true)
-                    }
-                    .font(.system(size: productivityFontSize, weight: .black, design: .rounded))
-                    .minimumScaleFactor(0.8)
-                    .lineLimit(1)
-                    
-                    // "You'll never forget again"
-                    HStack(spacing: isCompact ? 4 : 5) {
-                        AnimatedWord(text: "So", isVisible: word3Visible, delay: 0)
-                        AnimatedWord(text: "you'll", isVisible: word3Visible, delay: 0.08)
-                        AnimatedWord(text: "never", isVisible: word3Visible, delay: 0.16)
-                        AnimatedWord(text: "forget", isVisible: word3Visible, delay: 0.24)
-                        AnimatedWord(text: "again", isVisible: word3Visible, delay: 0.32)
-                    }
-                    .font(.system(size: neverForgetFontSize, weight: .semibold, design: .rounded))
-                    .foregroundColor(.secondary)
-                    .padding(.top, isCompact ? 4 : 8)
-                }
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, isCompact ? 24 : 32)
-                
-                Spacer()
-                
-                // Epic countdown with ring - centered
+                // Big bold countdown number - center stage
                 ZStack {
-                    // Outer glow ring
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.appAccent.opacity(0.3), Color.appAccent.opacity(0.1)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: isCompact ? 2 : 3
-                        )
-                        .frame(width: outerRingSize, height: outerRingSize)
-                        .blur(radius: 8)
-                        .opacity(countdownOpacity)
-                    
-                    // Progress ring
-                    Circle()
-                        .trim(from: 0, to: ringProgress)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.appAccent, Color.appAccent.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            style: StrokeStyle(lineWidth: isCompact ? 4 : 6, lineCap: .round)
-                        )
-                        .frame(width: ringSize, height: ringSize)
-                        .rotationEffect(.degrees(-90))
-                        .opacity(countdownOpacity)
-                    
-                    // Inner glow
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color.appAccent.opacity(0.2), Color.clear],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: ringSize / 2
-                            )
-                        )
-                        .frame(width: ringSize, height: ringSize)
-                        .opacity(countdownGlow)
-                    
-                    // Countdown number with effects
+                    // Number
                     Text("\(countdownNumber)")
-                        .font(.system(size: isCompact ? 72 : 100, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.white, Color.appAccent],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .shadow(color: Color.appAccent.opacity(0.5), radius: 20, x: 0, y: 0)
-                        .shadow(color: Color.appAccent.opacity(0.3), radius: 40, x: 0, y: 0)
-                        .scaleEffect(particleBurst ? 1.1 : 1.0)
+                        .font(.system(size: numberSize, weight: .bold))
+                        .foregroundColor(Color.appAccent)
+                        .scaleEffect(particleBurst ? 1.15 : 1.0)
                         .opacity(countdownOpacity)
-                    
-                    // Particle burst effect
-                    if particleBurst {
-                        CountdownBurstView()
-                    }
+                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: particleBurst)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: countdownNumber)
                 }
-                .frame(width: isCompact ? 170 : 220, height: isCompact ? 170 : 220)
                 
                 Spacer()
-                Spacer()
+                
+                // Simple message at bottom
+                VStack(spacing: 8) {
+                    Text("Let's go!")
+                        .font(.system(size: isCompact ? 28 : 34, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Your faith journey begins now")
+                        .font(.system(size: isCompact ? 15 : 17, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .opacity(word1Visible ? 1 : 0)
+                .offset(y: word1Visible ? 0 : 20)
+                .animation(.easeOut(duration: 0.5), value: word1Visible)
+                .padding(.bottom, isCompact ? 80 : 120)
             }
             .frame(maxWidth: .infinity)
         }
     }
     
-    private var animatedGradientBackground: some View {
-        ZStack {
-            // Base dark gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.97, blue: 0.96),
-                    Color.white,
-                    Color.white
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            
-            // Animated accent glow - top
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.appAccent.opacity(0.3), Color.clear],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: 300
-                    )
-                )
-                .frame(width: 600, height: 600)
-                .offset(x: -100, y: -200)
-                .rotationEffect(.degrees(gradientRotation))
-            
-            // Animated accent glow - bottom
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.appAccent.opacity(0.15), Color.clear],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: 250
-                    )
-                )
-                .frame(width: 500, height: 500)
-                .offset(x: 150, y: 400)
-                .rotationEffect(.degrees(-gradientRotation * 0.5))
-        }
-        .onAppear {
-            withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
-                gradientRotation = 360
-            }
-        }
-    }
-    
     private func startTransitionCountdown() {
-        // Medium haptic for important transition to final step
+        // Haptic for transition
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
         
-        // Reset all states
+        // Reset states
         countdownNumber = 3
-        transitionTextOpacity = 0
         countdownOpacity = 0
         showConfetti = false
         word1Visible = false
-        word2Visible = false
-        word3Visible = false
-        word4Visible = false
-        ringProgress = 0
-        countdownGlow = 0
         particleBurst = false
-        gradientRotation = 0
         
         // Hide progress indicator
         withAnimation(.easeOut(duration: 0.3)) {
@@ -4542,33 +4293,21 @@ struct OnboardingView: View {
         
         // Show transition screen
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            withAnimation(.easeOut(duration: 0.4)) {
+            withAnimation(.easeOut(duration: 0.3)) {
                 showTransitionScreen = true
             }
         }
         
-        // Animate words in sequence
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+        // Show bottom text immediately
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.easeOut(duration: 0.4)) {
                 word1Visible = true
             }
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                word2Visible = true
-            }
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                word3Visible = true
-            }
-        }
-        
-        // Start countdown after text
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-            withAnimation(.easeOut(duration: 0.4)) {
+        // Start countdown
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 countdownOpacity = 1
             }
             startCountdown()
@@ -4576,108 +4315,49 @@ struct OnboardingView: View {
     }
     
     private func startCountdown() {
-        // Heavy haptic for countdown start
         let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
         
-        // Countdown: 3
+        // 3
         countdownNumber = 3
         heavyImpact.impactOccurred()
         triggerBurst()
         
-        // Animate ring to 25% (even spacing: 1/4 of circle)
-        withAnimation(.easeInOut(duration: 0.9)) {
-            ringProgress = 0.25
-        }
-        
-        // Pulse glow
-        withAnimation(.easeInOut(duration: 0.3)) {
-            countdownGlow = 0.8
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.easeOut(duration: 0.5)) {
-                countdownGlow = 0.2
-            }
-        }
-        
-        // Countdown: 2
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) {
-                countdownNumber = 2
-            }
+        // 2
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            countdownNumber = 2
             heavyImpact.impactOccurred()
             triggerBurst()
-            
-            // Animate ring to 50% (even spacing: 2/4 of circle)
-            withAnimation(.easeInOut(duration: 0.9)) {
-                ringProgress = 0.50
-            }
-            
-            withAnimation(.easeInOut(duration: 0.3)) {
-                countdownGlow = 0.8
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation(.easeOut(duration: 0.5)) {
-                    countdownGlow = 0.2
-                }
-            }
         }
         
-        // Countdown: 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) {
-                countdownNumber = 1
-            }
+        // 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            countdownNumber = 1
             heavyImpact.impactOccurred()
             triggerBurst()
-            
-            // Ring fills to 75% (even spacing: 3/4 of circle, leaving 25% for completion)
-            withAnimation(.easeInOut(duration: 0.7)) {
-                ringProgress = 0.75
-            }
-            
-            withAnimation(.easeInOut(duration: 0.3)) {
-                countdownGlow = 0.9
-            }
-            
-            // After a brief pause, complete the ring smoothly (final 25% to make it even)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
-                // Smooth completion animation - final 25% for even spacing
-                withAnimation(.easeInOut(duration: 0.35)) {
-                    ringProgress = 1.0
-                    countdownGlow = 1.0
-                }
-            }
         }
         
-        // FINALE - GO! (trigger when ring completes)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.1) {
-            // Epic haptic sequence
+        // GO!
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
             let notification = UINotificationFeedbackGenerator()
             notification.notificationOccurred(.success)
             
-            // Double tap for impact
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                heavyImpact.impactOccurred()
-            }
-            
-            // Show confetti explosion
+            // Confetti
             withAnimation(.easeOut(duration: 0.2)) {
                 showConfetti = true
                 confettiTrigger += 1
             }
             
-            // Transition to overview (mockup preview & paywall)
-            // Delay slightly to let confetti boom first
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+            // Transition to next screen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                     showTransitionScreen = false
                     currentPage = .overview
                 }
             }
             
-            // Keep confetti longer for impact
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-                withAnimation(.easeOut(duration: 0.8)) {
+            // Hide confetti
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                withAnimation(.easeOut(duration: 0.6)) {
                     showConfetti = false
                 }
             }
@@ -7093,13 +6773,12 @@ struct OnboardingView: View {
             .padding(20)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Color(.secondarySystemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.appAccent.opacity(0.25), lineWidth: 1)
+                            .strokeBorder(Color.appAccent.opacity(0.2), lineWidth: 1)
                     )
             )
-            .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 4)
         }
     }
 }

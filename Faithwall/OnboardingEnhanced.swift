@@ -2079,7 +2079,21 @@ struct SetupIntroView: View {
                             Circle()
                                 .fill(Color.appAccent.opacity(0.2))
                                 .frame(width: 120, height: 120)
-                                .overlay(Image(systemName: "cross.fill").font(.system(size: 50)).foregroundColor(.appAccent))
+                                .overlay(
+                                    // Custom Latin Cross (prolonged vertical line)
+                                    ZStack {
+                                        // Vertical line (longer)
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(Color.appAccent)
+                                            .frame(width: 14, height: 70)
+                                        
+                                        // Horizontal line
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(Color.appAccent)
+                                            .frame(width: 44, height: 14)
+                                            .offset(y: -14) // Shift up to create cross shape
+                                    }
+                                )
                                 .scaleEffect(mergedBubbleScale)
                                 .opacity(mergedBubbleOpacity)
                         } else {
@@ -2108,7 +2122,7 @@ struct SetupIntroView: View {
                                 
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 56, weight: .bold))
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(.white)
                             }
                             .transition(.scale.combined(with: .opacity))
                         }

@@ -103,7 +103,7 @@ struct BibleLanguageSelectionView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 70))
-                            .foregroundColor(.green)
+                            .foregroundColor(.appAccent)
                             .transition(.scale.combined(with: .opacity))
                         
                         Text("Version Ready!")
@@ -151,10 +151,10 @@ struct BibleLanguageSelectionView: View {
             
             VStack(spacing: 4) {
                 Text("Bible Version")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold))
                 
                 Text("Select your preferred translation")
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.secondary)
             }
         }
@@ -193,11 +193,11 @@ struct BibleLanguageSelectionView: View {
                 // Version name and details
                 VStack(alignment: .leading, spacing: 4) {
                     Text(translation.displayName)
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(isSelected ? .white : .primary)
                     
                     Text(translation.shortName)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                 }
                 
@@ -206,19 +206,14 @@ struct BibleLanguageSelectionView: View {
                 // Download status indicator
                 downloadStatusIndicator(for: downloadState, translation: translation, isSelected: isSelected)
                 
-                // Selection checkmark
-                ZStack {
-                    Circle()
-                        .stroke(isSelected ? Color.white.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 2)
-                        .frame(width: 24, height: 24)
-                    
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
+                // Selection indicator (simple circle)
+                Circle()
+                    .fill(isSelected ? Color.white : Color.clear)
+                    .frame(width: 20, height: 20)
+                    .overlay(
+                        Circle()
+                            .stroke(isSelected ? Color.white : Color(.systemGray3), lineWidth: 2)
+                    )
             }
             .padding(20)
             .background(
@@ -243,12 +238,12 @@ struct BibleLanguageSelectionView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 10))
                 Text(translation == .niv ? "Bundled" : "Ready")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold))
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(isSelected ? Color.white.opacity(0.2) : Color.green.opacity(0.1))
-            .foregroundColor(isSelected ? .white : .green)
+            .background(isSelected ? Color.white.opacity(0.2) : Color.appAccent.opacity(0.1))
+            .foregroundColor(isSelected ? .white : .appAccent)
             .cornerRadius(6)
             
         case .downloading(let progress):
@@ -257,7 +252,7 @@ struct BibleLanguageSelectionView: View {
                     .scaleEffect(0.6)
                     .tint(isSelected ? .white : .appAccent)
                 Text("\(Int(progress * 100))%")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold))
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -270,7 +265,7 @@ struct BibleLanguageSelectionView: View {
                 Image(systemName: "arrow.down.circle")
                     .font(.system(size: 10))
                 Text("Download")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold))
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -283,12 +278,12 @@ struct BibleLanguageSelectionView: View {
                 Image(systemName: "exclamationmark.circle")
                     .font(.system(size: 10))
                 Text("Retry")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold))
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(isSelected ? Color.white.opacity(0.2) : Color.red.opacity(0.1))
-            .foregroundColor(isSelected ? .white : .red)
+            .background(isSelected ? Color.white.opacity(0.2) : Color.appAccent.opacity(0.15))
+            .foregroundColor(isSelected ? .white : .appAccent)
             .cornerRadius(6)
         }
     }
@@ -299,13 +294,13 @@ struct BibleLanguageSelectionView: View {
         VStack(spacing: 12) {
             HStack {
                 Text("Downloading \(selectedTranslation.shortName)...")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.primary)
                 
                 Spacer()
                 
                 Text("\(Int(downloadProgress * 100))%")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.appAccent)
             }
             
@@ -346,7 +341,7 @@ struct BibleLanguageSelectionView: View {
                     }
                     
                     Text(needsDownload ? "Download & Continue" : "Apply Version")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(size: 18, weight: .semibold))
                 }
             }
             .frame(maxWidth: .infinity)

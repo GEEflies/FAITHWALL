@@ -95,6 +95,7 @@ struct WidgetOnboardingView: View {
                     widgetProgressIndicator
                         .padding(.top, 16)
                         .padding(.bottom, 12)
+                        .background(Color.white)
                 }
                 
                 // Content
@@ -564,17 +565,18 @@ struct WidgetVerseSelectionView: View {
                 return [
                     ("hand.tap.fill", "Long Press", "Touch and hold any empty area on your home screen until the apps start to jiggle"),
                     ("plus.circle.fill", "Tap the + Button", "Look for the + button in the top-left corner and tap it"),
+                    ("hand.tap.fill", "Tap Add Widget", "Click 'Add Widget' button to see all available widgets"),
                     ("magnifyingglass", "Search for FaithWall", "Type 'FaithWall' in the search bar at the top"),
                     ("hand.tap.fill", "Select Widget Size", "Choose your preferred widget size and tap 'Add Widget'"),
                     ("checkmark.circle.fill", "Position & Done", "Drag the widget where you want it, then tap 'Done'")
                 ]
             case .lockScreen:
                 return [
-                    ("lock.fill", "Lock Your Screen", "Press the side button to lock your iPhone"),
-                    ("hand.tap.fill", "Long Press", "Touch and hold the lock screen until 'Customize' appears"),
-                    ("slider.horizontal.3", "Tap Customize", "Select 'Customize' and choose 'Lock Screen'"),
-                    ("plus.circle.fill", "Add Widget", "Tap the widget area below the time, then tap + to add"),
-                    ("magnifyingglass", "Find FaithWall", "Search for 'FaithWall' and select the widget you want")
+                    ("arrow.down.to.line", "Swipe Down", "Swipe down from the top of the screen to show the notification layer"),
+                    ("hand.tap.fill", "Long Press", "Touch and hold the empty wallpaper area until 'Customize' appears"),
+                    ("slider.horizontal.3", "Tap Customize", "Select 'Customize' to edit your lock screen"),
+                    ("clock.fill", "Tap Widget Area", "Tap the empty widget area below the clock"),
+                    ("plus.circle.fill", "Add Both Widgets", "Scroll to letter 'F', find FaithWall, and add both 'FaithWall Verse' and 'FaithWall Logo' widgets")
                 ]
             }
         }
@@ -1037,6 +1039,7 @@ struct UnifiedVerseSelectionView: View {
     
     private var isCompact: Bool { ScreenDimensions.isCompactDevice }
     private let accentColor = Color(red: 0.95, green: 0.4, blue: 0.2) // Orange accent
+    private let sidePadding: CGFloat = 32 // Increased padding for better layout
     
     // MARK: - Enums
     
@@ -1086,7 +1089,7 @@ struct UnifiedVerseSelectionView: View {
             .animation(.easeInOut(duration: 0.2), value: selectedTab)
         }
         .background(
-            Color(UIColor.systemBackground)
+            Color.white
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -1120,6 +1123,7 @@ struct UnifiedVerseSelectionView: View {
         }
         .onAppear {
             if books.isEmpty {
+                // Load books immediately without delay
                 loadBooks()
             }
         }
@@ -1144,7 +1148,7 @@ struct UnifiedVerseSelectionView: View {
                 .foregroundColor(.secondary)
         }
         .padding(.top, isCompact ? 16 : 24)
-        .padding(.horizontal)
+        .padding(.horizontal, sidePadding)
     }
     
     // MARK: - Tab Bar
@@ -1155,7 +1159,7 @@ struct UnifiedVerseSelectionView: View {
             tabButton(title: "Search", icon: "magnifyingglass", mode: .search)
             tabButton(title: "Write", icon: "pencil", mode: .write)
         }
-        .padding(.horizontal)
+        .padding(.horizontal, sidePadding)
         .padding(.vertical, 16)
     }
     
@@ -1246,7 +1250,7 @@ struct UnifiedVerseSelectionView: View {
                 Spacer()
                 versionButton
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, sidePadding)
             .padding(.bottom, 12)
             .frame(height: 44)
             
@@ -1281,7 +1285,13 @@ struct UnifiedVerseSelectionView: View {
     
     private var booksList: some View {
         List {
-            Section(header: Text("Old Testament")) {
+            Section(header: 
+                Text("Old Testament")
+                    .textCase(nil)
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 0)
+            ) {
                 ForEach(books.filter { $0.testament == .old }) { book in
                     Button(action: {
                         withAnimation {
@@ -1298,10 +1308,17 @@ struct UnifiedVerseSelectionView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                 }
             }
             
-            Section(header: Text("New Testament")) {
+            Section(header: 
+                Text("New Testament")
+                    .textCase(nil)
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 0)
+            ) {
                 ForEach(books.filter { $0.testament == .new }) { book in
                     Button(action: {
                         withAnimation {
@@ -1318,10 +1335,12 @@ struct UnifiedVerseSelectionView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                 }
             }
         }
         .listStyle(.plain)
+        .padding(.horizontal, sidePadding)
     }
     
     private func chaptersGrid(for book: BibleBook) -> some View {
@@ -1330,6 +1349,7 @@ struct UnifiedVerseSelectionView: View {
                 explorePath = .verses(book, chapter)
             }
         }
+        .padding(.horizontal, sidePadding)
     }
     
     private func versesList(book: BibleBook, chapter: Int) -> some View {
@@ -1341,6 +1361,7 @@ struct UnifiedVerseSelectionView: View {
                 selectVerse(verse)
             }
         )
+        .padding(.horizontal, sidePadding)
     }
     
     private func navigateBack() {
@@ -1388,13 +1409,18 @@ struct UnifiedVerseSelectionView: View {
                 
                 versionButton
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, sidePadding)
             .padding(.bottom, 16)
             
             // Results
             if isSearching {
                 Spacer()
-                ProgressView()
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Searching...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
             } else if let error = searchError {
                 Spacer()
@@ -1404,30 +1430,50 @@ struct UnifiedVerseSelectionView: View {
                     .padding()
                 Spacer()
             } else if !searchResults.isEmpty {
-                List(searchResults) { verse in
-                    Button(action: {
-                        selectVerse(verse)
-                    }) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(verse.reference)
-                                    .font(.headline)
-                                    .foregroundColor(accentColor)
-                                Spacer()
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(searchResults) { verse in
+                            Button(action: {
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                                selectVerse(verse)
+                            }) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text(verse.reference)
+                                            .font(.headline)
+                                            .foregroundColor(accentColor)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary.opacity(0.5))
+                                    }
+                                    // Smart snippet with highlighted search term
+                                    Text(smartSnippet(from: verse.text))
+                                        .font(.body)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(3)
+                                }
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, sidePadding)
                             }
-                            Text(verse.text)
-                                .font(.body)
-                                .foregroundColor(.primary)
-                                .lineLimit(3)
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            Divider()
+                                .padding(.horizontal, sidePadding)
                         }
-                        .padding(.vertical, 8)
                     }
                 }
-                .listStyle(.plain)
-            } else if !searchText.isEmpty {
+            } else if searchText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 && !isSearching {
+                // Only show "no results" after actual search with 2+ chars
                 Spacer()
-                Text("No verses found.")
-                    .foregroundColor(.secondary)
+                VStack(spacing: 12) {
+                    Image(systemName: "text.magnifyingglass")
+                        .font(.system(size: 40))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    Text("No verses found for \"\(searchText)\"")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
             } else {
                 Spacer()
@@ -1435,20 +1481,22 @@ struct UnifiedVerseSelectionView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 50))
                         .foregroundColor(accentColor.opacity(0.3))
-                    Text("Search for Bible Verse")
+                    Text(searchText.isEmpty ? "Search for Bible Verse" : "Type at least 2 characters...")
                         .font(.headline)
+                        .foregroundColor(.secondary)
                 }
                 Spacer()
             }
         }
         .onChange(of: searchText) { newValue in
-            if newValue.isEmpty {
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
                 searchResults = []
+                searchError = nil
+            } else if trimmed.count >= 2 {
+                // Live search as you type (debounced)
+                performSearch()
             }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
     }
     
@@ -1464,7 +1512,7 @@ struct UnifiedVerseSelectionView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Label("Verse Text", systemImage: "quote.opening")
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.secondary)
                         
                         Spacer()
@@ -1492,7 +1540,7 @@ struct UnifiedVerseSelectionView: View {
                         
                         if #available(iOS 16.0, *) {
                             TextEditor(text: $manualText)
-                                .font(.system(size: 17, weight: .regular, design: .rounded))
+                                .font(.system(size: 17, weight: .regular))
                                 .frame(minHeight: 160)
                                 .scrollContentBackground(.hidden)
                                 .padding(12)
@@ -1513,7 +1561,7 @@ struct UnifiedVerseSelectionView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.orange)
                         Text("This verse is too long for the widget and will be truncated. Try shortening it.")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
                     }
                     .padding(12)
@@ -1525,11 +1573,11 @@ struct UnifiedVerseSelectionView: View {
                 // Reference Input
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Reference", systemImage: "book.fill")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.secondary)
                     
                     TextField("e.g. John 3:16", text: $manualReference)
-                        .font(.system(size: 17, weight: .medium, design: .rounded))
+                        .font(.system(size: 17, weight: .medium))
                         .padding(16)
                         .background(Color(.secondarySystemBackground))
                         .cornerRadius(16)
@@ -1547,7 +1595,7 @@ struct UnifiedVerseSelectionView: View {
                         Text(isOverLimit ? "Continue Anyway" : "Save Verse")
                         Image(systemName: "arrow.right")
                     }
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
@@ -1561,7 +1609,7 @@ struct UnifiedVerseSelectionView: View {
                 .disabled(manualText.isEmpty)
                 .padding(.bottom, 30)
             }
-            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.horizontal, sidePadding)
             .padding(.top, 10)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -1644,6 +1692,78 @@ struct UnifiedVerseSelectionView: View {
     private func selectVerse(_ verse: BibleVerse) {
         selectedVerseForReview = verse
     }
+    
+    // MARK: - Smart Snippet & Highlighting
+    
+    /// Creates a smart snippet that shows the search term in context
+    private func smartSnippet(from text: String) -> AttributedString {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return AttributedString(text) }
+        
+        let maxLength = 150 // Max characters to show
+        let textLower = text.lowercased()
+        
+        // Find first occurrence of search term
+        var snippetText = text
+        if let range = textLower.range(of: query) {
+            let matchStart = text.distance(from: text.startIndex, to: range.lowerBound)
+            
+            // If match is beyond what would normally show, create a snippet around it
+            if matchStart > 80 {
+                // Start snippet ~40 chars before the match
+                let snippetStart = max(0, matchStart - 40)
+                let startIndex = text.index(text.startIndex, offsetBy: snippetStart)
+                
+                // Find a word boundary to start from
+                var adjustedStart = startIndex
+                if snippetStart > 0 {
+                    // Look for space to start at word boundary
+                    if let spaceIndex = text[startIndex...].firstIndex(of: " ") {
+                        adjustedStart = text.index(after: spaceIndex)
+                    }
+                }
+                
+                let remaining = String(text[adjustedStart...])
+                snippetText = "..." + (remaining.count > maxLength ? String(remaining.prefix(maxLength)) + "..." : remaining)
+            } else if text.count > maxLength {
+                snippetText = String(text.prefix(maxLength)) + "..."
+            }
+        } else if text.count > maxLength {
+            snippetText = String(text.prefix(maxLength)) + "..."
+        }
+        
+        // Now highlight the search term in the snippet
+        return highlightSearchTerm(in: snippetText)
+    }
+    
+    /// Highlights search terms with elegant styling
+    private func highlightSearchTerm(in text: String) -> AttributedString {
+        var attributedString = AttributedString(text)
+        
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return attributedString }
+        
+        // If the query contains spaces, it's a phrase search - only highlight the exact phrase
+        if query.contains(" ") {
+            // Exact phrase matching only
+            var searchRange = attributedString.startIndex..<attributedString.endIndex
+            while let range = attributedString[searchRange].range(of: query, options: .caseInsensitive) {
+                attributedString[range].foregroundColor = accentColor
+                attributedString[range].font = Font.body.weight(.semibold)
+                searchRange = range.upperBound..<attributedString.endIndex
+            }
+        } else {
+            // Single word search - highlight all occurrences of that word
+            var searchRange = attributedString.startIndex..<attributedString.endIndex
+            while let range = attributedString[searchRange].range(of: query, options: .caseInsensitive) {
+                attributedString[range].foregroundColor = accentColor
+                attributedString[range].font = Font.body.weight(.semibold)
+                searchRange = range.upperBound..<attributedString.endIndex
+            }
+        }
+        
+        return attributedString
+    }
 }
 
 // MARK: - Internal Helper Views
@@ -1676,7 +1796,6 @@ struct ChapterGridView: View {
                         }
                     }
                 }
-                .padding()
             }
         }
         .onAppear {
@@ -1737,6 +1856,7 @@ struct VerseListViewInternal: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                 }
             }
         }

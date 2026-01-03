@@ -413,16 +413,10 @@ struct AccessoryRectangularView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            // Show Bible reference as header if available
-            if let reference = entry.reference {
-                Text(reference)
-                    .font(.system(size: 11, weight: .bold))
-                    .lineLimit(1)
-            }
-            
+            // Verse text only - no reference (reference moved to Logo widget)
             Text(entry.note)
                 .font(.system(size: 11))
-                .lineLimit(entry.reference != nil ? 3 : 4)
+                .lineLimit(4)
                 .minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -487,10 +481,10 @@ struct FaithWallBrandingWidget: Widget {
     var body: some WidgetConfiguration {
         if #available(iOS 16.0, *) {
             return StaticConfiguration(kind: kind, provider: FaithWallProvider()) { entry in
-                BrandingRectangularView()
+                BrandingRectangularView(entry: entry)
             }
             .configurationDisplayName("FaithWall Logo")
-            .description("Brand widget to pair with your verse widget")
+            .description("Shows the verse reference - pair with your verse widget")
             .supportedFamilies([.accessoryRectangular])
         } else {
             return StaticConfiguration(kind: kind, provider: FaithWallProvider()) { entry in
@@ -505,14 +499,31 @@ struct FaithWallBrandingWidget: Widget {
 
 @available(iOS 16.0, *)
 struct BrandingRectangularView: View {
+    let entry: FaithWallEntry
+    
     var body: some View {
-        HStack(spacing: 8) {
-            LatinCross()
-                .fill(Color.primary)
-                .frame(width: 24, height: 32)
+        VStack(alignment: .center, spacing: 4) {
+            // Top row: Cross + FaithWall
+            HStack(spacing: 6) {
+                LatinCross()
+                    .fill(Color.primary)
+                    .frame(width: 16, height: 22)
+                
+                Text("FaithWall")
+                    .font(.system(size: 15, weight: .bold))
+            }
             
-            Text("FaithWall")
-                .font(.system(size: 18, weight: .bold))
+            // Bottom row: Bible reference
+            if let reference = entry.reference {
+                Text(reference)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            } else {
+                Text("Select a verse")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .widgetBackground(Color.clear)

@@ -248,8 +248,8 @@ struct BibleSearchView: View {
         guard !query.isEmpty else { return attributedString }
         
         // Define highlight style
-        // Using a soft blue to complement the orange app accent
-        let highlightColor = Color.blue.opacity(0.15)
+        // Brand-aligned highlighting: Soft accent background with bold text
+        let highlightColor = DS.Colors.accent.opacity(0.2)
         let highlightFont = Font.system(size: 16, weight: .bold, design: .rounded)
         
         // 1. Highlight the full phrase first (if it's more than one word)

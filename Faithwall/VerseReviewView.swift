@@ -32,11 +32,11 @@ struct VerseReviewView: View {
                             // Header Info
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(verse.reference)
-                                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(.appAccent)
                                 
                                 Text(verse.translation.displayName)
-                                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                                    .font(.system(size: 15, weight: .medium))
                                     .foregroundColor(.secondary)
                             }
                             .padding(.horizontal, DS.Spacing.xl)
@@ -70,10 +70,10 @@ struct VerseReviewView: View {
                                 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Widget Capacity")
-                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                        .font(.system(size: 15, weight: .bold))
                                     
                                     Text("\(totalCount) of \(maxChars) characters used")
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                                        .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(isOverLimit ? .red : .secondary)
                                 }
                                 
@@ -92,7 +92,7 @@ struct VerseReviewView: View {
                                         .foregroundColor(.orange)
                                     
                                     Text("This verse is slightly too long for the widget. You can trim it below to ensure it fits perfectly.")
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                                        .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(.secondary)
                                         .lineLimit(nil)
                                 }
@@ -106,14 +106,14 @@ struct VerseReviewView: View {
                             // Editor
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("Edit Verse Text", systemImage: "pencil.line")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.secondary)
                                     .padding(.horizontal, 4)
                                 
                                 ZStack(alignment: .topLeading) {
                                     if #available(iOS 16.0, *) {
                                         TextEditor(text: $editedText)
-                                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                                            .font(.system(size: 17, weight: .regular))
                                             .frame(minHeight: 180)
                                             .scrollContentBackground(.hidden)
                                             .padding(12)
@@ -131,34 +131,86 @@ struct VerseReviewView: View {
                             }
                             .padding(.horizontal, DS.Spacing.xl)
                             
-                            // Preview
+                            // Preview - Two widgets side by side like on Lock Screen
                             VStack(alignment: .leading, spacing: 12) {
-                                Label("Widget Preview", systemImage: "iphone")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                Label("Widget Preview (just an estimate)", systemImage: "iphone")
+                                    .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.secondary)
                                     .padding(.horizontal, 4)
                                 
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(verse.reference)
-                                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                                        .foregroundColor(.appAccent)
+                                // Lock screen style preview with gradient background
+                                ZStack {
+                                    // Purple gradient background mimicking lock screen
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.45, green: 0.35, blue: 0.55),
+                                            Color(red: 0.55, green: 0.45, blue: 0.60)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                    .cornerRadius(20)
                                     
-                                    Text(editedText)
-                                        .font(.system(size: 15, weight: .regular, design: .rounded))
-                                        .foregroundColor(.primary)
-                                        .lineSpacing(2)
+                                    // Two widgets side by side
+                                    HStack(alignment: .top, spacing: 8) {
+                                        // Left Widget - FaithWall Logo with Reference
+                                        VStack(spacing: 4) {
+                                            Spacer(minLength: 8)
+                                            
+                                            // Cross + FaithWall
+                                            HStack(spacing: 5) {
+                                                // Cross shape
+                                                ZStack {
+                                                    Rectangle()
+                                                        .fill(Color.white.opacity(0.85))
+                                                        .frame(width: 3, height: 18)
+                                                    Rectangle()
+                                                        .fill(Color.white.opacity(0.85))
+                                                        .frame(width: 12, height: 3)
+                                                        .offset(y: -4)
+                                                }
+                                                
+                                                Text("FaithWall")
+                                                    .font(.system(size: 13, weight: .bold))
+                                                    .foregroundColor(.white.opacity(0.85))
+                                            }
+                                            
+                                            // Reference
+                                            Text(verse.reference)
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundColor(.white.opacity(0.65))
+                                                .lineLimit(1)
+                                            
+                                            Spacer(minLength: 8)
+                                        }
+                                        .frame(width: 130, height: 72)
+                                        .background(Color.white.opacity(0.0))
+                                        
+                                        // Right Widget - Verse Text Only (4 rows, ~133 chars max like real widget)
+                                        if #available(iOS 16.0, *) {
+                                            Text({
+                                                let maxChars = 133
+                                                if editedText.count > maxChars {
+                                                    return String(editedText.prefix(maxChars - 3)).trimmingCharacters(in: .whitespaces) + "..."
+                                                } else {
+                                                    return editedText
+                                                }
+                                            }())
+                                            .font(.system(size: 13, weight: .regular))
+                                            .foregroundColor(.white.opacity(0.80))
+                                            .lineLimit(4)
+                                            .lineSpacing(2)
+                                            .tracking(-0.2)
+                                            .frame(width: 195, height: 72, alignment: .topLeading)
+                                            .clipped()
+                                        } else {
+                                            // Fallback on earlier versions
+                                        }
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
                                 }
-                                .padding(24)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .fill(Color(.systemBackground))
-                                        .shadow(color: Color.black.opacity(0.06), radius: 15, x: 0, y: 8)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                                )
+                                .frame(height: 95)
                             }
                             .padding(.horizontal, DS.Spacing.xl)
                             .padding(.bottom, 40)
@@ -184,7 +236,7 @@ struct VerseReviewView: View {
                                 Text(isOverLimit ? "Add Anyway" : "Add to Lock Screen")
                                 Image(systemName: "checkmark.circle.fill")
                             }
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .font(.system(size: 18, weight: .bold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
                             .background(isOverLimit ? Color.orange : Color.appAccent)
