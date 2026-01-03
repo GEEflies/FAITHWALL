@@ -55,6 +55,9 @@ class OnboardingQuizState: ObservableObject {
     
     // Personalization based on answers
     var personalizedPhoneChecks: String {
+        if let val = Int(phoneChecks) {
+            return "\(val)+"
+        }
         switch phoneChecks {
         case "50-100":
             return "50-100"
@@ -804,17 +807,8 @@ struct PhoneUsageSliderQuestionView: View {
                         let generator = UIImpactFeedbackGenerator(style: .medium)
                         generator.impactOccurred()
                         
-                        // Convert to range categories
-                        let value: String
-                        if phoneChecks < 100 {
-                            value = "50-100"
-                        } else if phoneChecks < 200 {
-                            value = "100-200"
-                        } else {
-                            value = "200+"
-                        }
-                        
-                        onSelect(value)
+                        // Pass the precise number as a string
+                        onSelect("\(Int(phoneChecks))")
                     }) {
                         Text("Next")
                             .font(.system(size: isCompact ? 17 : 19, weight: .bold))
@@ -2733,6 +2727,7 @@ struct SetupIntroView: View {
     
     struct HowAppHelpsView: View {
         let onContinue: () -> Void
+        @ObservedObject private var quizState = OnboardingQuizState.shared
         
         @State private var headerOpacity: Double = 0
         @State private var benefitCards: [(opacity: Double, offset: CGFloat)] = Array(repeating: (0, 30), count: 3)
@@ -2748,11 +2743,18 @@ struct SetupIntroView: View {
             let description: String
         }
         
-        private let benefits: [BenefitCard] = [
-            BenefitCard(icon: "book.closed.fill", title: "Bible Verses on Lock Screen", description: "See a Bible verse every time you unlock—up to 96x a day."),
-            BenefitCard(icon: "photo.artframe", title: "Beautiful Wallpapers", description: "Choose from presets or use your own photos."),
-            BenefitCard(icon: "arrow.triangle.2.circlepath", title: "Auto-Update Magic", description: "Change your verse and wallpaper updates instantly.")
-        ]
+        private var phoneCheckCount: String {
+            if quizState.phoneChecks.isEmpty { return "100" }
+            return quizState.phoneChecks
+        }
+        
+        private var benefits: [BenefitCard] {
+            [
+                BenefitCard(icon: "book.closed.fill", title: "Bible Verses on Lock Screen", description: "See a Bible verse every time you unlock—up to \(phoneCheckCount) times a day."),
+                BenefitCard(icon: "photo.artframe", title: "Beautiful Wallpapers", description: "Choose from presets or use your own photos."),
+                BenefitCard(icon: "arrow.triangle.2.circlepath", title: "Auto-Update Magic", description: "Change your verse and wallpaper updates instantly.")
+            ]
+        }
         
         var body: some View {
             ZStack {
@@ -2834,9 +2836,18 @@ struct SetupIntroView: View {
                             
                             // CTA message
                             VStack(spacing: isCompact ? 6 : 8) {
-                                Image(systemName: "cross.case.fill")
-                                    .font(.system(size: isCompact ? 18 : 22))
-                                    .foregroundColor(.appAccent)
+                                // Custom Christian Cross (prolonged vertical line)
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.appAccent)
+                                        .frame(width: isCompact ? 4 : 5, height: isCompact ? 28 : 34)
+                                    
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.appAccent)
+                                        .frame(width: isCompact ? 18 : 22, height: isCompact ? 4 : 5)
+                                        .offset(y: isCompact ? -4 : -5)
+                                }
+                                .padding(.bottom, 4)
                                 
                                 Text("Let a Bible verse transform your day.")
                                     .font(.system(size: isCompact ? 14 : 16, weight: .medium))
@@ -2921,12 +2932,8 @@ struct ResultsPreviewView: View {
     private var isCompact: Bool { ScreenDimensions.isCompactDevice }
     
     private var phoneCheckDisplay: String {
-        switch quizState.phoneChecks {
-        case "50-100": return "50+"
-        case "100-200": return "100+"
-        case "200+": return "200+"
-        default: return "96+"
-        }
+        if quizState.phoneChecks.isEmpty { return "100" }
+        return quizState.phoneChecks
     }
     
     var body: some View {
@@ -3452,30 +3459,38 @@ struct PipelineChoiceView: View {
                     .padding(.horizontal)
             }
             
-            HStack(spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
                 // Lock Screen Option
                 PipelineOptionCard(
                     imageName: "lockscreen-choose",
                     title: "Lock Screen",
                     subtitle: "Wallpaper",
+                    time: "3 min setup",
+                    description: "A bit technical. \nBut truly transformative. \nWorks best on iOS 26+.",
                     isSelected: selectedOption == "fullscreen",
+                    scale: 0.9725,
                     action: {
                         handleSelection("fullscreen", action: onSelectFullScreen)
                     }
                 )
                 
-                // Home Screen Option
+                // Lock Screen Option
                 PipelineOptionCard(
                     imageName: "widget-choose",
-                    title: "Home Screen",
+                    title: "Lock Screen",
                     subtitle: "Widget",
+                    time: "1 min setup",
+                    description: "Quick & easy. \nBest for shorter verses \n(up to 130 characters).",
                     isSelected: selectedOption == "widget",
+                    scale: 1,
+                    imageTopPadding: 0,
+                    titleTopPadding: 7,
                     action: {
                         handleSelection("widget", action: onSelectWidget)
                     }
                 )
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 20)
             
             Spacer()
             
@@ -3509,18 +3524,25 @@ struct PipelineOptionCard: View {
     let imageName: String
     let title: String
     let subtitle: String
+    let time: String
+    let description: String
     let isSelected: Bool
+    let scale: CGFloat
+    var imageTopPadding: CGFloat = 0
+    var titleTopPadding: CGFloat = 0
     let action: () -> Void
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 12) {
-                // Image Container
+        VStack(spacing: 16) {
+            // Image Button
+            Button(action: action) {
                 ZStack {
                     Image(imageName)
                         .resizable()
                         .scaledToFit()
+                        .scaleEffect(scale)
                         .cornerRadius(12)
+                        .padding(.top, imageTopPadding)
                     
                     // Selection Overlay
                     if isSelected {
@@ -3537,26 +3559,48 @@ struct PipelineOptionCard: View {
                 .aspectRatio(0.55, contentMode: .fit)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(isSelected ? Color.appAccent : Color.black.opacity(0.05), lineWidth: isSelected ? 3 : 1)
+                        .stroke(isSelected ? Color.appAccent : Color.clear, lineWidth: 3)
+                        .scaleEffect(scale)
                 )
-                .shadow(color: isSelected ? Color.appAccent.opacity(0.3) : Color.black.opacity(0.05), radius: isSelected ? 12 : 8, x: 0, y: 4)
-                
-                // Text
-                VStack(spacing: 4) {
+            }
+            .buttonStyle(ScaleButtonStyle())
+            
+            // Text & Details
+            VStack(spacing: 8) {
+                VStack(spacing: 2) {
                     Text(title)
-                        .font(.headline)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(isSelected ? .appAccent : .primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .padding(.top, titleTopPadding)
                     
                     Text(subtitle)
-                        .font(.subheadline)
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.secondary)
                 }
-                .padding(.bottom, 4)
+                
+                // Time Badge
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10, weight: .bold))
+                    Text(time)
+                        .font(.system(size: 10, weight: .bold))
+                        .textCase(.uppercase)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.appAccent.opacity(0.1))
+                .foregroundColor(.appAccent)
+                .cornerRadius(6)
+                
+                Text(description)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
             }
         }
-        .buttonStyle(ScaleButtonStyle())
     }
 }
 

@@ -442,7 +442,7 @@ final class BibleDatabaseService {
         defer { sqlite3_finalize(statement) }
         
         let searchPattern = "%\(query)%"
-        sqlite3_bind_text(statement, 1, searchPattern, -1, nil)
+        sqlite3_bind_text(statement, 1, (searchPattern as NSString).utf8String, -1, nil)
         sqlite3_bind_int(statement, 2, Int32(limit))
         
         var verses: [BibleVerse] = []

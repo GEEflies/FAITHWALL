@@ -230,6 +230,10 @@ struct OnboardingView: View {
     @AppStorage("hasRequestedAppReview") private var hasRequestedAppReview = false
     @AppStorage("hasLockScreenWidgets") private var hasLockScreenWidgets = true
     @AppStorage("selectedOnboardingPipeline") private var selectedOnboardingPipeline = "" // "fullscreen" or "widget"
+    
+    // DEBUG: Set to true to skip directly to Choose Your Setup
+    private let debugSkipToChooseSetup = true
+    
     @State private var didOpenShortcut = false
     @State private var shouldAdvanceToInstallStep = false
     @State private var advanceToInstallStepTimer: Timer?
@@ -409,6 +413,11 @@ struct OnboardingView: View {
             HomeScreenImageManager.prepareStorageStructure()
         }
         .onAppear {
+            // DEBUG: Skip to Choose Your Setup if flag is enabled
+            if debugSkipToChooseSetup {
+                currentPage = .pipelineChoice
+            }
+            
             // CRITICAL: Reset shortcut launch state when onboarding appears
             // This prevents shortcuts from running automatically when onboarding first opens
             // (e.g., when user clicks "Reinstall Shortcut" button)
@@ -1122,7 +1131,7 @@ struct OnboardingView: View {
                         }
                     }
                     .frame(maxWidth: geometry.size.width * 0.55, alignment: .leading)
-                    .offset(x: 20) // Shift right to visually center
+                    .offset(x: 10) // Shift right to visually center
                     .frame(maxWidth: .infinity)
                     .opacity(showVerseOnMockup ? 0 : containerOpacity)
                     

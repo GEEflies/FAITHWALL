@@ -1033,6 +1033,7 @@ struct UnifiedVerseSelectionView: View {
     
     // UI State
     @State private var showVersionPicker = false
+    @State private var selectedVerseForReview: BibleVerse?
     
     private var isCompact: Bool { ScreenDimensions.isCompactDevice }
     private let accentColor = Color(red: 0.95, green: 0.4, blue: 0.2) // Orange accent
@@ -1072,9 +1073,6 @@ struct UnifiedVerseSelectionView: View {
             
             // Content
             ZStack {
-                Color(UIColor.systemBackground)
-                    .ignoresSafeArea()
-                
                 switch selectedTab {
                 case .explore:
                     exploreView
@@ -1087,11 +1085,38 @@ struct UnifiedVerseSelectionView: View {
             .transition(.opacity)
             .animation(.easeInOut(duration: 0.2), value: selectedTab)
         }
+        .background(
+            Color(UIColor.systemBackground)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+        )
         .sheet(isPresented: $showVersionPicker) {
-            SettingsVersionSheet(
-                languageManager: languageManager,
-                onDismiss: { showVersionPicker = false }
-            )
+            NavigationView {
+                BibleLanguageSelectionView(
+                    initialSelection: languageManager.selectedTranslation,
+                    showContinueButton: false,
+                    isOnboarding: false
+                ) { translation in
+                    showVersionPicker = false
+                }
+                .navigationTitle("Bible Version")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showVersionPicker = false
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(item: $selectedVerseForReview) { verse in
+            VerseReviewView(verse: verse) { editedText in
+                onVerseSelected(editedText, verse.reference)
+            }
         }
         .onAppear {
             if books.isEmpty {
@@ -1421,56 +1446,127 @@ struct UnifiedVerseSelectionView: View {
                 searchResults = []
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
     
     // MARK: - Write View
     
     private var writeView: some View {
-        VStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Verse Text")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.secondary)
-                
-                TextEditor(text: $manualText)
-                    .frame(height: 140)
-                    .padding(12)
+        let totalChars = manualText.count + manualReference.count + 1
+        let isOverLimit = totalChars > 133
+        
+        return ScrollView {
+            VStack(spacing: 24) {
+                // Verse Text Input
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label("Verse Text", systemImage: "quote.opening")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 4) {
+                            Text("\(totalChars)")
+                                .foregroundColor(isOverLimit ? .red : .appAccent)
+                            Text("/ 133")
+                                .foregroundColor(.secondary)
+                        }
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(isOverLimit ? Color.red.opacity(0.1) : Color.appAccent.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    
+                    ZStack(alignment: .topLeading) {
+                        if manualText.isEmpty {
+                            Text("Type your favorite verse here...")
+                                .foregroundColor(Color(.placeholderText))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 16)
+                        }
+                        
+                        if #available(iOS 16.0, *) {
+                            TextEditor(text: $manualText)
+                                .font(.system(size: 17, weight: .regular, design: .rounded))
+                                .frame(minHeight: 160)
+                                .scrollContentBackground(.hidden)
+                                .padding(12)
+                        } else {
+                            // Fallback on earlier versions
+                        }
+                    }
                     .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Reference")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.secondary)
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(isOverLimit ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1.5)
+                    )
+                }
                 
-                TextField("e.g. John 3:16", text: $manualReference)
+                if isOverLimit {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("This verse is too long for the widget and will be truncated. Try shortening it.")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                    }
                     .padding(12)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
-            }
-            
-            Spacer()
-            
-            Button(action: {
-                onVerseSelected(manualText, manualReference)
-            }) {
-                Text("Continue")
-                    .font(.headline)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                
+                // Reference Input
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Reference", systemImage: "book.fill")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(.secondary)
+                    
+                    TextField("e.g. John 3:16", text: $manualReference)
+                        .font(.system(size: 17, weight: .medium, design: .rounded))
+                        .padding(16)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(16)
+                }
+                
+                Spacer(minLength: 20)
+                
+                // Action Button
+                Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    onVerseSelected(manualText, manualReference)
+                }) {
+                    HStack {
+                        Text(isOverLimit ? "Continue Anyway" : "Save Verse")
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(manualText.isEmpty ? Color.gray.opacity(0.5) : accentColor)
+                    .padding(.vertical, 18)
+                    .background(
+                        manualText.isEmpty ? Color.gray.opacity(0.3) : 
+                        (isOverLimit ? Color.orange : accentColor)
+                    )
                     .cornerRadius(16)
+                    .shadow(color: (manualText.isEmpty ? Color.clear : (isOverLimit ? Color.orange : accentColor)).opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+                .disabled(manualText.isEmpty)
+                .padding(.bottom, 30)
             }
-            .disabled(manualText.isEmpty)
-            .padding(.bottom, 20)
-        }
-        .padding(.horizontal, 24)
-        .onTapGesture {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, 10)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
         }
     }
     
@@ -1546,9 +1642,7 @@ struct UnifiedVerseSelectionView: View {
     }
     
     private func selectVerse(_ verse: BibleVerse) {
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-        onVerseSelected(verse.text, verse.reference)
+        selectedVerseForReview = verse
     }
 }
 

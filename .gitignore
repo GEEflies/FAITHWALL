@@ -92,6 +92,12 @@ iOSInjectionProject/
 # macOS
 .DS_Store
 
+# Backups and temporary files
+*.backup
+*.bak
+*.new
+*.tmp
+
 # Sensitive configuration files (like .env.local in Next.js)
 # Note: Config.swift is kept locally but gitignored for security
 DEVELOPER_CREDENTIALS.txt

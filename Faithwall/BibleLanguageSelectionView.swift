@@ -7,6 +7,8 @@ struct BibleLanguageSelectionView: View {
     @StateObject private var languageManager = BibleLanguageManager.shared
     @State private var selectedTranslation: BibleTranslation
     @State private var isDownloading = false
+    @State private var isApplying = false
+    @State private var showSuccess = false
     @State private var downloadProgress: Double = 0
     @State private var showError = false
     @State private var errorMessage = ""
@@ -33,43 +35,51 @@ struct BibleLanguageSelectionView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            if isOnboarding {
-                headerSection
-            }
-            
-            ScrollView {
-                VStack(spacing: 16) {
-                    if isOnboarding {
-                        Text("Choose your preferred Bible version")
-                            .font(.subheadline)
+        ZStack {
+            VStack(spacing: 0) {
+                if isOnboarding {
+                    headerSection
+                }
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        if isOnboarding {
+                            Text("Choose your preferred Bible version")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 8)
+                        }
+                        
+                        versionsList
+                        
+                        // Download progress indicator
+                        if isDownloading {
+                            downloadProgressView
+                        }
+                        
+                        // Size info
+                        Text("All versions are stored offline (~4-5MB each)\nNo internet required once downloaded")
+                            .font(.caption)
                             .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, 8)
                     }
-                    
-                    versionsList
-                    
-                    // Download progress indicator
-                    if isDownloading {
-                        downloadProgressView
-                    }
-                    
-                    // Size info
-                    Text("All versions are stored offline (~4-5MB each)\nNo internet required once downloaded")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                        .padding(.top, 8)
+                    .padding(.horizontal, DS.Spacing.xl)
+                    .padding(.vertical)
                 }
-                .padding()
+                
+                if showContinueButton {
+                    continueButton
+                }
             }
+            .background(Color(.systemBackground))
             
-            if showContinueButton {
-                continueButton
+            // Processing Overlay
+            if isApplying || showSuccess {
+                processingOverlay
             }
         }
-        .background(Color(.systemBackground))
         .alert("Download Failed", isPresented: $showError) {
             Button("OK", role: .cancel) {}
             Button("Retry") {
@@ -80,18 +90,73 @@ struct BibleLanguageSelectionView: View {
         }
     }
     
+    // MARK: - Processing Overlay
+    
+    private var processingOverlay: some View {
+        ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+                .opacity(0.9)
+            
+            VStack(spacing: 24) {
+                if showSuccess {
+                    VStack(spacing: 16) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 70))
+                            .foregroundColor(.green)
+                            .transition(.scale.combined(with: .opacity))
+                        
+                        Text("Version Ready!")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                    }
+                } else {
+                    VStack(spacing: 20) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.appAccent)
+                        
+                        Text("Applying Version...")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color(.secondarySystemBackground))
+                    .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
+            )
+            .padding(24)
+        }
+        .transition(.opacity)
+        .animation(.spring(), value: showSuccess)
+    }
+    
     // MARK: - Header Section
     
     private var headerSection: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "book.fill")
-                .font(.system(size: 50))
-                .foregroundColor(.appAccent)
-                .padding(.top, 40)
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Color.appAccent.opacity(0.1))
+                    .frame(width: 100, height: 100)
+                
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 44))
+                    .foregroundColor(.appAccent)
+            }
+            .padding(.top, 40)
             
-            Text("Bible Version")
-                .font(.title)
-                .fontWeight(.bold)
+            VStack(spacing: 4) {
+                Text("Bible Version")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                
+                Text("Select your preferred translation")
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(.bottom, 20)
     }
@@ -99,7 +164,7 @@ struct BibleLanguageSelectionView: View {
     // MARK: - Versions List
     
     private var versionsList: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             ForEach(BibleTranslation.allCases, id: \.id) { translation in
                 versionCard(for: translation)
             }
@@ -115,19 +180,24 @@ struct BibleLanguageSelectionView: View {
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
             
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                 selectedTranslation = translation
+            }
+            
+            // If not showing continue button (pop-up mode), apply immediately
+            if !showContinueButton {
+                downloadAndSelect(translation)
             }
         }) {
             HStack(spacing: 16) {
                 // Version name and details
                 VStack(alignment: .leading, spacing: 4) {
                     Text(translation.displayName)
-                        .font(.headline)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(isSelected ? .white : .primary)
                     
                     Text(translation.shortName)
-                        .font(.caption)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                 }
                 
@@ -137,21 +207,30 @@ struct BibleLanguageSelectionView: View {
                 downloadStatusIndicator(for: downloadState, translation: translation, isSelected: isSelected)
                 
                 // Selection checkmark
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(.white)
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.white.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 2)
+                        .frame(width: 24, height: 24)
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
             }
-            .padding(16)
+            .padding(20)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 16)
                     .fill(isSelected ? Color.appAccent : Color(.secondarySystemBackground))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.clear : Color(.systemGray4), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? Color.white.opacity(0.2) : Color.clear, lineWidth: 1)
             )
+            .scaleEffect(isSelected ? 1.02 : 1.0)
+            .shadow(color: isSelected ? Color.appAccent.opacity(0.3) : Color.clear, radius: 10, x: 0, y: 5)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -162,56 +241,83 @@ struct BibleLanguageSelectionView: View {
         case .downloaded:
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.caption)
+                    .font(.system(size: 10))
                 Text(translation == .niv ? "Bundled" : "Ready")
-                    .font(.caption2)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
             }
-            .foregroundColor(isSelected ? .white.opacity(0.8) : .green)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isSelected ? Color.white.opacity(0.2) : Color.green.opacity(0.1))
+            .foregroundColor(isSelected ? .white : .green)
+            .cornerRadius(6)
             
         case .downloading(let progress):
             HStack(spacing: 4) {
                 ProgressView()
-                    .scaleEffect(0.7)
+                    .scaleEffect(0.6)
                     .tint(isSelected ? .white : .appAccent)
                 Text("\(Int(progress * 100))%")
-                    .font(.caption2)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
             }
-            .foregroundColor(isSelected ? .white.opacity(0.8) : .appAccent)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isSelected ? Color.white.opacity(0.2) : Color.appAccent.opacity(0.1))
+            .foregroundColor(isSelected ? .white : .appAccent)
+            .cornerRadius(6)
             
         case .notDownloaded:
             HStack(spacing: 4) {
                 Image(systemName: "arrow.down.circle")
-                    .font(.caption)
-                Text("Tap to download")
-                    .font(.caption2)
+                    .font(.system(size: 10))
+                Text("Download")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
             }
-            .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isSelected ? Color.white.opacity(0.2) : Color.secondary.opacity(0.1))
+            .foregroundColor(isSelected ? .white : .secondary)
+            .cornerRadius(6)
             
         case .failed:
             HStack(spacing: 4) {
                 Image(systemName: "exclamationmark.circle")
-                    .font(.caption)
-                Text("Tap to retry")
-                    .font(.caption2)
+                    .font(.system(size: 10))
+                Text("Retry")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
             }
-            .foregroundColor(isSelected ? .white.opacity(0.8) : .red)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isSelected ? Color.white.opacity(0.2) : Color.red.opacity(0.1))
+            .foregroundColor(isSelected ? .white : .red)
+            .cornerRadius(6)
         }
     }
     
     // MARK: - Download Progress View
     
     private var downloadProgressView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Downloading \(selectedTranslation.shortName)...")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(Int(downloadProgress * 100))%")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(.appAccent)
+            }
+            
             ProgressView(value: downloadProgress)
                 .progressViewStyle(LinearProgressViewStyle())
-            
-            Text("Downloading \(selectedTranslation.displayName)...")
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .tint(.appAccent)
+                .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-        .padding()
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.secondarySystemBackground))
         )
     }
@@ -222,7 +328,7 @@ struct BibleLanguageSelectionView: View {
         Button(action: {
             downloadAndSelect(selectedTranslation)
         }) {
-            HStack {
+            HStack(spacing: 12) {
                 if isDownloading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -233,22 +339,32 @@ struct BibleLanguageSelectionView: View {
                     
                     if needsDownload {
                         Image(systemName: "arrow.down.circle.fill")
-                    } else if selectedTranslation.isAPIBased {
+                            .font(.system(size: 18, weight: .semibold))
+                    } else {
                         Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
                     }
                     
-                    Text(needsDownload ? "Download & Continue" : "Continue")
-                        .fontWeight(.semibold)
+                    Text(needsDownload ? "Download & Continue" : "Apply Version")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.appAccent)
+            .padding(.vertical, 18)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [Color.appAccent, Color.appAccent.opacity(0.8)]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             .foregroundColor(.white)
-            .cornerRadius(12)
+            .cornerRadius(16)
+            .shadow(color: Color.appAccent.opacity(0.3), radius: 10, x: 0, y: 5)
         }
-        .disabled(isDownloading)
-        .padding()
+        .disabled(isDownloading || isApplying || showSuccess)
+        .padding(.horizontal, DS.Spacing.xl)
+        .padding(.bottom, DS.Spacing.l)
     }
     
     // MARK: - Actions
@@ -256,14 +372,27 @@ struct BibleLanguageSelectionView: View {
     private func downloadAndSelect(_ translation: BibleTranslation) {
         // API-based translations (like NIV) don't need download
         if translation.isAPIBased {
-            languageManager.selectedTranslation = translation
-            languageManager.markLanguageSelectionComplete()
+            withAnimation { isApplying = true }
             
-            // Haptic feedback
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-            
-            onLanguageSelected?(translation)
+            // Simulate a brief "Applying" state for better UX
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                languageManager.selectedTranslation = translation
+                languageManager.markLanguageSelectionComplete()
+                
+                // Haptic feedback
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                
+                withAnimation {
+                    showSuccess = true
+                    isApplying = false
+                }
+                
+                // Final delay before dismissing
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    onLanguageSelected?(translation)
+                }
+            }
             return
         }
         
@@ -285,8 +414,21 @@ struct BibleLanguageSelectionView: View {
                     #if DEBUG
                     print("📥 Download successful!")
                     #endif
-                    languageManager.markLanguageSelectionComplete()
-                    onLanguageSelected?(translation)
+                    
+                    withAnimation { isApplying = true }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        languageManager.markLanguageSelectionComplete()
+                        
+                        withAnimation {
+                            showSuccess = true
+                            isApplying = false
+                        }
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                            onLanguageSelected?(translation)
+                        }
+                    }
                     
                 case .failure(let error):
                     #if DEBUG
@@ -298,9 +440,25 @@ struct BibleLanguageSelectionView: View {
             }
         } else {
             // Already downloaded, just select and continue
-            languageManager.selectedTranslation = translation
-            languageManager.markLanguageSelectionComplete()
-            onLanguageSelected?(translation)
+            withAnimation { isApplying = true }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                languageManager.selectedTranslation = translation
+                languageManager.markLanguageSelectionComplete()
+                
+                // Haptic feedback
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                
+                withAnimation {
+                    showSuccess = true
+                    isApplying = false
+                }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    onLanguageSelected?(translation)
+                }
+            }
         }
     }
 }
@@ -350,12 +508,24 @@ struct CompactBibleLanguagePicker: View {
             }
         }
         .sheet(isPresented: $showVersionSheet) {
-            SettingsVersionSheet(
-                languageManager: languageManager,
-                onDismiss: {
+            NavigationView {
+                BibleLanguageSelectionView(
+                    initialSelection: languageManager.selectedTranslation,
+                    showContinueButton: false,
+                    isOnboarding: false
+                ) { translation in
                     showVersionSheet = false
                 }
-            )
+                .navigationTitle("Bible Version")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showVersionSheet = false
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -405,14 +575,14 @@ struct SettingsVersionSheet: View {
         return Button(action: {
             selectTranslation(translation)
         }) {
-            HStack {
+            HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(translation.displayName)
-                        .font(.body)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                     
                     Text(translation.shortName)
-                        .font(.caption)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundColor(.secondary)
                 }
                 
@@ -425,7 +595,7 @@ struct SettingsVersionSheet: View {
                             ProgressView()
                                 .scaleEffect(0.8)
                             Text("\(Int(progress * 100))%")
-                                .font(.caption)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
                                 .foregroundColor(.appAccent)
                         }
                     } else {
@@ -435,23 +605,29 @@ struct SettingsVersionSheet: View {
                 } else if downloadState.isDownloaded {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
+                        .font(.system(size: 20))
                 } else {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.down.circle")
                             .foregroundColor(.appAccent)
-                        Text("~\(String(format: "%.1f", translation.estimatedSizeMB))MB")
-                            .font(.caption)
+                        Text("\(String(format: "%.1f", translation.estimatedSizeMB))MB")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.appAccent.opacity(0.1))
+                    .cornerRadius(6)
                 }
                 
                 // Selection checkmark
                 if isSelected {
                     Image(systemName: "checkmark")
                         .foregroundColor(.appAccent)
-                        .font(.body.weight(.semibold))
+                        .font(.system(size: 16, weight: .bold))
                 }
             }
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -493,8 +669,10 @@ struct SettingsVersionSheet: View {
             languageManager.selectedTranslation = translation
             
             // Haptic feedback
-            let generator = UIImpactFeedbackGenerator(style: .light)
+            let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
+            
+            // Brief delay before dismissing if needed, but here we just update UI
         }
     }
 }

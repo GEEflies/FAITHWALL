@@ -29,7 +29,7 @@ struct BibleMenuView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+                        .padding(.horizontal, DS.Spacing.xl)
                 }
                 .padding(.vertical, 32)
                 
@@ -59,7 +59,7 @@ struct BibleMenuView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DS.Spacing.xl)
                 
                 Spacer()
                 

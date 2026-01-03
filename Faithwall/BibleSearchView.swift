@@ -11,7 +11,6 @@ struct BibleSearchView: View {
     @State private var isSearching = false
     @State private var errorMessage: String?
     @State private var selectedVerse: BibleVerse?
-    @State private var showAddConfirmation = false
     
     var onVerseSelected: ((BibleVerse) -> Void)?
     
@@ -34,6 +33,11 @@ struct BibleSearchView: View {
             .navigationTitle("Search Bible")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: "Search for verses...")
+            .onChange(of: searchText) { newValue in
+                if newValue.isEmpty {
+                    searchResults = []
+                }
+            }
             .onSubmit(of: .search) {
                 performSearch()
             }
@@ -44,29 +48,12 @@ struct BibleSearchView: View {
                     }
                 }
             }
-            .alert(alertTitle, isPresented: $showAddConfirmation) {
-                Button("Cancel", role: .cancel) {
-                    selectedVerse = nil
-                }
-                Button("Add Anyway") {
-                    if let verse = selectedVerse {
-                        onVerseSelected?(verse)
-                        
-                        // Haptic feedback
-                        let generator = UINotificationFeedbackGenerator()
-                        generator.notificationOccurred(.success)
-                        
-                        dismiss()
-                    }
-                }
-            } message: {
-                if let verse = selectedVerse {
-                    let charCount = verse.lockScreenFormat.count
-                    if charCount > 130 {
-                        Text("⚠️ This verse has \(charCount) characters. Lock screen widget supports max 130 characters and will be truncated.\n\n\"\(verse.previewText(maxLength: 100))\"")
-                    } else {
-                        Text("\(verse.reference)\n\n\"\(verse.previewText(maxLength: 150))\"")
-                    }
+            .sheet(item: $selectedVerse) { verse in
+                VerseReviewView(verse: verse) { editedText in
+                    var modifiedVerse = verse
+                    modifiedVerse.text = editedText
+                    onVerseSelected?(modifiedVerse)
+                    dismiss()
                 }
             }
         }
@@ -101,7 +88,7 @@ struct BibleSearchView: View {
             .padding()
             .background(Color(.secondarySystemBackground))
             .cornerRadius(12)
-            .padding(.horizontal)
+            .padding(.horizontal, DS.Spacing.xxl)
             
             Spacer()
         }
@@ -135,7 +122,7 @@ struct BibleSearchView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, DS.Spacing.xl)
             
             Button("Try Again") {
                 performSearch()
@@ -160,7 +147,7 @@ struct BibleSearchView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, DS.Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -168,73 +155,129 @@ struct BibleSearchView: View {
     // MARK: - Results List View
     
     private var resultsListView: some View {
-        List {
-            Section {
-                Text("\(searchResults.count) result(s) found")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            ForEach(searchResults) { verse in
-                Button(action: {
-                    selectedVerse = verse
-                    showAddConfirmation = true
-                }) {
-                    verseRow(verse)
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section(header: resultsHeader) {
+                    ForEach(searchResults) { verse in
+                        Button(action: {
+                            let generator = UIImpactFeedbackGenerator(style: .light)
+                            generator.impactOccurred()
+                            selectedVerse = verse
+                        }) {
+                            verseRow(verse)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        if verse.id != searchResults.last?.id {
+                            Divider()
+                                .padding(.horizontal, DS.Spacing.xxl)
+                        }
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
             }
         }
-        .listStyle(.plain)
+    }
+    
+    private var resultsHeader: some View {
+        HStack {
+            Text("\(searchResults.count) result(s) found")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, DS.Spacing.xxl)
+        .padding(.vertical, 12)
+        .background(Color(.systemBackground).opacity(0.95))
     }
     
     private func verseRow(_ verse: BibleVerse) -> some View {
-        let isTooLong = verse.lockScreenFormat.count > 130
+        let totalCount = verse.text.count + verse.reference.count + 1
+        let isTooLong = totalCount > 133
         
-        return VStack(alignment: .leading, spacing: 8) {
-            // Reference
-            Text(verse.reference)
-                .font(.subheadline)
-                .fontWeight(.bold)
-                .foregroundColor(isTooLong ? .orange : .blue)
-            
-            // Verse text with search term highlighting
-            Text(highlightedText(verse.text))
-                .font(.body)
-                .foregroundColor(.primary)
-            
-            // Warning if too long
-            if isTooLong {
-                HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.caption2)
-                    Text("Too long for widget (\(verse.lockScreenFormat.count)/130)")
-                        .font(.caption2)
+        return HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Reference & Metadata
+                HStack {
+                    Text(verse.reference)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(isTooLong ? .orange : .appAccent)
+                    
+                    Spacer()
+                    
+                    if isTooLong {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                            Text("\(totalCount)/133")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(6)
+                    }
                 }
-                .foregroundColor(.orange)
+                
+                // Verse text with search term highlighting
+                Text(highlightedText(verse.text))
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundColor(DS.Colors.textPrimary)
+                    .lineSpacing(4)
             }
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary.opacity(0.3))
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 16)
+        .padding(.horizontal, DS.Spacing.xxl)
+        .contentShape(Rectangle())
     }
     
     // MARK: - Helper Functions
     
-    private var alertTitle: String {
-        if let verse = selectedVerse, verse.lockScreenFormat.count > 130 {
-            return "⚠️ Verse Too Long"
-        }
-        return "Add to Lock Screen?"
-    }
-    
     private func highlightedText(_ text: String) -> AttributedString {
         var attributedString = AttributedString(text)
         
-        // Simple highlighting - bold the search terms
-        let searchTerms = searchText.split(separator: " ")
-        for term in searchTerms {
-            if let range = attributedString.range(of: String(term), options: .caseInsensitive) {
-                attributedString[range].font = .body.bold()
-                attributedString[range].foregroundColor = .blue
+        // Set base font to match the view
+        attributedString.font = .system(size: 16, weight: .regular, design: .rounded)
+        attributedString.foregroundColor = DS.Colors.textPrimary
+        
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return attributedString }
+        
+        // Define highlight style
+        // Using a soft blue to complement the orange app accent
+        let highlightColor = Color.blue.opacity(0.15)
+        let highlightFont = Font.system(size: 16, weight: .bold, design: .rounded)
+        
+        // 1. Highlight the full phrase first (if it's more than one word)
+        if query.contains(" ") {
+            var searchRange = attributedString.startIndex..<attributedString.endIndex
+            while let range = attributedString[searchRange].range(of: query, options: .caseInsensitive) {
+                attributedString[range].backgroundColor = highlightColor
+                attributedString[range].font = highlightFont
+                attributedString[range].foregroundColor = .primary
+                searchRange = range.upperBound..<attributedString.endIndex
+            }
+        }
+        
+        // 2. Highlight individual words (longer than 2 chars)
+        let words = query.split(separator: " ")
+            .map { String($0).trimmingCharacters(in: .punctuationCharacters) }
+            .filter { $0.count > 2 }
+        
+        for word in words {
+            var searchRange = attributedString.startIndex..<attributedString.endIndex
+            while let range = attributedString[searchRange].range(of: word, options: .caseInsensitive) {
+                // Only apply if not already highlighted by the phrase search
+                if attributedString[range].backgroundColor == nil {
+                    attributedString[range].backgroundColor = highlightColor
+                    attributedString[range].font = highlightFont
+                    attributedString[range].foregroundColor = .primary
+                }
+                searchRange = range.upperBound..<attributedString.endIndex
             }
         }
         

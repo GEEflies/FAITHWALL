@@ -25,6 +25,7 @@
 		426047CE2EFDC216001BB43B /* BibleAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047CF2EFDC216001BB43B /* BibleAPIService.swift */; };
 		426047D02EFDC217001BB43B /* BibleMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047D12EFDC217001BB43B /* BibleMenuView.swift */; };
 		426047D22EFDC218001BB43B /* BibleSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047D32EFDC218001BB43B /* BibleSearchView.swift */; };
+		426047D42EFDC219001BB43B /* VerseReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426047D52EFDC219001BB43B /* VerseReviewView.swift */; };
 		4283B2352ED25B5E00093E2D /* ShortcutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */; };
 		4283B2362ED25B5E00093E2D /* ShortcutSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */; };
 		4283B2372ED25B5E00093E2D /* ShortcutVerificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4283B2342ED25B5E00093E2D /* ShortcutVerificationService.swift */; };
@@ -107,6 +108,7 @@
 		426047CF2EFDC216001BB43B /* BibleAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleAPIService.swift; sourceTree = "<group>"; };
 		426047D12EFDC217001BB43B /* BibleMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleMenuView.swift; sourceTree = "<group>"; };
 		426047D32EFDC218001BB43B /* BibleSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleSearchView.swift; sourceTree = "<group>"; };
+		426047D52EFDC219001BB43B /* VerseReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerseReviewView.swift; sourceTree = "<group>"; };
 		4283B2312ED25B5E00093E2D /* PIPVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIPVideoPlayer.swift; sourceTree = "<group>"; };
 		4283B2322ED25B5E00093E2D /* ShortcutSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupView.swift; sourceTree = "<group>"; };
 		4283B2332ED25B5E00093E2D /* ShortcutSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSetupViewModel.swift; sourceTree = "<group>"; };
@@ -203,6 +205,7 @@
 				426047C12EFDC214001BB43B /* BibleExplorerView.swift */,
 				426047D12EFDC217001BB43B /* BibleMenuView.swift */,
 				426047D32EFDC218001BB43B /* BibleSearchView.swift */,
+				426047D52EFDC219001BB43B /* VerseReviewView.swift */,
 				426047C22EFDC214001BB43B /* BibleLanguageManager.swift */,
 				426047C32EFDC214001BB43B /* BibleLanguageSelectionView.swift */,
 				426047C42EFDC214001BB43B /* BibleModels.swift */,
@@ -414,6 +417,7 @@
 				426047CE2EFDC216001BB43B /* BibleAPIService.swift in Sources */,
 				426047D02EFDC217001BB43B /* BibleMenuView.swift in Sources */,
 				426047D22EFDC218001BB43B /* BibleSearchView.swift in Sources */,
+				426047D42EFDC219001BB43B /* VerseReviewView.swift in Sources */,
 				426047CC2EFDC215001BB43B /* WidgetOnboardingView.swift in Sources */,
 				652485545120494283652512 /* QuickActionsManager.swift in Sources */,
 				486563549087408615731241 /* ExitFeedbackView.swift in Sources */,

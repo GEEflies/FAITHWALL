@@ -55,8 +55,8 @@ struct BibleExplorerView: View {
                     showContinueButton: false,
                     isOnboarding: false
                 ) { translation in
-                    // Translation selected - it's already set in languageManager
-                    // Don't dismiss yet - let user click Done
+                    // Translation selected and animation finished
+                    showLanguagePicker = false
                 }
                 .navigationTitle("Change Language")
                 .navigationBarTitleDisplayMode(.inline)
@@ -122,7 +122,7 @@ struct BibleExplorerView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, DS.Spacing.xxl)
             
             VStack(spacing: 12) {
                 // Download button
@@ -178,7 +178,7 @@ struct BibleExplorerView: View {
     private var bookListView: some View {
         List {
             // Old Testament Section
-            Section(header: Text("Old Testament")) {
+            Section(header: Text("Old Testament").padding(.horizontal, DS.Spacing.xxl)) {
                 ForEach(filteredBooks.filter { $0.testament == .old }) { book in
                     NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
                         bookRow(book)
@@ -187,7 +187,7 @@ struct BibleExplorerView: View {
             }
             
             // New Testament Section
-            Section(header: Text("New Testament")) {
+            Section(header: Text("New Testament").padding(.horizontal, DS.Spacing.xxl)) {
                 ForEach(filteredBooks.filter { $0.testament == .new }) { book in
                     NavigationLink(destination: ChapterPickerView(book: book, onVerseSelected: onVerseSelected)) {
                         bookRow(book)
@@ -195,7 +195,7 @@ struct BibleExplorerView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
     }
     
     private func bookRow(_ book: BibleBook) -> some View {
@@ -213,6 +213,8 @@ struct BibleExplorerView: View {
                 .background(Color(.tertiarySystemBackground))
                 .cornerRadius(6)
         }
+        .padding(.horizontal, DS.Spacing.xxl)
+        .padding(.vertical, 4)
     }
     
     private var filteredBooks: [BibleBook] {
@@ -356,7 +358,7 @@ struct ChapterPickerView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DS.Spacing.xxl)
                     .padding(.vertical)
                 }
             }
@@ -445,70 +447,82 @@ struct VerseListView: View {
         .onChange(of: languageManager.selectedTranslation) { _ in
             loadVerses()
         }
-        // Alert removed for direct selection
-    }
-    
-    private var alertTitle: String {
-        if let verse = selectedVerse, verse.lockScreenFormat.count > 130 {
-            return "⚠️ Verse Too Long"
+        .sheet(item: $selectedVerse) { verse in
+            VerseReviewView(verse: verse) { editedText in
+                var modifiedVerse = verse
+                modifiedVerse.text = editedText
+                onVerseSelected?(modifiedVerse)
+                dismiss()
+            }
         }
-        return "Add to Lock Screen?"
     }
     
     private var verseList: some View {
-        List {
-            ForEach(verses) { verse in
-                Button(action: {
-                    // Directly select the verse without confirmation
-                    onVerseSelected?(verse)
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(verses) { verse in
+                    Button(action: {
+                        let generator = UIImpactFeedbackGenerator(style: .light)
+                        generator.impactOccurred()
+                        selectedVerse = verse
+                    }) {
+                        verseRow(verse)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                     
-                    // Haptic feedback
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
-                    
-                    // No need to dismiss manually if the parent handles navigation
-                    // but we'll keep it just in case
-                    dismiss()
-                }) {
-                    verseRow(verse)
+                    if verse.id != verses.last?.id {
+                        Divider()
+                            .padding(.leading, 40 + DS.Spacing.xxl)
+                            .padding(.trailing, DS.Spacing.xxl)
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
             }
+            .padding(.top, 16)
         }
-        .listStyle(.plain)
-        .padding(.horizontal, 24)
     }
     
     private func verseRow(_ verse: BibleVerse) -> some View {
-        let isTooLong = verse.lockScreenFormat.count > 130
+        let totalCount = verse.text.count + verse.reference.count + 1
+        let isTooLong = totalCount > 133
         
         return HStack(alignment: .top, spacing: 12) {
             // Verse number
             Text("\(verse.verse)")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(isTooLong ? .orange : .blue)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(isTooLong ? .orange : .appAccent)
                 .frame(width: 28, alignment: .trailing)
+                .padding(.top, 2)
             
             // Verse text
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(verse.text)
-                    .font(.body)
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.leading)
+                    .lineSpacing(3)
                 
                 if isTooLong {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption2)
-                        Text("Too long for widget (\(verse.lockScreenFormat.count)/130)")
-                            .font(.caption2)
+                            .font(.system(size: 11))
+                        Text("Too long for widget (\(totalCount)/133)")
+                            .font(.system(size: 11, weight: .medium))
                     }
                     .foregroundColor(.orange)
+                    .padding(.top, 2)
                 }
             }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary.opacity(0.3))
+                .padding(.top, 4)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 16)
+        .padding(.horizontal, DS.Spacing.xxl)
+        .contentShape(Rectangle())
     }
     
     private func loadVerses() {

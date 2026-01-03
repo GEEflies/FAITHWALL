@@ -146,7 +146,7 @@ struct BibleVerse: Identifiable, Codable, Equatable {
     let bookName: String
     let chapter: Int
     let verse: Int
-    let text: String
+    var text: String
     let translation: BibleTranslation
     
     /// Convenience initializer for API-based verses (without database IDs)
